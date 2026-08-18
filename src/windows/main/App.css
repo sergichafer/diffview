@@ -1,0 +1,196 @@
+@import "@/design/app.css";
+
+@layer blocks {
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 10px;
+  min-height: 0;
+  background: transparent;
+  border: none;
+  color: var(--fg-base);
+}
+
+.topbar-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.topbar-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: var(--type-track-title, -0.02em);
+  line-height: var(--type-lead-title, 1.25);
+  color: var(--fg-accent-bright);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-lead {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-zone {
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap);
+  min-width: 0;
+}
+
+.topbar-zone-right {
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.top-bar-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  max-width: min(280px, 40vw);
+  color: #f87171;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcome-sheet {
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-settings {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 4;
+}
+
+.welcome {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 72px 56px 40px;
+}
+
+.welcome h1 {
+  margin: 0;
+  max-width: 14ch;
+  font-size: clamp(2rem, 4.2vw, 2.85rem);
+  color: var(--fg-accent-bright);
+}
+
+.welcome-lead {
+  margin: 14px 0 0;
+  max-width: 36ch;
+  font-size: 15px;
+  color: var(--fg-muted);
+}
+
+.welcome-open {
+  margin-top: 28px;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--fg-accent-bright);
+}
+
+.welcome-recents {
+  list-style: none;
+  margin: 36px 0 0;
+  padding: 0;
+  max-width: 28rem;
+}
+
+.welcome-recents li + li {
+  border-top: 1px solid var(--seam);
+}
+
+.welcome-recents button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.welcome-recents button > :not(.workspaces-well) {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.welcome-recents .workspaces-well {
+  margin-top: 0;
+}
+
+.welcome-recents button:hover {
+  background: var(--list-hover);
+}
+
+.recent-name {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg-base);
+}
+
+.recent-path {
+  display: block;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+
+.welcome-launch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin: 28px 0 0;
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+.welcome-launch-action {
+  appearance: none;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  color: var(--fg-accent-bright);
+}
+
+.welcome-launch-action[aria-pressed="true"] {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .welcome {
+    padding: 48px 28px 32px;
+  }
+}
+}

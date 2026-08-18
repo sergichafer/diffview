@@ -1,0 +1,70 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Diffview",
+  "version": "0.1.0",
+  "identifier": "com.diffview.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Diffview",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 500,
+        "decorations": false,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: http://asset.localhost; frame-src 'self' asset: http://asset.localhost; script-src 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "requireLiteralLeadingDot": false,
+          "allow": ["**/*"]
+        }
+      }
+    }
+  },
+  "plugins": {
+    "opener": {
+      "requireLiteralLeadingDot": false
+    },
+    "cli": {
+      "description": "Local branch diffs.",
+      "args": [
+        {
+          "name": "repo",
+          "index": 1,
+          "takesValue": true,
+          "description": "Repository to open."
+        }
+      ]
+    }
+  },
+
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "shortDescription": "Branch diff viewer",
+    "longDescription": "View all committed and uncommitted changes on your branch vs a base branch.",
+    "licenseFile": "../THIRD_PARTY_NOTICES.md",
+    "resources": {
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

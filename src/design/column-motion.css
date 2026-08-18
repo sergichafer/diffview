@@ -1,0 +1,49 @@
+.workspace-sheet > .app-main {
+  transition: none;
+}
+
+body:has(.splitter.is-dragging) {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.splitter.is-dragging::before {
+  transition: none;
+  background: color-mix(in srgb, var(--fg-accent-bright) 32%, transparent);
+}
+
+.workspaces:has(+ .splitter.is-dragging),
+.workspaces.is-dragging,
+.tree-panel:has(+ .splitter.is-dragging),
+.tree-panel.is-dragging {
+  transition: none;
+}
+
+.workspaces:has(+ .splitter.is-splitter-settling),
+.workspaces.is-splitter-settling,
+.tree-panel:has(+ .splitter.is-splitter-settling),
+.tree-panel.is-splitter-settling {
+  transition: width 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspaces,
+  .workspaces-fold,
+  .workspace-sheet > .app-main,
+  .workspaces:has(+ .splitter.is-splitter-settling),
+  .workspaces.is-splitter-settling,
+  .tree-panel:has(+ .splitter.is-splitter-settling),
+  .tree-panel.is-splitter-settling {
+    transition: none;
+  }
+
+  .workspaces-group-row .workspaces-caret svg {
+    transition: none;
+  }
+
+  .workspaces-scroll,
+  .workspaces-foot,
+  .workspaces-rail-inner {
+    transition: opacity 200ms ease !important;
+  }
+}

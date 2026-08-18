@@ -1,0 +1,542 @@
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.workspaces {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-inset);
+  border: none;
+  border-radius: var(--sheet-radius) 0 0 var(--sheet-radius);
+  box-shadow: none;
+  overflow: hidden;
+  transition: width 400ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.workspaces-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 10px 10px;
+  flex-shrink: 0;
+}
+
+.workspaces.is-rail .workspaces-head {
+  padding: 7px 6px;
+  justify-content: center;
+}
+
+.workspaces-title {
+  margin: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.workspaces.is-rail .workspaces-title {
+  display: none;
+}
+
+.workspaces-head-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+
+.workspaces.is-rail .workspaces-head-actions {
+  margin-left: 0;
+}
+
+.workspaces-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 10px 6px;
+  transition: opacity 180ms ease;
+}
+
+.workspaces-rail-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.workspaces.is-rail .workspaces-rail-inner {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.workspaces.is-rail .workspaces-scroll,
+.workspaces.is-rail .workspaces-foot {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.workspaces-group + .workspaces-group {
+  margin-top: 2px;
+}
+
+.workspaces-group-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 8px 4px;
+  padding: 0;
+  border-radius: 7px;
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  min-height: 22px;
+  cursor: pointer;
+}
+
+.workspaces-caret {
+  width: 12px;
+  color: var(--fg-muted);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.workspaces-caret svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  transition: transform 400ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.workspaces-group-row.is-collapsed .workspaces-caret svg {
+  transform: rotate(-90deg);
+}
+
+.workspaces-fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 400ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.workspaces-group.is-collapsed .workspaces-fold {
+  grid-template-rows: 0fr;
+  pointer-events: none;
+}
+
+.workspaces-fold > .workspaces-rows {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.workspaces-group-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.workspaces-group-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+
+.workspaces-rows {
+  margin-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.workspaces-well {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--accent-primary);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.workspaces-well svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.workspaces-row.is-active .workspaces-well,
+.workspaces-row.is-inactive-sel .workspaces-well {
+  background: var(--bg-canvas);
+}
+
+.workspaces-row {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 22px 8px 10px;
+  border-radius: 10px;
+  color: var(--fg-base);
+  white-space: normal;
+  line-height: 1.25;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.workspaces-row-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.workspaces-row-head {
+  font-weight: 600;
+  color: var(--fg-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.workspaces-row-sub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  min-width: 0;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+}
+
+.workspaces-arrow {
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.workspaces-base {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.workspaces-dot {
+  opacity: 0.45;
+  flex-shrink: 0;
+}
+
+.workspaces-wip {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--state-success);
+}
+
+.workspaces-stat {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: baseline;
+  padding: 5px 0 1px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.workspaces-stat-files {
+  grid-column: 1;
+  justify-self: start;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.workspaces-stat-changes {
+  grid-column: 2;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+}
+
+.workspaces-add {
+  color: var(--state-success);
+}
+
+.workspaces-del {
+  color: var(--state-danger);
+}
+
+.workspaces-row.is-active,
+.workspaces-row.is-inactive-sel {
+  background: var(--accent-subtle);
+  color: var(--fg-accent-bright);
+}
+
+.workspaces-row.is-active .workspaces-row-head,
+.workspaces-row.is-inactive-sel .workspaces-row-head {
+  color: var(--fg-accent-bright);
+}
+
+.workspaces-row:hover {
+  background: var(--list-hover);
+}
+
+.workspaces-row.is-active:hover,
+.workspaces-row.is-inactive-sel:hover {
+  background: var(--accent-subtle);
+}
+
+.workspaces-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.workspaces-chip svg {
+  width: 9px;
+  height: 9px;
+  fill: currentColor;
+}
+
+.workspaces-chip-stale {
+  color: var(--fg-muted);
+  background: color-mix(in srgb, var(--fg-muted) 16%, transparent);
+}
+
+.workspaces-row.is-active .workspaces-chip-stale {
+  color: inherit;
+}
+
+.workspaces-spin {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspaces-spin {
+    animation: none;
+    border-top-color: var(--border-default);
+  }
+}
+
+.workspaces-icon {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  color: var(--fg-muted);
+  visibility: hidden;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.workspaces-icon svg {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+
+.workspaces-row > .workspaces-icon {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.workspaces-row:hover .workspaces-icon,
+.workspaces-row.is-active .workspaces-icon,
+.workspaces-row:focus-within .workspaces-icon,
+.workspaces-group-row:hover .workspaces-icon,
+.workspaces-group-row:focus-within .workspaces-icon {
+  visibility: visible;
+}
+
+.workspaces-icon:hover {
+  background: var(--list-hover);
+  color: var(--fg-base);
+}
+
+.workspaces.is-rail .workspaces-head .workspaces-icon,
+.workspaces-rail-inner .workspaces-icon {
+  visibility: visible;
+}
+
+.workspaces-icon-add {
+  color: var(--accent-primary);
+}
+
+.workspaces-row,
+.workspaces-group-row,
+.workspaces-icon,
+.workspaces-add-row,
+.workspaces-rail-glyph {
+  transition: transform 100ms ease-out, background-color 100ms ease-out,
+    background 100ms ease-out;
+}
+
+.workspaces-row.is-pressed,
+.workspaces-group-row.is-pressed {
+  transform: scale(0.97);
+  background: color-mix(in srgb, var(--fg-base) 8%, var(--list-hover));
+}
+
+.workspaces-row.is-active.is-pressed,
+.workspaces-row.is-inactive-sel.is-pressed {
+  background: color-mix(in srgb, var(--fg-base) 6%, var(--accent-subtle));
+}
+
+.workspaces-icon.is-pressed,
+.workspaces-add-row.is-pressed,
+.workspaces-rail-glyph.is-pressed {
+  transform: scale(0.97);
+}
+
+.workspaces-row > .workspaces-icon.is-pressed {
+  transform: translateY(-50%) scale(0.97);
+}
+
+.workspaces-foot {
+  border-top: none;
+  padding: 6px 10px 14px;
+  flex-shrink: 0;
+  transition: opacity 180ms ease;
+}
+
+.workspaces-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--fg-base);
+  font-size: 13.5px;
+  white-space: nowrap;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.workspaces-add-row .workspaces-well {
+  margin-top: 0;
+}
+
+.workspaces-add-row:hover {
+  background: var(--list-hover);
+  color: var(--fg-base);
+}
+
+.workspaces-add-row svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.workspaces-rail-glyph {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--accent-primary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.workspaces-rail-glyph.is-active {
+  color: var(--fg-base);
+  border-color: var(--border-strong);
+  background-image: linear-gradient(var(--accent-subtle), var(--accent-subtle));
+}
+
+.workspaces-live-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--state-success);
+  border: 2px solid var(--bg-inset);
+}
+
+.workspaces-rail-inner .workspaces-icon-add {
+  margin-top: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspaces,
+  .workspaces-scroll,
+  .workspaces-rail-inner,
+  .workspaces-foot,
+  .workspaces-fold,
+  .app-main {
+    transition: none;
+  }
+
+  .workspaces-row,
+  .workspaces-group-row,
+  .workspaces-icon,
+  .workspaces-add-row,
+  .workspaces-rail-glyph,
+  .workspaces-caret svg {
+    transition: none;
+    transform: none !important;
+  }
+
+  .workspaces-row > .workspaces-icon,
+  .workspaces-row > .workspaces-icon.is-pressed {
+    transform: translateY(-50%) !important;
+  }
+
+  .workspaces-group-row.is-collapsed .workspaces-caret svg {
+    transform: rotate(-90deg) !important;
+  }
+}

@@ -1,0 +1,351 @@
+.tree-panel {
+  flex-shrink: 0;
+  background: var(--bg-canvas);
+  min-height: 0;
+  overflow: hidden;
+  color: var(--fg-base);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.file-tree {
+  height: 100%;
+  width: 100%;
+  --trees-scrollbar-gutter-override: var(--scrollbar-size, 6px);
+}
+
+.main-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--bg-canvas);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.diff-style-bar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  color: var(--fg-muted);
+  font-size: 12px;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+
+.diff-style-spacer {
+  flex: 1;
+}
+
+.diff-style-count {
+  margin-left: auto;
+}
+
+.branch-diff-panel,
+.diff-panel.branch-diff-panel {
+  background: var(--bg-canvas);
+  color: var(--fg-base);
+}
+
+.branch-diff-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.diff-panel-hint {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 12px;
+  color: var(--fg-muted);
+  border-bottom: none;
+  background: var(--bg-canvas);
+  flex-shrink: 0;
+}
+
+.branch-code-view {
+  height: 100%;
+  overflow: auto;
+  --diffs-scrollbar-gutter-override: var(--scrollbar-size, 6px);
+  --diffs-bg-buffer-override: var(--bg-canvas);
+  --diffs-bg-context-override: var(--bg-canvas);
+  --diffs-bg-separator-override: var(--bg-canvas);
+  --diffs-fg-number-override: var(--fg-muted);
+  --diffs-bg-deletion-override: color-mix(in srgb, var(--state-danger) 10%, var(--bg-canvas));
+  --diffs-bg-deletion-emphasis-override: color-mix(
+    in srgb,
+    var(--state-danger) 14%,
+    var(--bg-canvas)
+  );
+  --diffs-bg-addition-override: color-mix(in srgb, var(--state-success) 10%, var(--bg-canvas));
+  --diffs-bg-addition-emphasis-override: color-mix(
+    in srgb,
+    var(--state-success) 14%,
+    var(--bg-canvas)
+  );
+  --diffs-bg-deletion-number-override: color-mix(
+    in srgb,
+    var(--state-danger) 10%,
+    var(--bg-canvas)
+  );
+  --diffs-bg-addition-number-override: color-mix(
+    in srgb,
+    var(--state-success) 10%,
+    var(--bg-canvas)
+  );
+  --diffs-fg-number-deletion-override: var(--fg-muted);
+  --diffs-fg-number-addition-override: var(--fg-muted);
+  --diffs-deletion-color-override: var(--state-danger);
+  --diffs-addition-color-override: var(--state-success);
+  --diffs-modified-color-override: var(--fg-accent);
+  --diffs-bg-hover-override: color-mix(
+    in srgb,
+    var(--fg-accent-bright) 6%,
+    var(--bg-canvas)
+  );
+  --diffs-bg-selection-override: color-mix(
+    in srgb,
+    var(--fg-accent-bright) 10%,
+    var(--bg-canvas)
+  );
+  --app-scrollbar-thumb-current: transparent;
+}
+
+@supports ((-moz-appearance: none)) {
+  .branch-code-view {
+    scrollbar-width: thin;
+    scrollbar-color: var(--app-scrollbar-thumb-current) transparent;
+  }
+}
+
+.branch-code-view:hover {
+  --app-scrollbar-thumb-current: var(--scrollbar);
+}
+
+.branch-code-view::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+.branch-code-view::-webkit-scrollbar-track {
+  background: none;
+}
+
+.branch-code-view::-webkit-scrollbar-thumb {
+  background-color: var(--app-scrollbar-thumb-current);
+  border-radius: 3px;
+  background-clip: content-box;
+  border: 1px solid #0000;
+}
+
+.branch-code-view::-webkit-scrollbar-corner {
+  background-color: #0000;
+}
+
+.diff-header-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap, 0.45rem);
+  flex-shrink: 0;
+}
+
+.diff-header-actions .viewed-control.icon-btn-sm {
+  box-sizing: border-box;
+  height: var(--icon-size);
+  min-height: var(--icon-size);
+  max-height: var(--icon-size);
+  padding-block: 0;
+}
+
+.diff-header-actions-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap, 0.45rem);
+}
+
+.diff-header-actions-slot {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.diff-save-status {
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  user-select: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
+button.diff-save-status {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.diff-save-status-dirty,
+.diff-save-status-saving,
+.diff-save-status-hydrating {
+  color: var(--fg-muted);
+}
+
+.diff-save-status-error {
+  color: #dc2626;
+}
+
+.diff-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-canvas);
+}
+
+.diff-panel.is-empty {
+  display: grid;
+  place-items: center;
+  color: var(--fg-muted);
+  padding: 2rem;
+}
+
+.diff-panel.is-empty.is-error {
+  color: #dc2626;
+}
+
+.viewed-control.icon-btn-sm {
+  --viewed-box-size: 22px;
+  --viewed-control-width: 5.75rem;
+
+  width: var(--viewed-control-width);
+  min-width: var(--viewed-control-width);
+  height: var(--icon-size);
+  min-height: var(--icon-size);
+  max-height: var(--icon-size);
+  padding: 0 0.4rem;
+  margin: 0;
+  line-height: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.viewed-control .icon-btn-surface.viewed-control-surface {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  overflow: visible;
+}
+
+.viewed-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  transition: color 160ms ease;
+}
+
+.viewed-control:hover .viewed-label,
+.viewed-control.is-checked .viewed-label,
+.viewed-control[aria-pressed="true"] .viewed-label {
+  color: var(--fg-base);
+}
+
+.viewed-box {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--viewed-box-size);
+  height: var(--viewed-box-size);
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-canvas);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.viewed-control:hover .viewed-box {
+  border-color: var(--border-strong);
+}
+
+.viewed-control.is-checked .viewed-box,
+.viewed-control[aria-pressed="true"] .viewed-box {
+  border-color: var(--border-strong);
+  background: var(--accent-subtle);
+}
+
+.viewed-mark {
+  width: 14px;
+  height: 14px;
+  fill: var(--accent-primary);
+}
+
+.viewed-confetti {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.viewed-confetti-piece {
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  width: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent-primary);
+  opacity: 0;
+  animation: viewed-confetti-pop 560ms ease-out forwards;
+  transform: rotate(calc(var(--i) * 36deg)) translate(0, 0);
+}
+
+.viewed-confetti-piece:nth-child(3n) {
+  width: 3px;
+  height: 1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--accent-primary) 85%, transparent);
+}
+
+.viewed-confetti-piece:nth-child(3n + 1) {
+  width: 1px;
+  height: 3px;
+  background: color-mix(in srgb, var(--accent-primary) 70%, transparent);
+}
+
+@keyframes viewed-confetti-pop {
+  0% {
+    opacity: 0.95;
+    transform: rotate(calc(var(--i) * 36deg)) translate(0, 0) scale(1);
+  }
+  70% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(var(--i) * 36deg)) translate(0, 20px) scale(0.25);
+  }
+}

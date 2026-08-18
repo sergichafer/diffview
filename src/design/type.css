@@ -1,0 +1,59 @@
+.welcome h1 {
+  font-weight: 650;
+  letter-spacing: var(--type-track-display);
+  line-height: var(--type-lead-display);
+}
+
+.welcome-lead,
+.welcome-launch {
+  letter-spacing: var(--type-track-body);
+  line-height: var(--type-lead-body);
+}
+
+.settings-modal h2 {
+  letter-spacing: var(--type-track-title);
+  line-height: var(--type-lead-title);
+}
+
+.window-chrome-title {
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.workspaces-title,
+.settings-nav-title,
+.settings-block-title {
+  letter-spacing: var(--type-track-micro);
+}
+
+.settings-lead {
+  letter-spacing: var(--type-track-body);
+  line-height: var(--type-lead-body);
+}
+
+.compare-slot-tag {
+  letter-spacing: 0.12em;
+}
+
+.compare-badge {
+  letter-spacing: 0.06em;
+}
+
+.recent-path {
+  letter-spacing: var(--type-track-small);
+  line-height: var(--type-lead-ui);
+}
+
+@media (prefers-contrast: more) {
+  .welcome-lead,
+  .welcome-launch,
+  .workspaces-title,
+  .settings-nav-title,
+  .settings-block-title,
+  .settings-lead,
+  .recent-path,
+  .compare-slot-tag,
+  .compare-badge {
+    font-weight: 600;
+  }
+}

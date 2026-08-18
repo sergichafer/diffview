@@ -1,0 +1,199 @@
+/* Custom window chrome: same fill as the window, not a separate bar.
+ * One strip for every desktop OS:
+ *   macOS         → close, minimize, zoom left; wordmark centred
+ *   Windows/Linux → wordmark left, caption buttons right
+ * The whole strip is a Tauri "deep" drag region: buttons opt out of dragging
+ * automatically, and double-click maximise is Tauri's built-in behaviour. */
+
+.window-chrome {
+  border-bottom: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.window-chrome {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  height: var(--window-chrome-height, 28px);
+  user-select: none;
+}
+
+/* ── Window title ───────────────────────────────────────────────
+ * Follows the configured UI font (--font-ui), inked with --fg-base so it
+ * tracks all four themes. */
+
+.window-chrome-title {
+  display: flex;
+  align-items: center;
+  padding: 0 0.65rem;
+  font-family: var(--font-ui, system-ui, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--fg-base);
+  -webkit-font-smoothing: antialiased;
+  transition: opacity 120ms ease;
+}
+
+/* ── macOS: close, minimize, zoom left; wordmark centred ───────── */
+
+.window-chrome-mac {
+  align-items: center;
+  padding: 0 0.75rem;
+}
+
+.window-chrome-traffic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.window-chrome-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.window-chrome-center .window-chrome-title {
+  padding: 0;
+}
+
+.window-chrome-dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  background: transparent;
+  /* Glyph ink: reads on all three light colours, theme-independent. */
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.window-chrome-dot::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: filter 120ms ease;
+}
+
+/* Disc colours stay fixed across themes. */
+.window-chrome-dot-close::before {
+  background: #ff5f57;
+}
+
+.window-chrome-dot-min::before {
+  background: #febc2e;
+}
+
+.window-chrome-dot-max::before {
+  background: #28c840;
+}
+
+/* Native behaviour: unfocused windows grey out the lights. */
+.window-chrome-inactive .window-chrome-dot::before {
+  background: color-mix(in srgb, var(--fg-muted) 30%, var(--bg-window));
+}
+
+.window-chrome-dot svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 1.1;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+/* Native behaviour: glyphs appear when the light group is hovered. */
+.window-chrome-traffic:hover .window-chrome-dot svg,
+.window-chrome-dot:focus-visible svg {
+  opacity: 1;
+}
+
+.window-chrome-dot:hover::before {
+  filter: brightness(1.08);
+}
+
+.window-chrome-dot:active::before {
+  filter: brightness(0.88);
+}
+
+.window-chrome-dot:focus-visible {
+  outline: 2px solid var(--border-focus, currentColor);
+  outline-offset: 2px;
+}
+
+/* ── Windows / Linux: caption buttons right ───────────────────── */
+
+.window-chrome-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 100%;
+  margin-left: auto;
+}
+
+.window-chrome-btn-stroke {
+  display: grid;
+  place-items: center;
+  /* Wider than tall. */
+  width: 40px;
+  height: var(--window-chrome-height, 28px);
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fg-muted);
+  line-height: 0;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+.window-chrome-btn-stroke svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  opacity: 0.55;
+}
+
+.window-chrome-btn-stroke:hover {
+  color: var(--fg-base);
+  background: var(--control-fill-hover);
+}
+
+.window-chrome-btn-stroke:hover svg {
+  opacity: 1;
+}
+
+.window-chrome-btn-stroke:focus-visible {
+  outline: 2px solid var(--border-focus, currentColor);
+  outline-offset: -2px;
+}
+
+.window-chrome-btn-stroke.window-chrome-btn-close:hover {
+  background: color-mix(in srgb, #c42b2b 75%, transparent);
+  color: #fff;
+}
+
+/* ── Unfocused window: quiet the strip like native chrome ─────── */
+
+.window-chrome-inactive .window-chrome-title,
+.window-chrome-inactive .window-chrome-btn-stroke {
+  opacity: 0.6;
+}

@@ -1,0 +1,143 @@
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: visible;
+  background: var(--bg-window);
+  color: var(--fg-base);
+  box-shadow: none;
+}
+
+.app.is-loading {
+  align-items: center;
+  justify-content: center;
+}
+
+.app-header-stack {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: transparent;
+}
+
+.app-header-stack .window-chrome {
+  border-bottom: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.app-header-stack + #main-content {
+  border-radius: var(--control-radius) var(--control-radius) 0 0;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  --sheet-radius: 16px;
+  background: var(--bg-window);
+  padding: 10px;
+}
+
+.workspace-sheet {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  border-radius: var(--sheet-radius);
+  background: var(--bg-elevated);
+  border: none;
+  border-top: 1px solid var(--border-highlight);
+}
+
+.sheet-pane,
+.app-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+.workspace-sheet,
+.sheet-pane,
+.top-bar,
+.topbar-zone,
+.icon-toolbar,
+.compare-trigger,
+.diff-style-bar,
+.diff-header-actions {
+  overflow: visible;
+}
+
+.workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+main.workspace {
+  overflow: hidden;
+  border-radius: 0 0 var(--sheet-radius) 0;
+}
+
+.sheet-pane > .top-bar {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.splitter {
+  position: relative;
+  width: 0;
+  height: auto;
+  align-self: stretch;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+  touch-action: none;
+}
+
+.splitter::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.splitter:hover::before,
+.splitter:focus-visible::before {
+  background: color-mix(in srgb, var(--fg-accent-bright) 15%, transparent);
+}
+
+.workspace.is-loading {
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-muted);
+}
+
+@media (prefers-contrast: more) {
+  .workspace-sheet {
+    border-top-color: var(--border-strong);
+  }
+}

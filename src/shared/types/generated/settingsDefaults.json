@@ -1,0 +1,20 @@
+{
+  "recentRepos": [],
+  "launchMode": "reopen",
+  "launchPreferenceSet": false,
+  "baseBranchByRepo": {},
+  "headBranchByRepo": {},
+  "activePathByComparison": {},
+  "activePathByRepo": {},
+  "splitWidth": 280.0,
+  "workspacesWidth": 240.0,
+  "workspaceTree": {
+    "workspaces": [],
+    "columnCollapsed": false
+  },
+  "diffStyle": "split",
+  "themeMode": "dark",
+  "themeId": "harmony",
+  "uiFont": "inter",
+  "codeFont": "system"
+}

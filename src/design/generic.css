@@ -1,0 +1,65 @@
+:root {
+  font-family: var(
+    --font-ui,
+    "Inter Variable",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif
+  );
+  font-optical-sizing: auto;
+  font-size: 14px;
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--fg-base);
+}
+
+button,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  background: var(--bg-canvas);
+  color: var(--fg-base);
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+}
+
+button.icon-btn {
+  margin: 0;
+  padding: 0;
+  line-height: 0;
+  box-sizing: border-box;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  scroll-margin-top: 80px;
+  scroll-margin-bottom: 60px;
+}
+
+.splitter:focus-visible {
+  outline-offset: 0;
+}

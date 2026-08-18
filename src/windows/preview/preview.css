@@ -1,0 +1,112 @@
+:root {
+  color-scheme: light dark;
+  /* Same UI font tokens as App.css; OS stack until settings land. */
+  font-family: var(--font-ui, system-ui, -apple-system, sans-serif);
+  font-optical-sizing: auto;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-canvas, Canvas);
+  color: var(--fg-base, CanvasText);
+}
+
+.preview-root {
+  --control-fill-hover: color-mix(in srgb, var(--fg-base) 6%, var(--bg-elevated));
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-canvas, Canvas);
+}
+
+.preview-root .app-header-stack {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.preview-main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.preview-main-media {
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  overflow: auto;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.preview-main-frame {
+  display: flex;
+  overflow: hidden;
+}
+
+.preview-frame {
+  flex: 1;
+  border: 0;
+  background: #fff;
+}
+
+.preview-loading,
+.preview-error {
+  padding: 2rem;
+}
+
+.preview-error {
+  color: #dc2626;
+}
+
+.preview-document {
+  padding: 1.5rem 2rem 3rem;
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.preview-document img {
+  max-width: 100%;
+  height: auto;
+}
+
+.preview-document pre {
+  overflow-x: auto;
+}
+
+.preview-document pre,
+.preview-document code {
+  font-family: var(
+    --font-mono,
+    ui-monospace,
+    "Cascadia Code",
+    "SF Mono",
+    Menlo,
+    monospace
+  );
+}
+
+.preview-document table {
+  border-collapse: collapse;
+}
+
+.preview-document th,
+.preview-document td {
+  border: 1px solid color-mix(in srgb, var(--fg-base, CanvasText) 25%, transparent);
+  padding: 0.35rem 0.6rem;
+}

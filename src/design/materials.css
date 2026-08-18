@@ -1,0 +1,83 @@
+.workspaces-head,
+.diff-style-bar {
+  position: relative;
+  border-bottom: 1px solid transparent;
+}
+
+.workspaces-head {
+  z-index: 2;
+  background: var(--bg-inset);
+}
+
+.diff-style-bar {
+  background: var(--bg-canvas);
+}
+
+.workspaces-head::after,
+.diff-style-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: var(--scroll-edge-size);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.workspaces-head::after {
+  background: linear-gradient(to bottom, var(--bg-inset), transparent);
+}
+
+.diff-style-bar::after {
+  background: linear-gradient(to bottom, var(--bg-canvas), transparent);
+}
+
+.workspaces.is-rail .workspaces-head,
+.main-column:has(.diff-panel.is-empty) .diff-style-bar {
+  border-bottom-color: color-mix(in srgb, var(--seam) 55%, transparent);
+}
+
+.workspaces.is-rail .workspaces-head::after,
+.main-column:has(.diff-panel.is-empty) .diff-style-bar::after {
+  content: none;
+}
+
+@media (prefers-contrast: more) {
+  .workspaces {
+    background: var(--bg-inset);
+  }
+
+  .tree-panel,
+  .main-column {
+    background: var(--bg-canvas);
+  }
+
+  .workspaces-head,
+  .diff-style-bar {
+    background: var(--bg-canvas);
+    border-bottom-color: var(--border-strong);
+  }
+
+  .workspaces-head {
+    background: var(--bg-inset);
+  }
+
+  .workspaces-head::after,
+  .diff-style-bar::after {
+    content: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .workspaces-head::after,
+  .diff-style-bar::after {
+    content: none;
+  }
+
+  .app-header-stack :focus-visible,
+  .window-chrome :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}

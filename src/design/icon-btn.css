@@ -1,0 +1,100 @@
+.icon-btn {
+  --icon-size: 40px;
+  --icon-glyph: 20px;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius, 12px);
+  background-color: var(--control-fill, var(--bg-elevated));
+  background-image: none;
+  color: var(--accent-primary);
+  overflow: visible;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.icon-btn-sm {
+  --icon-size: 32px;
+  --icon-glyph: 16px;
+  border-radius: var(--control-radius-sm, 10px);
+}
+
+.icon-btn-md {
+  --icon-size: 40px;
+  --icon-glyph: 20px;
+}
+
+.icon-btn-surface {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.icon-btn svg {
+  width: var(--icon-glyph);
+  height: var(--icon-glyph);
+  fill: currentColor;
+}
+
+.icon-btn-glyph,
+.icon-btn-spinner {
+  grid-area: 1 / 1;
+}
+
+.icon-btn-spinner {
+  display: grid;
+  place-items: center;
+  width: var(--icon-glyph);
+  height: var(--icon-glyph);
+  pointer-events: none;
+}
+
+.icon-btn-spinner-ring {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+}
+
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background-color: var(--control-fill-hover);
+  color: var(--fg-base);
+}
+
+.icon-btn.is-active {
+  border-color: var(--border-strong);
+  background-image: var(--control-tint-active);
+  color: var(--fg-base);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.icon-toolbar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--control-gap, 0.45rem);
+}

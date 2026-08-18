@@ -1,0 +1,27 @@
+:root {
+  --control-size: 40px;
+  --control-radius: 12px;
+  --control-radius-sm: 10px;
+  --control-gap: 0.45rem;
+
+  --control-fill: var(--bg-elevated);
+  --control-fill-hover: color-mix(in srgb, var(--fg-base) 6%, var(--bg-elevated));
+  --control-fill-press: color-mix(in srgb, var(--fg-base) 10%, var(--bg-elevated));
+  --control-tint-active: linear-gradient(var(--accent-subtle), var(--accent-subtle));
+
+  --type-track-display: -0.02em;
+  --type-track-title: -0.015em;
+  --type-track-body: 0em;
+  --type-track-small: 0.01em;
+  --type-track-micro: 0.04em;
+  --type-lead-display: 1.05;
+  --type-lead-title: 1.2;
+  --type-lead-body: 1.45;
+  --type-lead-ui: 1.25;
+
+  --scroll-edge-size: 10px;
+}
+
+.app {
+  --scrollbar-size: 6px;
+}

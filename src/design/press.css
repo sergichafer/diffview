@@ -1,0 +1,187 @@
+.icon-btn-surface {
+  transition: transform 100ms ease-out;
+}
+
+.icon-btn-glyph,
+.icon-btn-spinner {
+  transition:
+    transform 360ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 360ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.icon-btn-glyph {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.icon-btn-spinner {
+  transform: translateY(60%);
+  opacity: 0;
+}
+
+.icon-btn.is-busy .icon-btn-glyph {
+  transform: translateY(-60%);
+  opacity: 0;
+}
+
+.icon-btn.is-busy .icon-btn-spinner {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.icon-btn-spinner-ring {
+  animation: icon-spin 0.7s linear infinite;
+}
+
+.icon-btn.is-busy {
+  cursor: progress;
+}
+
+.icon-btn:active:not(:disabled) {
+  background-color: var(--control-fill-press);
+  border-color: var(--border-strong);
+}
+
+.icon-btn:active:not(:disabled) .icon-btn-surface {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+
+.icon-btn-sm::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+
+.compare-trigger {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 100ms ease-out;
+}
+
+.compare-trigger:active:not(:disabled) {
+  transform: scale(0.97);
+  background-color: var(--control-fill-press);
+  border-color: var(--border-strong);
+}
+
+.compare-slot,
+.compare-swap,
+.compare-row {
+  transition:
+    transform 100ms ease-out,
+    background-color 100ms ease-out,
+    border-color 100ms ease-out,
+    background 100ms ease-out;
+}
+
+.compare-slot:active:not(:disabled),
+.compare-swap:active:not(:disabled) {
+  transform: scale(0.97);
+  background-color: color-mix(in srgb, var(--fg-base) 10%, var(--bg-canvas));
+  border-color: var(--border-strong);
+}
+
+.compare-row:active:not(:disabled) {
+  transform: scale(0.97);
+  background: color-mix(in srgb, var(--fg-base) 8%, var(--list-hover));
+}
+
+.compare-row.is-active:active:not(:disabled) {
+  background: color-mix(in srgb, var(--fg-base) 6%, var(--list-active));
+}
+
+.window-chrome-btn-stroke {
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease,
+    transform 100ms ease-out;
+}
+
+.window-chrome-btn-stroke:active:not(:disabled) {
+  transform: scale(0.97);
+  background: var(--control-fill-press, var(--control-fill-hover));
+  color: var(--fg-base);
+}
+
+.window-chrome-btn-stroke.window-chrome-btn-close:active:not(:disabled) {
+  background: color-mix(in srgb, #c42b2b 88%, #000);
+  color: #fff;
+}
+
+.settings-nav-item,
+.settings-tile,
+.settings-seg-option,
+.settings-specimen,
+.settings-choice {
+  transition:
+    transform 100ms ease-out,
+    background-color 100ms ease-out,
+    border-color 100ms ease-out,
+    background 100ms ease-out,
+    color 100ms ease-out;
+}
+
+.settings-nav-item:active:not(:disabled),
+.settings-tile:active:not(:disabled),
+.settings-seg-option:active:not(:disabled),
+.settings-specimen:active:not(:disabled),
+.settings-choice:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.welcome-recents button,
+.welcome-launch-action {
+  transition:
+    transform 100ms ease-out,
+    background-color 100ms ease-out,
+    background 100ms ease-out;
+}
+
+.welcome-recents button:active:not(:disabled),
+.welcome-launch-action:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.welcome-recents button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--fg-base) 8%, var(--list-hover));
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn-glyph,
+  .icon-btn-spinner {
+    transform: none !important;
+    transition-property: opacity !important;
+    transition-duration: 200ms !important;
+    transition-timing-function: ease !important;
+  }
+
+  .icon-btn-spinner-ring {
+    animation: none !important;
+    border-color: color-mix(in srgb, currentColor 35%, transparent);
+  }
+
+  .icon-btn:active:not(:disabled) .icon-btn-surface,
+  .compare-trigger:active:not(:disabled),
+  .compare-slot:active:not(:disabled),
+  .compare-swap:active:not(:disabled),
+  .compare-row:active:not(:disabled),
+  .window-chrome-btn-stroke:active:not(:disabled),
+  .settings-nav-item:active:not(:disabled),
+  .settings-tile:active:not(:disabled),
+  .settings-seg-option:active:not(:disabled),
+  .settings-specimen:active:not(:disabled),
+  .settings-choice:active:not(:disabled),
+  .welcome-recents button:active:not(:disabled),
+  .welcome-launch-action:active:not(:disabled) {
+    transform: none;
+  }
+}
