@@ -1,0 +1,32 @@
+# Template AUR -bin package. After the first GitHub Release, copy this
+# PKGBUILD to the AUR as diffview-bin.
+# Maintainer must replace SKIP with the real hash before uploading to AUR.
+
+pkgname=diffview-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Desktop git diff viewer"
+arch=('x86_64')
+url="https://github.com/sergichafer/diffview"
+license=('MIT')
+depends=(
+  'cairo'
+  'desktop-file-utils'
+  'gdk-pixbuf2'
+  'glib2'
+  'gtk3'
+  'hicolor-icon-theme'
+  'libayatana-appindicator'
+  'libsoup3'
+  'pango'
+  'webkit2gtk-4.1'
+)
+provides=('diffview')
+conflicts=('diffview')
+source_x86_64=("Diffview_${pkgver}_amd64.deb::https://github.com/sergichafer/diffview/releases/download/v${pkgver}/Diffview_${pkgver}_amd64.deb")
+sha256sums_x86_64=('SKIP')
+
+package() {
+  bsdtar -xf "${srcdir}/Diffview_${pkgver}_amd64.deb" -C "${srcdir}"
+  bsdtar -xf "${srcdir}"/data.tar.* -C "${pkgdir}"
+}
