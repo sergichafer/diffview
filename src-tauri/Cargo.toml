@@ -2,7 +2,8 @@
 name = "diffview"
 version = "0.1.0"
 description = "Local branch diff viewer"
-authors = ["you"]
+authors = ["sergichafer"]
+license = "MIT"
 edition = "2021"
 
 [lib]

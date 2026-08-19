@@ -16,6 +16,60 @@ Built with **Tauri 2**, **React**, **libgit2**, [@pierre/trees](https://trees.so
 - Manual refresh
 - CLI: `diffview /path/to/repo` or `diffview .`
 
+## Install
+
+Enthusiast builds are published on [GitHub Releases](https://github.com/sergichafer/diffview/releases). Official store listing and Homebrew cask signing are out of scope.
+
+Typical asset names: `Diffview_*_aarch64.dmg`, `Diffview_*_x64.dmg`, `Diffview_*_x64-setup.exe`, `Diffview_*_amd64.deb`, `Diffview-*-1.x86_64.rpm`, `Diffview_*_amd64.AppImage`.
+
+### Arch Linux
+
+The AUR template lives in [`packaging/aur/PKGBUILD`](packaging/aur/PKGBUILD). Copy it to the AUR as `diffview-bin` after a tagged release exists. Until then, use the AppImage or `.deb` from Releases, or build from source.
+
+### Debian and Ubuntu
+
+Download the `.deb` from GitHub Releases, then:
+
+```bash
+sudo apt install ./Diffview_*_amd64.deb
+```
+
+### Other Linux
+
+Download the `.rpm` or AppImage from Releases. Mark the AppImage executable:
+
+```bash
+chmod +x Diffview_*_amd64.AppImage
+```
+
+### Windows
+
+Download the NSIS setup (`Diffview_*_x64-setup.exe`) from Releases. SmartScreen may say Windows protected your PC; choose More info, then Run anyway. Builds are unsigned on purpose.
+
+### macOS
+
+Install [Rust](https://rustup.rs/) and [Node.js](https://nodejs.org/) first, then clone and build locally (ad-hoc signed):
+
+```bash
+npm ci && npm run tauri build
+```
+
+Homebrew HEAD formula (compiles on your machine). From a clone:
+
+```bash
+brew install --HEAD ./Formula/diffview.rb
+```
+
+Or tap this repository (Homebrew 6 requires trust for this custom remote):
+
+```bash
+brew tap sergichafer/diffview https://github.com/sergichafer/diffview
+brew trust sergichafer/diffview
+brew install --HEAD sergichafer/diffview/diffview
+```
+
+A downloaded DMG is ad-hoc signed only. Copy `Diffview.app` to `/Applications`, open it once, then if macOS blocks it choose Open Anyway in System Settings > Privacy & Security.
+
 ## Prerequisites
 
 - [Rust](https://rustup.rs/)
@@ -59,3 +113,11 @@ Installers appear under `src-tauri/target/release/bundle/`.
 2. Choose a **base** branch if the default is wrong.
 3. Browse files in the tree; diffs update in the main pane.
 4. For HTML/Markdown outputs, click **Preview** to open a rendered window.
+
+## Release
+
+Tag `v0.1.0` (must match `tauri.conf.json`, `Cargo.toml`, and `package.json`) and push the tag, or run the Release workflow from Actions. Ubuntu 22.04 is the Linux builder so glibc stays reasonably old.
+
+## License
+
+[MIT](LICENSE). Copyright (c) 2026 sergichafer.
