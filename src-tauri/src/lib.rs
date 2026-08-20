@@ -64,10 +64,13 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
         }
 
         // Open persisted workspaces so the sidebar restores names/branches cold.
-        // Cheap: no overview/diff work.
+        // Cheap: no overview/diff work. Skip repos already opened as CLI/bootstrap.
         for ws in &settings.workspace_tree.workspaces {
             let path = ws.repo_path.trim();
             if path.is_empty() {
+                continue;
+            }
+            if opened_workspaces.iter().any(|o| o.repo.path == path) {
                 continue;
             }
             match open(&state, path) {

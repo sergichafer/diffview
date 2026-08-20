@@ -120,7 +120,7 @@ describe("buildInitialState", () => {
     expect(state.comparisons[keyB]).toBeDefined();
     expect(state.comparisons[keyC]).toBeDefined();
     expect(state.activeKey).toBe(keyA);
-    expect(state.mruKeys[0]).toBe(keyA);
+    expect(state.mruKeys).toEqual([keyA, keyB, keyC]);
   });
 
   test("CLI repos missing from the tree are appended; first CLI repo is active", () => {
@@ -150,6 +150,67 @@ describe("buildInitialState", () => {
     expect(state.workspaceOrder).toEqual([repoA.path, repoB.path]);
     expect(state.activeKey).toBe(keyA);
     expect(state.mruKeys[0]).toBe(keyA);
+  });
+
+  test("empty-comparison persisted workspace stays omitted on restore", () => {
+    const settings: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      workspaceTree: {
+        workspaces: [
+          {
+            repoPath: repoA.path,
+            collapsed: false,
+            comparisons: [{ baseBranch: "main", headBranch: "feature" }],
+          },
+          {
+            repoPath: repoB.path,
+            collapsed: false,
+            comparisons: [],
+          },
+        ],
+        activeComparisonKey: keyA,
+        columnCollapsed: false,
+      },
+    };
+    const state = buildInitialState(
+      opened(repoA, ["main", "feature"]),
+      [opened(repoA, ["main", "feature"]), opened(repoB, ["main", "dev"])],
+      settings,
+    );
+    expect(state.workspaceOrder).toEqual([repoA.path]);
+    expect(state.activeKey).toBe(keyA);
+    expect(state.comparisons[keyB]).toBeUndefined();
+  });
+
+  test("CLI can open a repo the persisted tree listed with no comparisons", () => {
+    const settings: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      workspaceTree: {
+        workspaces: [
+          {
+            repoPath: repoA.path,
+            collapsed: false,
+            comparisons: [{ baseBranch: "main", headBranch: "feature" }],
+          },
+          {
+            repoPath: repoB.path,
+            collapsed: false,
+            comparisons: [],
+          },
+        ],
+        activeComparisonKey: keyA,
+        columnCollapsed: false,
+      },
+    };
+    const state = buildInitialState(
+      opened(repoB, ["main", "dev"]),
+      [opened(repoB, ["main", "dev"]), opened(repoA, ["main", "feature"])],
+      settings,
+      true,
+    );
+    expect(state.workspaceOrder).toEqual([repoA.path, repoB.path]);
+    expect(state.activeKey).toBe(keyB);
+    expect(state.mruKeys[0]).toBe(keyB);
   });
 });
 

@@ -206,23 +206,71 @@ function activateWorkspace(
   };
 }
 
+function persistedRepoPaths(tree: WorkspaceTree | undefined): Set<string> {
+  const paths = new Set<string>();
+  for (const ws of tree?.workspaces ?? []) {
+    if (typeof ws.repoPath === "string" && ws.repoPath !== "") {
+      paths.add(ws.repoPath);
+    }
+  }
+  return paths;
+}
+
+function withMruHead(
+  state: MultiSessionState,
+  headKeys: string[],
+): MultiSessionState {
+  const preferred = state.activeKey;
+  const head = new Set(headKeys);
+  const ordered = [
+    ...(preferred != null ? [preferred] : []),
+    ...headKeys.filter((k) => k !== preferred),
+    ...state.mruKeys.filter((k) => k !== preferred && !head.has(k)),
+  ];
+  return { ...state, mruKeys: ordered };
+}
+
 function mergeOpenedList(
   state: MultiSessionState,
   openedWorkspaces: OpenRepoResult[],
   opened: OpenRepoResult | null,
   settings: AppSettings,
-): MultiSessionState {
+  openedFromCli: boolean,
+): { state: MultiSessionState; appendedKeys: string[] } {
+  // Restore already decided membership for every path listed in the
+  // persisted tree, including groups skipped for empty comparisons.
+  const listed = persistedRepoPaths(settings.workspaceTree);
   let next = state;
   const seen = new Set<string>();
+  const appendedKeys: string[] = [];
+
+  const tryAppend = (result: OpenRepoResult) => {
+    if (
+      seen.has(result.repo.path) ||
+      next.workspaceOrder.includes(result.repo.path)
+    ) {
+      return;
+    }
+    seen.add(result.repo.path);
+    const before = next.workspaceOrder.length;
+    next = mergeOpenedIntoTree(next, result, settings);
+    if (next.workspaceOrder.length > before) {
+      const path = next.workspaceOrder[next.workspaceOrder.length - 1]!;
+      const key = next.groups[path]?.comparisonKeys[0];
+      if (key) appendedKeys.push(key);
+    }
+  };
+
   for (const extra of openedWorkspaces) {
-    if (seen.has(extra.repo.path)) continue;
-    seen.add(extra.repo.path);
-    next = mergeOpenedIntoTree(next, extra, settings);
+    if (listed.has(extra.repo.path)) continue;
+    tryAppend(extra);
   }
-  if (opened && !seen.has(opened.repo.path)) {
-    next = mergeOpenedIntoTree(next, opened, settings);
+  if (opened && !next.workspaceOrder.includes(opened.repo.path)) {
+    if (openedFromCli || !listed.has(opened.repo.path)) {
+      tryAppend(opened);
+    }
   }
-  return next;
+  return { state: next, appendedKeys };
 }
 
 export function buildInitialState(
@@ -247,9 +295,19 @@ export function buildInitialState(
     }
   }
 
-  const merged = mergeOpenedList(base, openedWorkspaces, opened, settings);
+  const { state: merged, appendedKeys } = mergeOpenedList(
+    base,
+    openedWorkspaces,
+    opened,
+    settings,
+    openedFromCli,
+  );
+  let next = merged;
   if (openedFromCli && opened) {
-    return activateWorkspace(merged, opened.repo.path);
+    next = activateWorkspace(next, opened.repo.path);
+    if (appendedKeys.length > 0) {
+      next = withMruHead(next, appendedKeys);
+    }
   }
-  return merged;
+  return next;
 }
