@@ -139,7 +139,7 @@ export interface StartupSnapshot {
 	/** Bootstrap/CLI repos plus persisted workspace-tree repos (sidebar restore). */
 	openedWorkspaces: OpenRepoResult[];
 	openError?: string;
-	/** CLI-opened repos in argument order. Empty when launch was not from CLI. */
-	cliOpened: OpenRepoResult[];
+	/** Canonical paths of CLI-opened repos in argument order. Empty when launch was not from CLI. */
+	cliOpenedPaths: string[];
 }
 

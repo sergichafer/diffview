@@ -68,6 +68,7 @@ function renderWelcome(
     onSetLaunchMode?: (mode: AppSettings["launchMode"]) => void;
     onOpenSettings?: () => void;
   } = {},
+  openError: string | null = null,
 ) {
   const onSetLaunchMode = mock(handlers.onSetLaunchMode ?? (() => {}));
   const onOpenSettings = mock(handlers.onOpenSettings ?? (() => {}));
@@ -80,6 +81,7 @@ function renderWelcome(
           settings={settings}
           onSetLaunchMode={onSetLaunchMode}
           onOpenSettings={onOpenSettings}
+          openError={openError}
         />
       </RepoSessionContext.Provider>,
     );
@@ -185,5 +187,12 @@ describe("WelcomeScreen", () => {
       gear!.click();
     });
     expect(onOpenSettings).toHaveBeenCalled();
+  });
+
+  test("shows a startup open error", () => {
+    renderWelcome(DEFAULT_SETTINGS, {}, "/typo: not a git repository");
+    expect(container.textContent).toContain(
+      "Could not open: /typo: not a git repository",
+    );
   });
 });

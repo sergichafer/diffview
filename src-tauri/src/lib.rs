@@ -10,7 +10,8 @@ use git::{
 };
 use settings::AppSettings;
 use startup::{
-    extract_cli_repo_paths, read_stored_settings, resolve_bootstrap_paths, StartupSnapshot,
+    extract_cli_repo_paths, join_open_errors, plan_startup_opens, read_stored_settings,
+    resolve_bootstrap_paths, StartupSnapshot,
 };
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_cli::CliExt;
@@ -38,9 +39,10 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
     let paths = resolve_bootstrap_paths(&cli_paths, &settings);
 
     let mut opened = None;
-    let mut open_error = None;
+    let mut open_errors: Vec<(String, String)> = Vec::new();
     let mut opened_workspaces: Vec<OpenRepoResult> = Vec::new();
-    let mut cli_opened: Vec<OpenRepoResult> = Vec::new();
+    let mut bootstrap_opened: Vec<OpenRepoResult> = Vec::new();
+    let mut cli_opened_paths = Vec::new();
     {
         let state = app.state::<RepoRegistry>();
         for path in &paths {
@@ -49,34 +51,30 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
                     if opened.is_none() {
                         opened = Some(result.clone());
                     }
-                    push_unique_open(&mut opened_workspaces, result);
+                    push_unique_open(&mut opened_workspaces, result.clone());
+                    bootstrap_opened.push(result);
                 }
                 Err(e) => {
                     eprintln!("Startup open failed for {path}: {e}");
-                    if open_error.is_none() {
-                        open_error = Some(e);
-                    }
+                    open_errors.push((path.clone(), e));
                 }
             }
         }
-        // Partial CLI success still shows the repos that opened.
-        if opened.is_some() {
-            open_error = None;
-        }
-        if opened_from_cli {
-            cli_opened = opened_workspaces.clone();
-        }
+
+        let plan = plan_startup_opens(
+            opened_from_cli,
+            &bootstrap_opened,
+            settings
+                .workspace_tree
+                .workspaces
+                .iter()
+                .map(|ws| ws.repo_path.as_str()),
+        );
+        cli_opened_paths = plan.cli_opened_paths;
 
         // Open persisted workspaces so the sidebar restores names/branches cold.
         // Cheap: no overview/diff work. Skip repos already opened as CLI/bootstrap.
-        for ws in &settings.workspace_tree.workspaces {
-            let path = ws.repo_path.trim();
-            if path.is_empty() {
-                continue;
-            }
-            if opened_workspaces.iter().any(|o| o.repo.path == path) {
-                continue;
-            }
+        for path in &plan.remaining_paths {
             match open(&state, path) {
                 Ok(result) => push_unique_open(&mut opened_workspaces, result),
                 Err(e) => eprintln!("Startup workspace open failed for {path}: {e}"),
@@ -88,8 +86,8 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
         settings,
         opened,
         opened_workspaces,
-        open_error,
-        cli_opened,
+        open_error: join_open_errors(&open_errors),
+        cli_opened_paths,
     })
 }
 
@@ -232,7 +230,7 @@ pub fn run() {
                     opened: None,
                     opened_workspaces: Vec::new(),
                     open_error: Some(e),
-                    cli_opened: Vec::new(),
+                    cli_opened_paths: Vec::new(),
                 }
             });
             app.manage(snapshot);

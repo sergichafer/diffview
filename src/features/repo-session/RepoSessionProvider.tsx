@@ -8,7 +8,7 @@ interface RepoSessionProviderProps {
   update: (patch: Partial<AppSettings>) => Promise<void>;
   opened?: OpenRepoResult | null;
   openedWorkspaces?: OpenRepoResult[];
-  cliOpened?: OpenRepoResult[];
+  cliOpenedPaths?: string[];
   children: ReactNode;
 }
 
@@ -17,7 +17,7 @@ export function RepoSessionProvider({
   update,
   opened = null,
   openedWorkspaces = [],
-  cliOpened = [],
+  cliOpenedPaths = [],
   children,
 }: RepoSessionProviderProps) {
   const session = useRepoSessionState(
@@ -25,7 +25,7 @@ export function RepoSessionProvider({
     update,
     opened,
     openedWorkspaces,
-    cliOpened,
+    cliOpenedPaths,
   );
   return (
     <RepoSessionContext.Provider value={session}>

@@ -68,17 +68,17 @@ export function useRepoSessionState(
   update: (patch: Partial<AppSettings>) => Promise<void>,
   opened: OpenRepoResult | null = null,
   openedWorkspaces: OpenRepoResult[] = [],
-  cliOpened: OpenRepoResult[] = [],
+  cliOpenedPaths: string[] = [],
 ) {
   const [state, dispatch] = useReducer(
     sessionReducer,
-    { opened, openedWorkspaces, settings, cliOpened },
+    { opened, openedWorkspaces, settings, cliOpenedPaths },
     (init) =>
       buildInitialState(
         init.opened,
         init.openedWorkspaces,
         init.settings,
-        init.cliOpened,
+        init.cliOpenedPaths,
       ),
   );
 
@@ -285,6 +285,25 @@ export function useRepoSessionState(
     persistedTreeJson.current = json;
     void update({ workspaceTree: tree });
   }, [state, update]);
+
+  const seededCliRecents = useRef(false);
+  useEffect(() => {
+    if (seededCliRecents.current || cliOpenedPaths.length === 0) return;
+    seededCliRecents.current = true;
+    let recentRepos = settings.recentRepos;
+    for (let i = cliOpenedPaths.length - 1; i >= 0; i--) {
+      recentRepos = pushRecent(
+        { ...settings, recentRepos },
+        cliOpenedPaths[i]!,
+      ).recentRepos;
+    }
+    const same =
+      recentRepos.length === settings.recentRepos.length &&
+      recentRepos.every((path, i) => path === settings.recentRepos[i]);
+    if (!same) {
+      void update({ recentRepos });
+    }
+  }, [cliOpenedPaths, settings, update]);
 
   useEffect(() => {
     const key = state.activeKey;

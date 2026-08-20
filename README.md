@@ -109,7 +109,7 @@ Installers appear under `src-tauri/target/release/bundle/`.
 
 ## Usage
 
-1. Open a repository folder (or pass one or more paths on the command line). Each path becomes a workspace; the first is active.
+1. Open a repository folder (or pass one or more paths on the command line). Each path becomes a workspace; the first is active. Failed paths are listed in the window.
 2. Choose a **base** branch if the default is wrong.
 3. Browse files in the tree; diffs update in the main pane.
 4. For HTML/Markdown outputs, click **Preview** to open a rendered window.

@@ -96,6 +96,13 @@
   color: var(--fg-muted);
 }
 
+.welcome-error {
+  margin: 14px 0 0;
+  max-width: 42ch;
+  font-size: 14px;
+  color: #f87171;
+}
+
 .welcome-open {
   margin-top: 28px;
   padding: 0 0.75rem;

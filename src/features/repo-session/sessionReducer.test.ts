@@ -4,10 +4,10 @@ import { applyBranchPick } from "@/features/branch-compare/branchCompare";
 import { DEFAULT_SETTINGS } from "@/shared/types/app";
 import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
 import { mergeFileDiffs } from "./mergeFileDiffs";
+import { buildInitialState } from "./workspaceTreeCodec";
 import {
   activeRowFromState,
   sessionReducer,
-  stateFromOpened,
 } from "./sessionReducer";
 import {
   emptyComparisonRow,
@@ -44,10 +44,8 @@ function diff(path: string, isBinary = false): FileDiffResult {
 }
 
 function openedState(): MultiSessionState {
-  return stateFromOpened(
-    { repo, branches: ["main", "feature"] },
-    DEFAULT_SETTINGS,
-  );
+  const opened = { repo, branches: ["main", "feature"] };
+  return buildInitialState(opened, [opened], DEFAULT_SETTINGS);
 }
 
 describe("sessionReducer", () => {
@@ -249,10 +247,8 @@ describe("sessionReducer", () => {
       defaultBase: "main",
     };
     const unbornKey = makeComparisonKey(unbornRepo.path, "main", "HEAD");
-    const empty = stateFromOpened(
-      { repo: unbornRepo, branches: [] },
-      DEFAULT_SETTINGS,
-    );
+    const opened = { repo: unbornRepo, branches: [] as string[] };
+    const empty = buildInitialState(opened, [opened], DEFAULT_SETTINGS);
     expect(empty.groups[unbornRepo.path]?.branches).toEqual([]);
 
     const recovered = sessionReducer(empty, {

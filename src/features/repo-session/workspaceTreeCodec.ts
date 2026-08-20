@@ -98,8 +98,6 @@ export function stateFromWorkspaceTree(
       mruKeys.push(key);
     }
 
-    if (comparisonKeys.length === 0) continue;
-
     workspaceOrder.push(ws.repoPath);
     groups[ws.repoPath] = {
       repo: opened.repo,
@@ -117,7 +115,14 @@ export function stateFromWorkspaceTree(
 
   let activeKey = normalized.activeComparisonKey ?? null;
   if (activeKey == null || !comparisons[activeKey]) {
-    activeKey = groups[workspaceOrder[0]!]!.comparisonKeys[0] ?? null;
+    activeKey = null;
+    for (const path of workspaceOrder) {
+      const first = groups[path]?.comparisonKeys[0];
+      if (first) {
+        activeKey = first;
+        break;
+      }
+    }
   }
 
   const orderedMru =
@@ -220,76 +225,96 @@ function withMruHead(
   return { ...state, mruKeys: ordered };
 }
 
+function ensureWorkspaceComparison(
+  state: MultiSessionState,
+  opened: OpenRepoResult,
+  settings: AppSettings,
+): MultiSessionState {
+  const next = mergeOpenedIntoTree(state, opened, settings);
+  const group = next.groups[opened.repo.path];
+  if (!group || group.comparisonKeys.length > 0) return next;
+
+  const { base, head } = resolveComparisonPrefs(
+    settings,
+    opened.repo,
+    opened.branches,
+  );
+  const key = makeComparisonKey(opened.repo.path, base, head);
+  const row = emptyComparisonRow(key, opened.repo.path, base, head);
+  return {
+    ...next,
+    groups: {
+      ...next.groups,
+      [opened.repo.path]: { ...group, comparisonKeys: [key] },
+    },
+    comparisons: { ...next.comparisons, [key]: row },
+    activeKey: next.activeKey ?? key,
+    mruKeys: [key, ...next.mruKeys],
+  };
+}
+
 function mergeOpenedList(
   state: MultiSessionState,
   opened: OpenRepoResult | null,
-  cliOpened: OpenRepoResult[],
+  cliOpenedPaths: string[],
+  openedByPath: Map<string, OpenRepoResult>,
   settings: AppSettings,
-): { state: MultiSessionState; appendedKeys: string[] } {
+): { state: MultiSessionState; cliKeys: string[] } {
   let next = state;
-  const seen = new Set<string>();
-  const appendedKeys: string[] = [];
+  const cliKeys: string[] = [];
 
-  const tryAppend = (result: OpenRepoResult) => {
-    if (
-      seen.has(result.repo.path) ||
-      next.workspaceOrder.includes(result.repo.path)
-    ) {
-      return;
-    }
-    seen.add(result.repo.path);
-    const before = next.workspaceOrder.length;
-    next = mergeOpenedIntoTree(next, result, settings);
-    if (next.workspaceOrder.length > before) {
-      const path = next.workspaceOrder[next.workspaceOrder.length - 1]!;
-      const key = next.groups[path]?.comparisonKeys[0];
-      if (key) appendedKeys.push(key);
-    }
-  };
-
-  if (cliOpened.length > 0) {
-    for (const result of cliOpened) {
-      tryAppend(result);
+  if (cliOpenedPaths.length > 0) {
+    const seen = new Set<string>();
+    for (const path of cliOpenedPaths) {
+      if (seen.has(path)) continue;
+      seen.add(path);
+      const result = openedByPath.get(path);
+      if (!result) continue;
+      next = ensureWorkspaceComparison(next, result, settings);
+      const key = next.groups[result.repo.path]?.comparisonKeys[0];
+      if (key) cliKeys.push(key);
     }
   } else if (opened && !next.workspaceOrder.includes(opened.repo.path)) {
-    tryAppend(opened);
+    next = ensureWorkspaceComparison(next, opened, settings);
   }
-  return { state: next, appendedKeys };
+  return { state: next, cliKeys };
 }
 
 export function buildInitialState(
   opened: OpenRepoResult | null,
   openedWorkspaces: OpenRepoResult[],
   settings: AppSettings,
-  cliOpened: OpenRepoResult[] = [],
+  cliOpenedPaths: string[] = [],
 ): MultiSessionState {
   const tree = settings.workspaceTree;
   let base: MultiSessionState = {
     ...emptyMultiSessionState,
     columnCollapsed: tree?.columnCollapsed ?? false,
   };
+  const openedMap = new Map<string, OpenRepoResult>(
+    openedWorkspaces.map((o) => [o.repo.path, o]),
+  );
+  if (opened) openedMap.set(opened.repo.path, opened);
   if (tree?.workspaces?.length) {
-    const openedMap = new Map<string, OpenRepoResult>(
-      openedWorkspaces.map((o) => [o.repo.path, o]),
-    );
-    if (opened) openedMap.set(opened.repo.path, opened);
     const fromTree = stateFromWorkspaceTree(tree, openedMap);
     if (fromTree.workspaceOrder.length > 0) {
       base = fromTree;
     }
   }
 
-  const { state: merged, appendedKeys } = mergeOpenedList(
+  const { state: merged, cliKeys } = mergeOpenedList(
     base,
     opened,
-    cliOpened,
+    cliOpenedPaths,
+    openedMap,
     settings,
   );
   let next = merged;
-  if (cliOpened.length > 0) {
-    next = activateWorkspace(next, cliOpened[0]!.repo.path);
-    if (appendedKeys.length > 0) {
-      next = withMruHead(next, appendedKeys);
+  if (cliOpenedPaths.length > 0) {
+    const firstOpened = cliOpenedPaths.find((path) => next.groups[path]);
+    if (firstOpened) next = activateWorkspace(next, firstOpened);
+    if (cliKeys.length > 0) {
+      next = withMruHead(next, cliKeys);
     }
   }
   return next;

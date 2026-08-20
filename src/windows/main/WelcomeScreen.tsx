@@ -7,6 +7,7 @@ interface WelcomeScreenProps {
   settings: AppSettings;
   onSetLaunchMode: (mode: AppSettings["launchMode"]) => void;
   onOpenSettings: () => void;
+  openError?: string | null;
 }
 
 function folderName(path: string): string {
@@ -22,6 +23,7 @@ export function WelcomeScreen({
   settings,
   onSetLaunchMode,
   onOpenSettings,
+  openError = null,
 }: WelcomeScreenProps) {
   const { openRepo } = useRepoSession();
   const hasRecents = settings.recentRepos.length > 0;
@@ -48,6 +50,11 @@ export function WelcomeScreen({
           <p className="welcome-lead">
             The branch against the base. Commits and the working tree.
           </p>
+          {openError ? (
+            <p className="welcome-error" role="alert">
+              Could not open: {openError}
+            </p>
+          ) : null}
           <button
             type="button"
             className="compare-trigger welcome-open"

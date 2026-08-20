@@ -16,8 +16,8 @@ pub struct StartupSnapshot {
     /// Bootstrap/CLI repos plus persisted workspace-tree repos (sidebar restore).
     pub opened_workspaces: Vec<OpenRepoResult>,
     pub open_error: Option<String>,
-    /// CLI-opened repos in argument order. Empty when launch was not from CLI.
-    pub cli_opened: Vec<OpenRepoResult>,
+    /// Canonical paths of CLI-opened repos in argument order. Empty when launch was not from CLI.
+    pub cli_opened_paths: Vec<String>,
 }
 
 fn unique_nonempty_paths<I, S>(paths: I) -> Vec<String>
@@ -113,6 +113,59 @@ pub fn resolve_bootstrap_path(cli_path: Option<&str>, settings: &AppSettings) ->
         .map(|p| p.trim())
         .filter(|p| !p.is_empty())
         .map(|p| p.to_string())
+}
+
+/// Remaining persisted workspace paths to `open()`, plus CLI canonical paths
+/// in argument order. Bootstrap results that share a canonical path are kept
+/// once (first wins).
+pub struct StartupOpenPlan {
+    pub remaining_paths: Vec<String>,
+    pub cli_opened_paths: Vec<String>,
+}
+
+pub fn plan_startup_opens(
+    opened_from_cli: bool,
+    bootstrap_opened: &[OpenRepoResult],
+    persisted_repo_paths: impl IntoIterator<Item = impl AsRef<str>>,
+) -> StartupOpenPlan {
+    let mut seen_open = HashSet::new();
+    let mut already = Vec::new();
+    for result in bootstrap_opened {
+        if seen_open.insert(result.repo.path.clone()) {
+            already.push(result.repo.path.clone());
+        }
+    }
+
+    let open_set: HashSet<&str> = already.iter().map(String::as_str).collect();
+    let mut seen_remain = HashSet::new();
+    let mut remaining_paths = Vec::new();
+    for path in persisted_repo_paths {
+        let trimmed = path.as_ref().trim();
+        if trimmed.is_empty() || open_set.contains(trimmed) {
+            continue;
+        }
+        if seen_remain.insert(trimmed.to_string()) {
+            remaining_paths.push(trimmed.to_string());
+        }
+    }
+
+    StartupOpenPlan {
+        remaining_paths,
+        cli_opened_paths: if opened_from_cli { already } else { Vec::new() },
+    }
+}
+
+pub fn join_open_errors(errors: &[(String, String)]) -> Option<String> {
+    if errors.is_empty() {
+        return None;
+    }
+    Some(
+        errors
+            .iter()
+            .map(|(path, err)| format!("{path}: {err}"))
+            .collect::<Vec<_>>()
+            .join("; "),
+    )
 }
 
 pub fn read_stored_settings<R: tauri::Runtime>(
@@ -306,5 +359,61 @@ mod tests {
         assert_eq!(settings.theme_id, "harmony");
         assert!(settings.active_path_by_repo.is_empty());
         assert!(settings.base_branch_by_repo.is_empty());
+    }
+
+    fn opened(path: &str) -> OpenRepoResult {
+        OpenRepoResult {
+            repo: crate::git::RepoInfo {
+                path: path.to_string(),
+                name: "n".into(),
+                head_branch: "main".into(),
+                default_base: "main".into(),
+            },
+            branches: vec!["main".into()],
+        }
+    }
+
+    #[test]
+    fn plan_skips_persisted_paths_already_opened() {
+        let plan = plan_startup_opens(
+            true,
+            &[opened("/cli/a"), opened("/cli/b")],
+            ["/cli/a", " /persisted/c ", "", "/cli/b", "/persisted/c"],
+        );
+        assert_eq!(plan.remaining_paths, vec!["/persisted/c".to_string()]);
+        assert_eq!(
+            plan.cli_opened_paths,
+            vec!["/cli/a".to_string(), "/cli/b".to_string()]
+        );
+    }
+
+    #[test]
+    fn plan_omits_cli_paths_when_launch_was_not_cli() {
+        let plan = plan_startup_opens(false, &[opened("/repo/a")], ["/repo/a", "/repo/b"]);
+        assert_eq!(plan.remaining_paths, vec!["/repo/b".to_string()]);
+        assert!(plan.cli_opened_paths.is_empty());
+    }
+
+    #[test]
+    fn plan_dedupes_bootstrap_canonical_paths() {
+        let plan = plan_startup_opens(
+            true,
+            &[opened("/cli/a"), opened("/cli/a")],
+            ["/cli/a", "/persisted/b"],
+        );
+        assert_eq!(plan.cli_opened_paths, vec!["/cli/a".to_string()]);
+        assert_eq!(plan.remaining_paths, vec!["/persisted/b".to_string()]);
+    }
+
+    #[test]
+    fn join_open_errors_formats_every_path() {
+        assert_eq!(join_open_errors(&[]), None);
+        assert_eq!(
+            join_open_errors(&[
+                ("/good".into(), "ok".into()),
+                ("/typo".into(), "not a git repository".into()),
+            ]),
+            Some("/good: ok; /typo: not a git repository".into())
+        );
     }
 }
