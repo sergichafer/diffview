@@ -42,7 +42,7 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
     let mut open_errors: Vec<(String, String)> = Vec::new();
     let mut opened_workspaces: Vec<OpenRepoResult> = Vec::new();
     let mut bootstrap_opened: Vec<OpenRepoResult> = Vec::new();
-    let mut cli_opened_paths = Vec::new();
+    let cli_opened_paths;
     {
         let state = app.state::<RepoRegistry>();
         for path in &paths {

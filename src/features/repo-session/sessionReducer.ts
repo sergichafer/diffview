@@ -1,6 +1,5 @@
 import { enrichInventory } from "@/features/changed-files/enrich";
 import { resolveComparisonPrefs } from "@/features/settings/comparisonPrefs";
-import type { AppSettings } from "@/shared/types/app";
 import { makeComparisonKey, type ComparisonKey } from "@/features/branch-compare/comparisonKey";
 import { mergeFileDiffs } from "./mergeFileDiffs";
 import {
