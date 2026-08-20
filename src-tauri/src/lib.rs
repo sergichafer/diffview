@@ -40,6 +40,7 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
     let mut opened = None;
     let mut open_error = None;
     let mut opened_workspaces: Vec<OpenRepoResult> = Vec::new();
+    let mut cli_opened: Vec<OpenRepoResult> = Vec::new();
     {
         let state = app.state::<RepoRegistry>();
         for path in &paths {
@@ -61,6 +62,9 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
         // Partial CLI success still shows the repos that opened.
         if opened.is_some() {
             open_error = None;
+        }
+        if opened_from_cli {
+            cli_opened = opened_workspaces.clone();
         }
 
         // Open persisted workspaces so the sidebar restores names/branches cold.
@@ -85,7 +89,7 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
         opened,
         opened_workspaces,
         open_error,
-        opened_from_cli,
+        cli_opened,
     })
 }
 
@@ -228,7 +232,7 @@ pub fn run() {
                     opened: None,
                     opened_workspaces: Vec::new(),
                     open_error: Some(e),
-                    opened_from_cli: false,
+                    cli_opened: Vec::new(),
                 }
             });
             app.manage(snapshot);

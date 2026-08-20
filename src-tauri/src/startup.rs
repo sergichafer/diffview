@@ -16,8 +16,8 @@ pub struct StartupSnapshot {
     /// Bootstrap/CLI repos plus persisted workspace-tree repos (sidebar restore).
     pub opened_workspaces: Vec<OpenRepoResult>,
     pub open_error: Option<String>,
-    /// True when `opened` came from CLI args rather than launchMode reopen.
-    pub opened_from_cli: bool,
+    /// CLI-opened repos in argument order. Empty when launch was not from CLI.
+    pub cli_opened: Vec<OpenRepoResult>,
 }
 
 fn unique_nonempty_paths<I, S>(paths: I) -> Vec<String>

@@ -15,8 +15,8 @@ export interface StartupSnapshot {
   /** All repos opened at startup (persisted tree + bootstrap/CLI), for cold restore. */
   openedWorkspaces: OpenRepoResult[];
   openError: string | null;
-  /** True when `opened` came from CLI args rather than launchMode reopen. */
-  openedFromCli: boolean;
+  /** CLI-opened repos in argument order. Empty when launch was not from CLI. */
+  cliOpened: OpenRepoResult[];
 }
 
 async function fetchStartup(): Promise<StartupSnapshot> {
@@ -26,7 +26,7 @@ async function fetchStartup(): Promise<StartupSnapshot> {
       opened: null,
       openedWorkspaces: [],
       openError: null,
-      openedFromCli: false,
+      cliOpened: [],
     };
   }
 
@@ -36,7 +36,7 @@ async function fetchStartup(): Promise<StartupSnapshot> {
     opened: seam.opened ?? null,
     openedWorkspaces: seam.openedWorkspaces ?? [],
     openError: seam.openError ?? null,
-    openedFromCli: seam.openedFromCli ?? false,
+    cliOpened: seam.cliOpened ?? [],
   };
 }
 

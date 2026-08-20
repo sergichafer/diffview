@@ -206,16 +206,6 @@ function activateWorkspace(
   };
 }
 
-function persistedRepoPaths(tree: WorkspaceTree | undefined): Set<string> {
-  const paths = new Set<string>();
-  for (const ws of tree?.workspaces ?? []) {
-    if (typeof ws.repoPath === "string" && ws.repoPath !== "") {
-      paths.add(ws.repoPath);
-    }
-  }
-  return paths;
-}
-
 function withMruHead(
   state: MultiSessionState,
   headKeys: string[],
@@ -232,14 +222,10 @@ function withMruHead(
 
 function mergeOpenedList(
   state: MultiSessionState,
-  openedWorkspaces: OpenRepoResult[],
   opened: OpenRepoResult | null,
+  cliOpened: OpenRepoResult[],
   settings: AppSettings,
-  openedFromCli: boolean,
 ): { state: MultiSessionState; appendedKeys: string[] } {
-  // Restore already decided membership for every path listed in the
-  // persisted tree, including groups skipped for empty comparisons.
-  const listed = persistedRepoPaths(settings.workspaceTree);
   let next = state;
   const seen = new Set<string>();
   const appendedKeys: string[] = [];
@@ -261,14 +247,12 @@ function mergeOpenedList(
     }
   };
 
-  for (const extra of openedWorkspaces) {
-    if (listed.has(extra.repo.path)) continue;
-    tryAppend(extra);
-  }
-  if (opened && !next.workspaceOrder.includes(opened.repo.path)) {
-    if (openedFromCli || !listed.has(opened.repo.path)) {
-      tryAppend(opened);
+  if (cliOpened.length > 0) {
+    for (const result of cliOpened) {
+      tryAppend(result);
     }
+  } else if (opened && !next.workspaceOrder.includes(opened.repo.path)) {
+    tryAppend(opened);
   }
   return { state: next, appendedKeys };
 }
@@ -277,7 +261,7 @@ export function buildInitialState(
   opened: OpenRepoResult | null,
   openedWorkspaces: OpenRepoResult[],
   settings: AppSettings,
-  openedFromCli = false,
+  cliOpened: OpenRepoResult[] = [],
 ): MultiSessionState {
   const tree = settings.workspaceTree;
   let base: MultiSessionState = {
@@ -297,14 +281,13 @@ export function buildInitialState(
 
   const { state: merged, appendedKeys } = mergeOpenedList(
     base,
-    openedWorkspaces,
     opened,
+    cliOpened,
     settings,
-    openedFromCli,
   );
   let next = merged;
-  if (openedFromCli && opened) {
-    next = activateWorkspace(next, opened.repo.path);
+  if (cliOpened.length > 0) {
+    next = activateWorkspace(next, cliOpened[0]!.repo.path);
     if (appendedKeys.length > 0) {
       next = withMruHead(next, appendedKeys);
     }

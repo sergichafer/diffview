@@ -68,17 +68,17 @@ export function useRepoSessionState(
   update: (patch: Partial<AppSettings>) => Promise<void>,
   opened: OpenRepoResult | null = null,
   openedWorkspaces: OpenRepoResult[] = [],
-  openedFromCli = false,
+  cliOpened: OpenRepoResult[] = [],
 ) {
   const [state, dispatch] = useReducer(
     sessionReducer,
-    { opened, openedWorkspaces, settings, openedFromCli },
+    { opened, openedWorkspaces, settings, cliOpened },
     (init) =>
       buildInitialState(
         init.opened,
         init.openedWorkspaces,
         init.settings,
-        init.openedFromCli,
+        init.cliOpened,
       ),
   );
 
