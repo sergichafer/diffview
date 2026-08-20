@@ -8,9 +8,14 @@ import { computeAppliedStat } from "@/features/branch-compare/compareStat";
 interface TopBarProps {
   onOpenSettings: () => void;
   paletteOpenRequest: number;
+  startupError?: string | null;
 }
 
-export function TopBar({ onOpenSettings, paletteOpenRequest }: TopBarProps) {
+export function TopBar({
+  onOpenSettings,
+  paletteOpenRequest,
+  startupError = null,
+}: TopBarProps) {
   const {
     repo,
     branches,
@@ -89,6 +94,18 @@ export function TopBar({ onOpenSettings, paletteOpenRequest }: TopBarProps) {
           onClick={() => void refreshOverview()}
           title={branchLoading ? "Refreshing…" : "Refresh"}
         />
+        {startupError && (
+          <span
+            className="top-bar-error"
+            aria-live="assertive"
+            title={startupError}
+          >
+            <span className="top-bar-error-icon" aria-hidden="true">
+              ⚠{" "}
+            </span>
+            Could not open: {startupError}
+          </span>
+        )}
         {branchError && (
           <span className="top-bar-error" aria-live="assertive">
             <span className="top-bar-error-icon" aria-hidden="true">

@@ -2,7 +2,6 @@ import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
 import type { WorkspaceTree } from "@/shared/types/generated/types";
 import { resolveComparisonPrefs } from "@/features/settings/comparisonPrefs";
 import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
-import { stateFromOpened } from "./sessionReducer";
 import {
   emptyComparisonRow,
   emptyMultiSessionState,
@@ -99,8 +98,6 @@ export function stateFromWorkspaceTree(
       mruKeys.push(key);
     }
 
-    if (comparisonKeys.length === 0) continue;
-
     workspaceOrder.push(ws.repoPath);
     groups[ws.repoPath] = {
       repo: opened.repo,
@@ -118,7 +115,14 @@ export function stateFromWorkspaceTree(
 
   let activeKey = normalized.activeComparisonKey ?? null;
   if (activeKey == null || !comparisons[activeKey]) {
-    activeKey = groups[workspaceOrder[0]!]!.comparisonKeys[0] ?? null;
+    activeKey = null;
+    for (const path of workspaceOrder) {
+      const first = groups[path]?.comparisonKeys[0];
+      if (first) {
+        activeKey = first;
+        break;
+      }
+    }
   }
 
   const orderedMru =
@@ -157,8 +161,8 @@ export function mergeOpenedIntoTree(
     };
   }
 
-  // Bootstrap-opened repo missing from the persisted tree (e.g. CLI arg):
-  // append it and make it active. Never discard the restored tree.
+  // Bootstrap/CLI repo missing from the persisted tree: append it and make
+  // it active. Never discard the restored tree.
   const { base, head } = resolveComparisonPrefs(
     settings,
     opened.repo,
@@ -184,25 +188,136 @@ export function mergeOpenedIntoTree(
   };
 }
 
+function activateWorkspace(
+  state: MultiSessionState,
+  repoPath: string,
+): MultiSessionState {
+  const group = state.groups[repoPath];
+  if (!group || group.comparisonKeys.length === 0) return state;
+  if (
+    state.activeKey != null &&
+    group.comparisonKeys.includes(state.activeKey)
+  ) {
+    return state;
+  }
+  const inGroup = new Set(group.comparisonKeys);
+  const key =
+    state.mruKeys.find((k) => inGroup.has(k)) ?? group.comparisonKeys[0];
+  if (key == null) return state;
+  return {
+    ...state,
+    activeKey: key,
+    mruKeys: [key, ...state.mruKeys.filter((k) => k !== key)],
+  };
+}
+
+function withMruHead(
+  state: MultiSessionState,
+  headKeys: string[],
+): MultiSessionState {
+  const preferred = state.activeKey;
+  const head = new Set(headKeys);
+  const ordered = [
+    ...(preferred != null ? [preferred] : []),
+    ...headKeys.filter((k) => k !== preferred),
+    ...state.mruKeys.filter((k) => k !== preferred && !head.has(k)),
+  ];
+  return { ...state, mruKeys: ordered };
+}
+
+function ensureWorkspaceComparison(
+  state: MultiSessionState,
+  opened: OpenRepoResult,
+  settings: AppSettings,
+): MultiSessionState {
+  const next = mergeOpenedIntoTree(state, opened, settings);
+  const group = next.groups[opened.repo.path];
+  if (!group || group.comparisonKeys.length > 0) return next;
+
+  const { base, head } = resolveComparisonPrefs(
+    settings,
+    opened.repo,
+    opened.branches,
+  );
+  const key = makeComparisonKey(opened.repo.path, base, head);
+  const row = emptyComparisonRow(key, opened.repo.path, base, head);
+  return {
+    ...next,
+    groups: {
+      ...next.groups,
+      [opened.repo.path]: { ...group, comparisonKeys: [key] },
+    },
+    comparisons: { ...next.comparisons, [key]: row },
+    activeKey: next.activeKey ?? key,
+    mruKeys: [key, ...next.mruKeys],
+  };
+}
+
+function mergeOpenedList(
+  state: MultiSessionState,
+  opened: OpenRepoResult | null,
+  cliOpenedPaths: string[],
+  openedByPath: Map<string, OpenRepoResult>,
+  settings: AppSettings,
+): { state: MultiSessionState; cliKeys: string[] } {
+  let next = state;
+  const cliKeys: string[] = [];
+
+  if (cliOpenedPaths.length > 0) {
+    const seen = new Set<string>();
+    for (const path of cliOpenedPaths) {
+      if (seen.has(path)) continue;
+      seen.add(path);
+      const result = openedByPath.get(path);
+      if (!result) continue;
+      next = ensureWorkspaceComparison(next, result, settings);
+      const keys = next.groups[result.repo.path]?.comparisonKeys ?? [];
+      const inGroup = new Set(keys);
+      const key = next.mruKeys.find((k) => inGroup.has(k)) ?? keys[0];
+      if (key) cliKeys.push(key);
+    }
+  } else if (opened && !next.workspaceOrder.includes(opened.repo.path)) {
+    next = ensureWorkspaceComparison(next, opened, settings);
+  }
+  return { state: next, cliKeys };
+}
+
 export function buildInitialState(
   opened: OpenRepoResult | null,
   openedWorkspaces: OpenRepoResult[],
   settings: AppSettings,
+  cliOpenedPaths: string[] = [],
 ): MultiSessionState {
   const tree = settings.workspaceTree;
+  let base: MultiSessionState = {
+    ...emptyMultiSessionState,
+    columnCollapsed: tree?.columnCollapsed ?? false,
+  };
+  const openedMap = new Map<string, OpenRepoResult>(
+    openedWorkspaces.map((o) => [o.repo.path, o]),
+  );
+  if (opened) openedMap.set(opened.repo.path, opened);
   if (tree?.workspaces?.length) {
-    const openedMap = new Map<string, OpenRepoResult>(
-      openedWorkspaces.map((o) => [o.repo.path, o]),
-    );
-    if (opened) openedMap.set(opened.repo.path, opened);
     const fromTree = stateFromWorkspaceTree(tree, openedMap);
     if (fromTree.workspaceOrder.length > 0) {
-      if (opened && !fromTree.workspaceOrder.includes(opened.repo.path)) {
-        return mergeOpenedIntoTree(fromTree, opened, settings);
-      }
-      return fromTree;
+      base = fromTree;
     }
   }
-  if (opened) return stateFromOpened(opened, settings);
-  return { ...emptyMultiSessionState };
+
+  const { state: merged, cliKeys } = mergeOpenedList(
+    base,
+    opened,
+    cliOpenedPaths,
+    openedMap,
+    settings,
+  );
+  let next = merged;
+  if (cliOpenedPaths.length > 0) {
+    const firstOpened = cliOpenedPaths.find((path) => next.groups[path]);
+    if (firstOpened) next = activateWorkspace(next, firstOpened);
+    if (cliKeys.length > 0) {
+      next = withMruHead(next, cliKeys);
+    }
+  }
+  return next;
 }

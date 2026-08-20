@@ -1,6 +1,5 @@
 import { enrichInventory } from "@/features/changed-files/enrich";
 import { resolveComparisonPrefs } from "@/features/settings/comparisonPrefs";
-import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
 import { makeComparisonKey, type ComparisonKey } from "@/features/branch-compare/comparisonKey";
 import { mergeFileDiffs } from "./mergeFileDiffs";
 import {
@@ -88,35 +87,6 @@ export function activeGroupFromState(
   const row = activeRowFromState(state);
   if (!row) return null;
   return state.groups[row.repoPath] ?? null;
-}
-
-export function stateFromOpened(
-  opened: OpenRepoResult,
-  settings: AppSettings,
-): MultiSessionState {
-  const { base, head } = resolveComparisonPrefs(
-    settings,
-    opened.repo,
-    opened.branches,
-  );
-  const key = makeComparisonKey(opened.repo.path, base, head);
-  const row = emptyComparisonRow(key, opened.repo.path, base, head);
-  const group: WorkspaceGroup = {
-    repo: opened.repo,
-    branches: opened.branches,
-    collapsed: false,
-    comparisonKeys: [key],
-    branchMetadata: [],
-    metadataLoading: false,
-  };
-  return {
-    workspaceOrder: [opened.repo.path],
-    groups: { [opened.repo.path]: group },
-    comparisons: { [key]: row },
-    activeKey: key,
-    columnCollapsed: settings.workspaceTree.columnCollapsed,
-    mruKeys: [key],
-  };
 }
 
 export function sessionReducer(

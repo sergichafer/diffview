@@ -45,7 +45,9 @@
           "name": "repo",
           "index": 1,
           "takesValue": true,
-          "description": "Repository to open."
+          "multiple": true,
+          "minValues": 0,
+          "description": "Repositories to open as workspaces."
         }
       ]
     }
