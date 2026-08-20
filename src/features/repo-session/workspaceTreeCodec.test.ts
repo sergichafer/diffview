@@ -320,6 +320,42 @@ describe("buildInitialState", () => {
     expect(state.mruKeys).toEqual([keyA, keyC, keyB]);
   });
 
+  test("already-in-tree CLI repos hoist the group's MRU comparison, not the first", () => {
+    const keyA2 = makeComparisonKey(repoA.path, "main", "other");
+    const settings: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      workspaceTree: {
+        workspaces: [
+          {
+            repoPath: repoA.path,
+            collapsed: false,
+            comparisons: [
+              { baseBranch: "main", headBranch: "feature" },
+              { baseBranch: "main", headBranch: "other" },
+            ],
+          },
+          {
+            repoPath: repoB.path,
+            collapsed: false,
+            comparisons: [{ baseBranch: "main", headBranch: "dev" }],
+          },
+        ],
+        activeComparisonKey: keyA2,
+        columnCollapsed: false,
+      },
+    };
+    const state = buildInitialState(
+      opened(repoB, ["main", "dev"]),
+      [opened(repoA, ["main", "feature", "other"]), opened(repoB, ["main", "dev"])],
+      settings,
+      [repoB.path, repoA.path],
+    );
+    expect(state.activeKey).toBe(keyB);
+    expect(state.mruKeys[0]).toBe(keyB);
+    expect(state.mruKeys[1]).toBe(keyA2);
+    expect(state.mruKeys).toContain(keyA);
+  });
+
   test("leading empty persisted workspace does not steal activeKey", () => {
     const settings: AppSettings = {
       ...DEFAULT_SETTINGS,

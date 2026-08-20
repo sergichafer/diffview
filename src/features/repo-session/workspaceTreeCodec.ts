@@ -271,7 +271,9 @@ function mergeOpenedList(
       const result = openedByPath.get(path);
       if (!result) continue;
       next = ensureWorkspaceComparison(next, result, settings);
-      const key = next.groups[result.repo.path]?.comparisonKeys[0];
+      const keys = next.groups[result.repo.path]?.comparisonKeys ?? [];
+      const inGroup = new Set(keys);
+      const key = next.mruKeys.find((k) => inGroup.has(k)) ?? keys[0];
       if (key) cliKeys.push(key);
     }
   } else if (opened && !next.workspaceOrder.includes(opened.repo.path)) {
