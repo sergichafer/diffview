@@ -7,13 +7,27 @@ export function isTauriApp(): boolean {
   );
 }
 
+/**
+ * Map Tauri 2 `TAURI_ENV_PLATFORM` values (rustc target triples) onto OS
+ * names callers check: `darwin` → `macos`, `androideabi` → `android`.
+ */
+export function normalizeTauriPlatform(
+  platform: string | null | undefined,
+): string | null {
+  if (typeof platform !== "string" || platform.length === 0) return null;
+  if (platform === "darwin") return "macos";
+  if (platform === "androideabi") return "android";
+  return platform;
+}
+
 export function tauriPlatform(): string | null {
   if (!isTauriApp()) return null;
-  const platform = import.meta.env.TAURI_ENV_PLATFORM;
-  return typeof platform === "string" ? platform : null;
+  return normalizeTauriPlatform(import.meta.env.TAURI_ENV_PLATFORM);
 }
 
 /** Custom window chrome replaces native decorations on desktop Tauri builds. */
 export function useCustomWindowChrome(): boolean {
-  return isTauriApp() && tauriPlatform() !== "ios" && tauriPlatform() !== "android";
+  if (!isTauriApp()) return false;
+  const platform = tauriPlatform();
+  return platform !== "ios" && platform !== "android";
 }
