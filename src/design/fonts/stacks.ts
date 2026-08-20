@@ -19,6 +19,7 @@ const CODE_STACKS: Record<CodeFontId, string> = {
   "jetbrains-mono": `"JetBrains Mono", ${SYSTEM_MONO_STACK}`,
   "ibm-plex-mono": `"IBM Plex Mono", ${SYSTEM_MONO_STACK}`,
   "source-code-pro": `"Source Code Pro", ${SYSTEM_MONO_STACK}`,
+  "departure-mono": `"Departure Mono", ${SYSTEM_MONO_STACK}`,
 };
 
 export function uiFontStack(id: UiFontId): string {

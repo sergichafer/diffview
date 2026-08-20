@@ -9,6 +9,7 @@ Copyright 2017 IBM Corp. All rights reserved. (IBM Plex Mono)
 Copyright 2020 The Plus Jakarta Sans Project Authors (https://github.com/tokotype/PlusJakartaSans)
 Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
 Google Inc. (Source Code Pro)
+Copyright 2022–2024 Helena Zhang (https://helenazhang.com) (Departure Mono)
 
 ```
 -----------------------------------------------------------

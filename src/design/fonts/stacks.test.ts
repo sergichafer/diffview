@@ -19,4 +19,10 @@ describe("codeFontStack", () => {
     expect(stack.startsWith('"JetBrains Mono"')).toBe(true);
     expect(stack).toContain("ui-monospace");
   });
+
+  test("departure-mono uses the upstream family name then system mono fallbacks", () => {
+    const stack = codeFontStack("departure-mono");
+    expect(stack.startsWith('"Departure Mono"')).toBe(true);
+    expect(stack).toContain("ui-monospace");
+  });
 });
