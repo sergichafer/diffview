@@ -28,7 +28,7 @@ export default defineConfig(async () => ({
   },
   clearScreen: false,
   // Expose Tauri's compile-time env (TAURI_ENV_PLATFORM, etc.) via import.meta.env.
-  // tauriEnv.ts uses it for the macOS/Windows/Linux chrome switch.
+  // tauriEnv.ts uses it for the darwin/windows/linux chrome switch.
   envPrefix: ["VITE_", "TAURI_ENV_"],
   worker: {
     format: "es",

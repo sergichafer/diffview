@@ -7,6 +7,7 @@ export function isTauriApp(): boolean {
   );
 }
 
+/** Tauri 2 `TAURI_ENV_PLATFORM`: `linux`, `windows`, `darwin`, `android`, `ios`. */
 export function tauriPlatform(): string | null {
   if (!isTauriApp()) return null;
   const platform = import.meta.env.TAURI_ENV_PLATFORM;

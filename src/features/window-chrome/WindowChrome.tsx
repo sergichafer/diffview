@@ -95,7 +95,7 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
   const enabled = useCustomWindowChrome();
   const [maximized, setMaximized] = useState(false);
   const [focused, setFocused] = useState(true);
-  const isMac = tauriPlatform() === "macos";
+  const isMac = tauriPlatform() === "darwin";
 
   useEffect(() => {
     if (!enabled) return;
