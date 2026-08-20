@@ -2,7 +2,6 @@ import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
 import type { WorkspaceTree } from "@/shared/types/generated/types";
 import { resolveComparisonPrefs } from "@/features/settings/comparisonPrefs";
 import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
-import { stateFromOpened } from "./sessionReducer";
 import {
   emptyComparisonRow,
   emptyMultiSessionState,
@@ -157,8 +156,8 @@ export function mergeOpenedIntoTree(
     };
   }
 
-  // Bootstrap-opened repo missing from the persisted tree (e.g. CLI arg):
-  // append it and make it active. Never discard the restored tree.
+  // Bootstrap/CLI repo missing from the persisted tree: append it and make
+  // it active. Never discard the restored tree.
   const { base, head } = resolveComparisonPrefs(
     settings,
     opened.repo,
@@ -184,12 +183,59 @@ export function mergeOpenedIntoTree(
   };
 }
 
+function activateWorkspace(
+  state: MultiSessionState,
+  repoPath: string,
+): MultiSessionState {
+  const group = state.groups[repoPath];
+  if (!group || group.comparisonKeys.length === 0) return state;
+  if (
+    state.activeKey != null &&
+    group.comparisonKeys.includes(state.activeKey)
+  ) {
+    return state;
+  }
+  const inGroup = new Set(group.comparisonKeys);
+  const key =
+    state.mruKeys.find((k) => inGroup.has(k)) ?? group.comparisonKeys[0];
+  if (key == null) return state;
+  return {
+    ...state,
+    activeKey: key,
+    mruKeys: [key, ...state.mruKeys.filter((k) => k !== key)],
+  };
+}
+
+function mergeOpenedList(
+  state: MultiSessionState,
+  openedWorkspaces: OpenRepoResult[],
+  opened: OpenRepoResult | null,
+  settings: AppSettings,
+): MultiSessionState {
+  let next = state;
+  const seen = new Set<string>();
+  for (const extra of openedWorkspaces) {
+    if (seen.has(extra.repo.path)) continue;
+    seen.add(extra.repo.path);
+    next = mergeOpenedIntoTree(next, extra, settings);
+  }
+  if (opened && !seen.has(opened.repo.path)) {
+    next = mergeOpenedIntoTree(next, opened, settings);
+  }
+  return next;
+}
+
 export function buildInitialState(
   opened: OpenRepoResult | null,
   openedWorkspaces: OpenRepoResult[],
   settings: AppSettings,
+  openedFromCli = false,
 ): MultiSessionState {
   const tree = settings.workspaceTree;
+  let base: MultiSessionState = {
+    ...emptyMultiSessionState,
+    columnCollapsed: tree?.columnCollapsed ?? false,
+  };
   if (tree?.workspaces?.length) {
     const openedMap = new Map<string, OpenRepoResult>(
       openedWorkspaces.map((o) => [o.repo.path, o]),
@@ -197,12 +243,13 @@ export function buildInitialState(
     if (opened) openedMap.set(opened.repo.path, opened);
     const fromTree = stateFromWorkspaceTree(tree, openedMap);
     if (fromTree.workspaceOrder.length > 0) {
-      if (opened && !fromTree.workspaceOrder.includes(opened.repo.path)) {
-        return mergeOpenedIntoTree(fromTree, opened, settings);
-      }
-      return fromTree;
+      base = fromTree;
     }
   }
-  if (opened) return stateFromOpened(opened, settings);
-  return { ...emptyMultiSessionState };
+
+  const merged = mergeOpenedList(base, openedWorkspaces, opened, settings);
+  if (openedFromCli && opened) {
+    return activateWorkspace(merged, opened.repo.path);
+  }
+  return merged;
 }

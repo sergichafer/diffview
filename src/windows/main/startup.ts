@@ -6,15 +6,17 @@ import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
 
 /**
  * FE startup payload. Path resolution is Rust-only
- * (`startup::resolve_bootstrap_path`); this module only consumes
+ * (`startup::resolve_bootstrap_paths`); this module only consumes
  * `get_startup_state` and normalizes theme/font ids.
  */
 export interface StartupSnapshot {
   settings: AppSettings;
   opened: OpenRepoResult | null;
-  /** All repos opened at startup (persisted tree + bootstrap), for cold restore. */
+  /** All repos opened at startup (persisted tree + bootstrap/CLI), for cold restore. */
   openedWorkspaces: OpenRepoResult[];
   openError: string | null;
+  /** True when `opened` came from CLI args rather than launchMode reopen. */
+  openedFromCli: boolean;
 }
 
 async function fetchStartup(): Promise<StartupSnapshot> {
@@ -24,6 +26,7 @@ async function fetchStartup(): Promise<StartupSnapshot> {
       opened: null,
       openedWorkspaces: [],
       openError: null,
+      openedFromCli: false,
     };
   }
 
@@ -33,6 +36,7 @@ async function fetchStartup(): Promise<StartupSnapshot> {
     opened: seam.opened ?? null,
     openedWorkspaces: seam.openedWorkspaces ?? [],
     openError: seam.openError ?? null,
+    openedFromCli: seam.openedFromCli ?? false,
   };
 }
 

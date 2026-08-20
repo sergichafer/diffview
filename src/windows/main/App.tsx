@@ -218,6 +218,7 @@ function AppReady() {
       update={update}
       opened={startup.opened}
       openedWorkspaces={startup.openedWorkspaces}
+      openedFromCli={startup.openedFromCli}
     >
       <DiffReviewProvider>
         <AppBody

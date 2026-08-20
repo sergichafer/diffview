@@ -14,7 +14,7 @@ Built with **Tauri 2**, **React**, **libgit2**, [@pierre/trees](https://trees.so
 - Rendered preview window for `.html` and `.markdown` (working tree)
 - Recent repos, startup preference, base branch override per repo
 - Manual refresh
-- CLI: `diffview /path/to/repo` or `diffview .`
+- CLI: `diffview /path/to/repo`, `diffview .`, or `diffview repo1 repo2 repo3`
 
 ## Install
 
@@ -109,7 +109,7 @@ Installers appear under `src-tauri/target/release/bundle/`.
 
 ## Usage
 
-1. Open a repository folder (or pass a path on the command line).
+1. Open a repository folder (or pass one or more paths on the command line). Each path becomes a workspace; the first is active.
 2. Choose a **base** branch if the default is wrong.
 3. Browse files in the tree; diffs update in the main pane.
 4. For HTML/Markdown outputs, click **Preview** to open a rendered window.

@@ -136,8 +136,10 @@ export interface OpenRepoResult {
 export interface StartupSnapshot {
 	settings: AppSettings;
 	opened?: OpenRepoResult;
-	/** Bootstrap repo plus persisted workspace-tree repos (sidebar restore). */
+	/** Bootstrap/CLI repos plus persisted workspace-tree repos (sidebar restore). */
 	openedWorkspaces: OpenRepoResult[];
 	openError?: string;
+	/** True when `opened` came from CLI args rather than launchMode reopen. */
+	openedFromCli: boolean;
 }
 

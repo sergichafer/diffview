@@ -10,39 +10,57 @@ use git::{
 };
 use settings::AppSettings;
 use startup::{
-    extract_cli_repo_path, read_stored_settings, resolve_bootstrap_path, StartupSnapshot,
+    extract_cli_repo_paths, read_stored_settings, resolve_bootstrap_paths, StartupSnapshot,
 };
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_cli::CliExt;
 
+fn push_unique_open(opened_workspaces: &mut Vec<OpenRepoResult>, result: OpenRepoResult) {
+    if !opened_workspaces
+        .iter()
+        .any(|o| o.repo.path == result.repo.path)
+    {
+        opened_workspaces.push(result);
+    }
+}
+
 fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
-    let cli_path = match app.cli().matches() {
-        Ok(matches) => extract_cli_repo_path(&matches),
+    let cli_paths = match app.cli().matches() {
+        Ok(matches) => extract_cli_repo_paths(&matches),
         Err(e) => {
             eprintln!("CLI matches unavailable: {e}");
-            None
+            Vec::new()
         }
     };
+    let opened_from_cli = !cli_paths.is_empty();
 
     let settings = read_stored_settings(app)?;
-    let path = resolve_bootstrap_path(cli_path.as_deref(), &settings);
+    let paths = resolve_bootstrap_paths(&cli_paths, &settings);
 
     let mut opened = None;
     let mut open_error = None;
     let mut opened_workspaces: Vec<OpenRepoResult> = Vec::new();
     {
         let state = app.state::<RepoRegistry>();
-        if let Some(path) = path {
-            match open(&state, &path) {
+        for path in &paths {
+            match open(&state, path) {
                 Ok(result) => {
-                    opened_workspaces.push(result.clone());
-                    opened = Some(result);
+                    if opened.is_none() {
+                        opened = Some(result.clone());
+                    }
+                    push_unique_open(&mut opened_workspaces, result);
                 }
                 Err(e) => {
                     eprintln!("Startup open failed for {path}: {e}");
-                    open_error = Some(e);
+                    if open_error.is_none() {
+                        open_error = Some(e);
+                    }
                 }
             }
+        }
+        // Partial CLI success still shows the repos that opened.
+        if opened.is_some() {
+            open_error = None;
         }
 
         // Open persisted workspaces so the sidebar restores names/branches cold.
@@ -53,14 +71,7 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
                 continue;
             }
             match open(&state, path) {
-                Ok(result) => {
-                    if !opened_workspaces
-                        .iter()
-                        .any(|o| o.repo.path == result.repo.path)
-                    {
-                        opened_workspaces.push(result);
-                    }
-                }
+                Ok(result) => push_unique_open(&mut opened_workspaces, result),
                 Err(e) => eprintln!("Startup workspace open failed for {path}: {e}"),
             }
         }
@@ -71,6 +82,7 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
         opened,
         opened_workspaces,
         open_error,
+        opened_from_cli,
     })
 }
 
@@ -88,10 +100,7 @@ async fn open_repository(
 }
 
 #[tauri::command(async)]
-async fn close_repository(
-    repo_path: String,
-    state: State<'_, RepoRegistry>,
-) -> Result<(), String> {
+async fn close_repository(repo_path: String, state: State<'_, RepoRegistry>) -> Result<(), String> {
     close(&state, &repo_path)
 }
 
@@ -113,7 +122,9 @@ async fn get_branch_metadata(
     base_branch: String,
     state: State<'_, RepoRegistry>,
 ) -> Result<Vec<BranchMetadata>, String> {
-    with_repo(&state, &repo_path, |repo| branch_metadata(repo, &base_branch))
+    with_repo(&state, &repo_path, |repo| {
+        branch_metadata(repo, &base_branch)
+    })
 }
 
 #[tauri::command(async)]
@@ -148,7 +159,9 @@ async fn read_working_file_contents(
     path: String,
     state: State<'_, RepoRegistry>,
 ) -> Result<String, String> {
-    with_repo(&state, &repo_path, |_repo| read_working_file(&repo_path, &path))
+    with_repo(&state, &repo_path, |_repo| {
+        read_working_file(&repo_path, &path)
+    })
 }
 
 #[tauri::command(async)]
@@ -212,6 +225,7 @@ pub fn run() {
                     opened: None,
                     opened_workspaces: Vec::new(),
                     open_error: Some(e),
+                    opened_from_cli: false,
                 }
             });
             app.manage(snapshot);

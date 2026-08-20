@@ -68,12 +68,18 @@ export function useRepoSessionState(
   update: (patch: Partial<AppSettings>) => Promise<void>,
   opened: OpenRepoResult | null = null,
   openedWorkspaces: OpenRepoResult[] = [],
+  openedFromCli = false,
 ) {
   const [state, dispatch] = useReducer(
     sessionReducer,
-    { opened, openedWorkspaces, settings },
+    { opened, openedWorkspaces, settings, openedFromCli },
     (init) =>
-      buildInitialState(init.opened, init.openedWorkspaces, init.settings),
+      buildInitialState(
+        init.opened,
+        init.openedWorkspaces,
+        init.settings,
+        init.openedFromCli,
+      ),
   );
 
   const refreshGenByKey = useRef(new Map<ComparisonKey, number>());

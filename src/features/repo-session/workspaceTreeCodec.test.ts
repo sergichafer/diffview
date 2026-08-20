@@ -102,6 +102,55 @@ describe("buildInitialState", () => {
     expect(state.activeKey).toBe(keyC);
     expect(state.mruKeys[0]).toBe(keyC);
   });
+
+  test("CLI args open every repo as a workspace, first stays active", () => {
+    const state = buildInitialState(
+      opened(repoA, ["main", "feature"]),
+      [
+        opened(repoA, ["main", "feature"]),
+        opened(repoB, ["main", "dev"]),
+        opened(repoC, ["main"]),
+      ],
+      DEFAULT_SETTINGS,
+      true,
+    );
+    const keyC = makeComparisonKey(repoC.path, "main", "main");
+    expect(state.workspaceOrder).toEqual([repoA.path, repoB.path, repoC.path]);
+    expect(state.comparisons[keyA]).toBeDefined();
+    expect(state.comparisons[keyB]).toBeDefined();
+    expect(state.comparisons[keyC]).toBeDefined();
+    expect(state.activeKey).toBe(keyA);
+    expect(state.mruKeys[0]).toBe(keyA);
+  });
+
+  test("CLI repos missing from the tree are appended; first CLI repo is active", () => {
+    const state = buildInitialState(
+      opened(repoC, ["main"]),
+      [
+        opened(repoC, ["main"]),
+        opened(repoA, ["main", "feature"]),
+        opened(repoB, ["main", "dev"]),
+      ],
+      settingsWithTree(),
+      true,
+    );
+    const keyC = makeComparisonKey(repoC.path, "main", "main");
+    expect(state.workspaceOrder).toEqual([repoA.path, repoB.path, repoC.path]);
+    expect(state.activeKey).toBe(keyC);
+    expect(state.mruKeys[0]).toBe(keyC);
+  });
+
+  test("CLI repo already in the tree becomes active", () => {
+    const state = buildInitialState(
+      opened(repoA, ["main", "feature"]),
+      [opened(repoA, ["main", "feature"]), opened(repoB, ["main", "dev"])],
+      settingsWithTree(),
+      true,
+    );
+    expect(state.workspaceOrder).toEqual([repoA.path, repoB.path]);
+    expect(state.activeKey).toBe(keyA);
+    expect(state.mruKeys[0]).toBe(keyA);
+  });
 });
 
 describe("mergeOpenedIntoTree", () => {
