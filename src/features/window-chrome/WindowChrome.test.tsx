@@ -150,33 +150,14 @@ describe("WindowChrome", () => {
     expect(container.querySelector(".window-chrome-traffic")).toBeNull();
   });
 
-  test("macos chrome shows traffic lights and Zoom", () => {
-    platform.value = "macos";
-    act(() => {
-      root.render(<WindowChrome />);
-    });
-    expect(container.querySelector(".window-chrome-mac")).not.toBeNull();
-    expect(container.querySelector(".window-chrome-traffic")).not.toBeNull();
-    expect(container.querySelector(".window-chrome-dot-close")).not.toBeNull();
-    expect(
-      [...container.querySelectorAll("button")].some(
-        (el) => el.getAttribute("aria-label") === "Zoom",
-      ),
-    ).toBe(true);
-    expect(
-      [...container.querySelectorAll("button")].some(
-        (el) => el.getAttribute("aria-label") === "Maximize",
-      ),
-    ).toBe(false);
-  });
-
-  test("darwin chrome matches macos traffic lights", () => {
+  test("darwin chrome shows traffic lights and Zoom", () => {
     platform.value = "darwin";
     act(() => {
       root.render(<WindowChrome />);
     });
     expect(container.querySelector(".window-chrome-mac")).not.toBeNull();
     expect(container.querySelector(".window-chrome-traffic")).not.toBeNull();
+    expect(container.querySelector(".window-chrome-dot-close")).not.toBeNull();
     expect(
       [...container.querySelectorAll("button")].some(
         (el) => el.getAttribute("aria-label") === "Zoom",

@@ -1,10 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import {
-  normalizeTauriPlatform,
-  tauriPlatform,
-  useCustomWindowChrome,
-} from "@/shared/tauri/tauriEnv";
+import { tauriPlatform, useCustomWindowChrome } from "@/shared/tauri/tauriEnv";
 
 function StrokeIcon({
   label,
@@ -99,7 +95,7 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
   const enabled = useCustomWindowChrome();
   const [maximized, setMaximized] = useState(false);
   const [focused, setFocused] = useState(true);
-  const isMac = normalizeTauriPlatform(tauriPlatform()) === "macos";
+  const isMac = tauriPlatform() === "darwin";
 
   useEffect(() => {
     if (!enabled) return;
