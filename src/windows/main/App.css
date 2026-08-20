@@ -56,7 +56,7 @@
   align-items: center;
   gap: 0.15rem;
   max-width: min(280px, 40vw);
-  color: #f87171;
+  color: var(--state-danger);
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -100,7 +100,7 @@
   margin: 14px 0 0;
   max-width: 42ch;
   font-size: 14px;
-  color: #f87171;
+  color: var(--state-danger);
 }
 
 .welcome-open {
