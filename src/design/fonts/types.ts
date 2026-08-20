@@ -9,7 +9,8 @@ export type CodeFontId =
   | "system"
   | "jetbrains-mono"
   | "ibm-plex-mono"
-  | "source-code-pro";
+  | "source-code-pro"
+  | "departure-mono";
 
 export const UI_FONT_IDS = [
   "inter",
@@ -24,6 +25,7 @@ export const CODE_FONT_IDS = [
   "jetbrains-mono",
   "ibm-plex-mono",
   "source-code-pro",
+  "departure-mono",
 ] as const satisfies readonly CodeFontId[];
 
 export const DEFAULT_UI_FONT: UiFontId = "inter";

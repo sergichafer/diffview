@@ -1,0 +1,9 @@
+/* Departure Mono. Copyright 2022–2024 Helena Zhang. SIL OFL 1.1. See THIRD_PARTY_NOTICES.md. */
+@font-face {
+  font-family: "Departure Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("./DepartureMono-Regular.woff2") format("woff2"),
+    url("./DepartureMono-Regular.woff") format("woff");
+}

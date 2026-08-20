@@ -28,6 +28,7 @@ describe("normalizeCodeFont", () => {
     expect(normalizeCodeFont("jetbrains-mono")).toBe("jetbrains-mono");
     expect(normalizeCodeFont("ibm-plex-mono")).toBe("ibm-plex-mono");
     expect(normalizeCodeFont("source-code-pro")).toBe("source-code-pro");
+    expect(normalizeCodeFont("departure-mono")).toBe("departure-mono");
   });
 
   test("falls back to System for unknown or missing values", () => {

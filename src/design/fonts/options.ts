@@ -49,4 +49,9 @@ export const CODE_FONT_OPTIONS: readonly FontOption<CodeFontId>[] = [
     label: "Source Code Pro",
     description: "Adobe’s classic mono",
   },
+  {
+    value: "departure-mono",
+    label: "Departure Mono",
+    description: "Pixel command-line face",
+  },
 ];
