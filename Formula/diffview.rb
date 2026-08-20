@@ -19,6 +19,10 @@ class Diffview < Formula
     ENV["CI"] = "true"
     ENV["CARGO_HOME"] = buildpath/".cargo"
     ENV["npm_config_cache"] = buildpath/".npm"
+    # Homebrew superenv forces these, which would dynamically link Homebrew
+    # libgit2/openssl. Ad-hoc signed apps cannot load those dylibs on Apple Silicon.
+    ENV.delete("LIBGIT2_NO_VENDOR")
+    ENV.delete("OPENSSL_NO_VENDOR")
 
     system "npm", "ci"
     system "npx", "tauri", "build", "--bundles", "app"
@@ -51,5 +55,8 @@ class Diffview < Formula
     binary = bin/"diffview"
     assert_path_exists binary
     assert_predicate binary, :executable?
+    linkage = shell_output("otool -L #{binary}")
+    refute_match "libssl", linkage
+    refute_match %r{libgit2[.]}, linkage
   end
 end
