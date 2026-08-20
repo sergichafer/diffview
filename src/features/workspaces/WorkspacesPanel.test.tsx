@@ -161,13 +161,16 @@ function session(overrides: Partial<RepoSessionValue> = {}): RepoSessionValue {
 let container: HTMLElement;
 let root: ReturnType<typeof createRoot>;
 
-function renderPanel(value: RepoSessionValue) {
+function renderPanel(
+  value: RepoSessionValue,
+  onRequestPalette: () => void = () => {},
+) {
   act(() => {
     root.render(
       <RepoSessionContext.Provider value={value}>
         <WorkspacesPanel
           width={240}
-          onRequestPalette={() => {}}
+          onRequestPalette={onRequestPalette}
           panelFocused={true}
           onPanelFocusChange={() => {}}
         />
@@ -479,5 +482,38 @@ describe("WorkspacesPanel rail", () => {
     });
     expect(activateComparison).toHaveBeenCalledWith(liveKey);
     expect(activateComparison).not.toHaveBeenCalledWith(frozenKey);
+  });
+});
+
+describe("WorkspacesPanel empty group", () => {
+  test("New comparison seeds a default comparison then opens the palette", () => {
+    const spawnComparison = mock(
+      (_id: string, _base: string, _head: string) => {},
+    );
+    const onRequestPalette = mock(() => {});
+    renderPanel(
+      session({
+        workspaces: [{ id: repo.path, group: group([]) }],
+        groups: { [repo.path]: group([]) },
+        comparisons: {},
+        activeKey: null,
+        mruKeys: [],
+        spawnComparison,
+      }),
+      onRequestPalette,
+    );
+    const add = container.querySelector(
+      `button[aria-label="New comparison in ${repo.name}"]`,
+    ) as HTMLButtonElement | null;
+    expect(add).toBeTruthy();
+    act(() => {
+      add!.click();
+    });
+    expect(spawnComparison).toHaveBeenCalledWith(
+      repo.path,
+      "main",
+      "feature/panels-seams",
+    );
+    expect(onRequestPalette).toHaveBeenCalled();
   });
 });

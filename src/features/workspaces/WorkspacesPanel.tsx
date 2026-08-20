@@ -34,6 +34,7 @@ export function WorkspacesPanel({
     activateComparison,
     closeComparison,
     closeWorkspace,
+    spawnComparison,
     addWorkspace,
     toggleGroupCollapsed,
     setColumnCollapsed,
@@ -74,10 +75,27 @@ export function WorkspacesPanel({
 
   const openPaletteForWorkspace = useCallback(
     (workspaceId: string) => {
-      activateWorkspaceMostRecent(workspaceId);
+      const group = workspaces.find((w) => w.id === workspaceId)?.group;
+      if (!group) return;
+      const key = mostRecentKeyInGroup(mruKeys, group.comparisonKeys);
+      if (key) {
+        activateComparison(key);
+      } else {
+        spawnComparison(
+          workspaceId,
+          group.repo.defaultBase,
+          group.repo.headBranch,
+        );
+      }
       onRequestPalette();
     },
-    [activateWorkspaceMostRecent, onRequestPalette],
+    [
+      activateComparison,
+      mruKeys,
+      onRequestPalette,
+      spawnComparison,
+      workspaces,
+    ],
   );
 
   // Cmd/Ctrl+1-9 and Cmd/Ctrl+Tab (MRU)

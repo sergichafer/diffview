@@ -48,6 +48,7 @@ interface AppBodyProps {
   onWorkspacesSplitterKeyDown: ReturnType<
     typeof useSplitResize
   >["onSplitterKeyDown"];
+  openError: string | null;
 }
 
 function LoadingShell({
@@ -90,6 +91,7 @@ function AppBody({
   workspacesSplitterSettling,
   onWorkspacesSplitterPointerDown,
   onWorkspacesSplitterKeyDown,
+  openError,
 }: AppBodyProps) {
   const { workspaces } = useRepoSession();
   const [showSettings, setShowSettings] = useState(false);
@@ -134,6 +136,7 @@ function AppBody({
             void update({ launchMode, launchPreferenceSet: true })
           }
           onOpenSettings={() => setShowSettings(true)}
+          openError={openError}
         />
         {settingsPortal}
       </>,
@@ -144,6 +147,7 @@ function AppBody({
     <TopBar
       onOpenSettings={() => setShowSettings(true)}
       paletteOpenRequest={paletteOpenRequest}
+      startupError={openError}
     />
   );
 
@@ -218,6 +222,7 @@ function AppReady() {
       update={update}
       opened={startup.opened}
       openedWorkspaces={startup.openedWorkspaces}
+      cliOpenedPaths={startup.cliOpenedPaths}
     >
       <DiffReviewProvider>
         <AppBody
@@ -234,6 +239,7 @@ function AppReady() {
           workspacesSplitterSettling={workspacesSplitterSettling}
           onWorkspacesSplitterPointerDown={onWorkspacesSplitterPointerDown}
           onWorkspacesSplitterKeyDown={onWorkspacesSplitterKeyDown}
+          openError={startup.openError}
         />
       </DiffReviewProvider>
     </RepoSessionProvider>

@@ -90,6 +90,7 @@ let root: ReturnType<typeof createRoot>;
 function renderTopBar(
   paletteOpenRequest: number,
   sessionValue: RepoSessionValue = session(),
+  startupError: string | null = null,
 ) {
   act(() => {
     root.render(
@@ -97,6 +98,7 @@ function renderTopBar(
         <TopBar
           onOpenSettings={noopSettings}
           paletteOpenRequest={paletteOpenRequest}
+          startupError={startupError}
         />
       </RepoSessionContext.Provider>,
     );
@@ -164,5 +166,12 @@ describe("TopBar refresh", () => {
     expect(refresh?.querySelector(".icon-btn-spinner")).toBeTruthy();
     expect(container.querySelector(".top-bar-spinner")).toBeNull();
     expect(refresh?.hasAttribute("disabled")).toBe(false);
+  });
+
+  test("shows a startup open error", () => {
+    renderTopBar(0, session(), "/typo: not a git repository");
+    expect(container.textContent).toContain(
+      "Could not open: /typo: not a git repository",
+    );
   });
 });
