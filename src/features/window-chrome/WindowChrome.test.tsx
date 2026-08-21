@@ -45,17 +45,6 @@ mock.module("@/shared/tauri/tauriEnv", () => ({
 
 type FocusPayload = { payload: boolean };
 
-function pendingFlag() {
-  let resolve!: (value: boolean) => void;
-  const promise = new Promise<boolean>((r) => {
-    resolve = r;
-  });
-  return { promise, resolve };
-}
-
-let maximized = pendingFlag();
-let fullscreen = pendingFlag();
-
 const unlistenResize = mock(() => {});
 const unlistenFocus = mock(() => {});
 const onResized = mock((_handler: () => void) => Promise.resolve(unlistenResize));
@@ -65,8 +54,8 @@ const onFocusChanged = mock((_handler: (event: FocusPayload) => void) =>
 const minimize = mock(() => Promise.resolve());
 const toggleMaximize = mock(() => Promise.resolve());
 const close = mock(() => Promise.resolve());
-const isMaximized = mock(() => maximized.promise);
-const isFullscreen = mock(() => fullscreen.promise);
+const isMaximized = mock(() => Promise.resolve(false));
+const isFullscreen = mock(() => Promise.resolve(false));
 
 class WebviewWindow {
   static getByLabel(_label: string) {
@@ -101,21 +90,23 @@ let root: ReturnType<typeof createRoot>;
 beforeEach(() => {
   chromeEnabled.value = true;
   platform.value = "linux";
-  maximized = pendingFlag();
-  fullscreen = pendingFlag();
-  for (const m of [
-    isMaximized,
-    isFullscreen,
-    onResized,
-    onFocusChanged,
-    unlistenResize,
-    unlistenFocus,
-    minimize,
-    toggleMaximize,
-    close,
-  ]) {
-    m.mockClear();
-  }
+  isMaximized.mockReset();
+  isMaximized.mockImplementation(() => Promise.resolve(false));
+  isFullscreen.mockReset();
+  isFullscreen.mockImplementation(() => Promise.resolve(false));
+  onResized.mockReset();
+  onResized.mockImplementation((_handler: () => void) =>
+    Promise.resolve(unlistenResize),
+  );
+  onFocusChanged.mockReset();
+  onFocusChanged.mockImplementation((_handler: (event: FocusPayload) => void) =>
+    Promise.resolve(unlistenFocus),
+  );
+  unlistenResize.mockClear();
+  unlistenFocus.mockClear();
+  minimize.mockClear();
+  toggleMaximize.mockClear();
+  close.mockClear();
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -125,6 +116,20 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
 });
+
+async function renderChrome() {
+  await act(async () => {
+    root.render(<WindowChrome />);
+  });
+}
+
+async function reportResize() {
+  const handler = onResized.mock.calls[0]?.[0];
+  expect(handler).toBeDefined();
+  await act(async () => {
+    handler?.();
+  });
+}
 
 describe("WindowChrome", () => {
   test("enabled=false renders null and does not subscribe", () => {
@@ -138,10 +143,8 @@ describe("WindowChrome", () => {
     expect(onFocusChanged).not.toHaveBeenCalled();
   });
 
-  test("linux chrome shows brand and Maximize", () => {
-    act(() => {
-      root.render(<WindowChrome />);
-    });
+  test("linux chrome shows brand and Maximize", async () => {
+    await renderChrome();
     expect(container.querySelector(".window-chrome-title")?.textContent).toBe(
       "Diffview",
     );
@@ -152,11 +155,9 @@ describe("WindowChrome", () => {
     expect(container.querySelector(".window-chrome-mac")).toBeNull();
   });
 
-  test("darwin chrome uses Overlay inset and draws no caption buttons", () => {
+  test("darwin chrome uses Overlay inset and draws no caption buttons", async () => {
     platform.value = "darwin";
-    act(() => {
-      root.render(<WindowChrome />);
-    });
+    await renderChrome();
     const header = container.querySelector(".window-chrome-mac");
     expect(header).not.toBeNull();
     expect(header?.getAttribute("data-tauri-drag-region")).toBe("deep");
@@ -168,11 +169,9 @@ describe("WindowChrome", () => {
     expect(isMaximized).not.toHaveBeenCalled();
   });
 
-  test("darwin chrome marks fullscreen after isFullscreen resolves true", async () => {
+  test("darwin chrome marks fullscreen after a resize reports fullscreen", async () => {
     platform.value = "darwin";
-    act(() => {
-      root.render(<WindowChrome />);
-    });
+    await renderChrome();
     expect(container.querySelector(".window-chrome-fullscreen")).toBeNull();
     expect(
       container
@@ -180,10 +179,8 @@ describe("WindowChrome", () => {
         ?.getAttribute("data-tauri-drag-region"),
     ).toBe("deep");
 
-    await act(async () => {
-      fullscreen.resolve(true);
-      await fullscreen.promise;
-    });
+    isFullscreen.mockImplementation(() => Promise.resolve(true));
+    await reportResize();
 
     const header = container.querySelector(".window-chrome-mac");
     expect(header).not.toBeNull();
@@ -191,20 +188,16 @@ describe("WindowChrome", () => {
     expect(header?.hasAttribute("data-tauri-drag-region")).toBe(false);
   });
 
-  test("Maximize label becomes Restore after isMaximized resolves true", async () => {
-    act(() => {
-      root.render(<WindowChrome />);
-    });
+  test("Maximize label becomes Restore after a resize reports maximized", async () => {
+    await renderChrome();
     expect(
       [...container.querySelectorAll("button")].some(
         (el) => el.getAttribute("aria-label") === "Maximize",
       ),
     ).toBe(true);
 
-    await act(async () => {
-      maximized.resolve(true);
-      await maximized.promise;
-    });
+    isMaximized.mockImplementation(() => Promise.resolve(true));
+    await reportResize();
 
     expect(
       [...container.querySelectorAll("button")].some(
@@ -214,9 +207,9 @@ describe("WindowChrome", () => {
   });
 
   test("unmount before isMaximized resolves does not throw and unlistens", async () => {
-    act(() => {
-      root.render(<WindowChrome />);
-    });
+    isMaximized.mockImplementation(() => new Promise(() => {}));
+
+    await renderChrome();
     expect(onResized).toHaveBeenCalled();
     expect(onFocusChanged).toHaveBeenCalled();
 
@@ -229,17 +222,10 @@ describe("WindowChrome", () => {
     });
     expect(unlistenResize).toHaveBeenCalled();
     expect(unlistenFocus).toHaveBeenCalled();
-
-    await act(async () => {
-      maximized.resolve(true);
-      await maximized.promise;
-    });
   });
 
   test("focus after unmount does not throw", async () => {
-    act(() => {
-      root.render(<WindowChrome />);
-    });
+    await renderChrome();
     const handler = onFocusChanged.mock.calls[0]?.[0];
     expect(handler).toBeDefined();
 
