@@ -3,17 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   desktopWindowChromeOptions,
   MAC_TRAFFIC_LIGHT_POSITION,
-  usesNativeMacTitlebar,
 } from "./tauriEnv";
-
-describe("usesNativeMacTitlebar", () => {
-  test("true only for darwin", () => {
-    expect(usesNativeMacTitlebar("darwin")).toBe(true);
-    expect(usesNativeMacTitlebar("linux")).toBe(false);
-    expect(usesNativeMacTitlebar("windows")).toBe(false);
-    expect(usesNativeMacTitlebar(null)).toBe(false);
-  });
-});
 
 describe("desktopWindowChromeOptions", () => {
   test("darwin uses Overlay titlebar and traffic light position", () => {

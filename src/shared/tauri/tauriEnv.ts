@@ -21,14 +21,7 @@ export function useCustomWindowChrome(): boolean {
   return isTauriApp() && tauriPlatform() !== "ios" && tauriPlatform() !== "android";
 }
 
-/** Overlay titlebar on Darwin so the system draws the traffic lights. */
-export function usesNativeMacTitlebar(
-  platform: string | null = tauriPlatform(),
-): boolean {
-  return platform === "darwin";
-}
-
-/** Origin of the AppKit cluster in the 28px Overlay strip. Keep in sync with tauri.macos.conf.json. */
+/** Origin of the traffic-light cluster in the 28px Overlay strip. Keep in sync with tauri.macos.conf.json. */
 export const MAC_TRAFFIC_LIGHT_POSITION = { x: 16, y: 8 } as const;
 
 export type DesktopWindowChromeOptions = {
@@ -42,7 +35,7 @@ export type DesktopWindowChromeOptions = {
 export function desktopWindowChromeOptions(
   platform: string | null = tauriPlatform(),
 ): DesktopWindowChromeOptions {
-  if (usesNativeMacTitlebar(platform)) {
+  if (platform === "darwin") {
     return {
       decorations: true,
       hiddenTitle: true,
