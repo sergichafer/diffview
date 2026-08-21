@@ -51,7 +51,7 @@
 
 .branch-diff-panel,
 .diff-panel.branch-diff-panel {
-  background: var(--bg-canvas);
+  background: var(--bg-elevated);
   color: var(--fg-base);
 }
 
@@ -69,13 +69,14 @@
   font-size: 12px;
   color: var(--fg-muted);
   border-bottom: none;
-  background: var(--bg-canvas);
+  background: var(--bg-elevated);
   flex-shrink: 0;
 }
 
 .branch-code-view {
   height: 100%;
   overflow: auto;
+  background: var(--bg-elevated);
   --diffs-scrollbar-gutter-override: var(--scrollbar-size, 6px);
   --diffs-bg-buffer-override: var(--bg-canvas);
   --diffs-bg-context-override: var(--bg-canvas);
@@ -214,7 +215,7 @@ button.diff-save-status {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--bg-canvas);
+  background: var(--bg-elevated);
 }
 
 .diff-panel.is-empty {
