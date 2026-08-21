@@ -24,6 +24,10 @@ export function useCustomWindowChrome(): boolean {
 /** Origin of the traffic-light cluster in the 28px Overlay strip. Keep in sync with tauri.macos.conf.json. */
 export const MAC_TRAFFIC_LIGHT_POSITION = { x: 16, y: 8 } as const;
 
+/** Wordmark clearance: origin.x + 3×12px lights + 2×8px gaps + 12px trailing. */
+export const MAC_TRAFFIC_LIGHT_INSET_PX =
+  MAC_TRAFFIC_LIGHT_POSITION.x + 12 * 3 + 8 * 2 + 12;
+
 export type DesktopWindowChromeOptions = {
   decorations: boolean;
   hiddenTitle: boolean;

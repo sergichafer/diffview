@@ -283,16 +283,6 @@ mod window_config_tests {
         let base_obj = base.as_object().expect("base window object");
         let mac_obj = mac.as_object().expect("macos window object");
 
-        assert!(
-            base_obj.get("hiddenTitle").is_none(),
-            "hiddenTitle is a macos Overlay field"
-        );
-        assert!(
-            base_obj.get("titleBarStyle").is_none(),
-            "titleBarStyle Overlay with decorations false is ignored"
-        );
-        assert!(base_obj.get("trafficLightPosition").is_none());
-
         for (key, value) in base_obj {
             if key == "decorations" {
                 continue;

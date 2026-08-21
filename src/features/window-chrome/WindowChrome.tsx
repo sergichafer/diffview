@@ -69,9 +69,7 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
 
   if (!enabled) return null;
 
-  const chromeClass = `window-chrome${focused ? "" : " window-chrome-inactive"}${
-    isMac && fullscreen ? " window-chrome-fullscreen" : ""
-  }`;
+  const chromeClass = `window-chrome${focused ? "" : " window-chrome-inactive"}`;
 
   // macOS Overlay titlebar owns the traffic lights and Spaces fullscreen.
   // Windowed strip is a deep drag region; fullscreen is not movable.

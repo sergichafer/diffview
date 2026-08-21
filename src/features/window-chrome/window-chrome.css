@@ -7,7 +7,7 @@
 .window-chrome {
   position: relative;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   flex-shrink: 0;
   height: var(--window-chrome-height, 28px);
   user-select: none;
@@ -21,8 +21,10 @@
  * tracks all four themes. */
 
 .window-chrome-title {
-  display: flex;
-  align-items: center;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 0 0.65rem;
   font-family: var(--font-ui, system-ui, sans-serif);
   font-size: 0.9rem;
@@ -35,14 +37,14 @@
   transition: opacity 120ms ease;
 }
 
-/* ── macOS: native traffic lights; wordmark centred ─────────────
- * Leading inset: trafficLightPosition.x 16 + 3×12 lights + 2×8 gaps + 12
- * trailing. Same origin as tauri.macos.conf.json / MAC_TRAFFIC_LIGHT_POSITION. */
-
-.window-chrome-mac {
-  align-items: center;
-  padding: 0 0.75rem 0 var(--window-chrome-traffic-inset, 80px);
+.window-chrome > .window-chrome-title {
+  flex: 1;
 }
+
+/* ── macOS: native traffic lights; wordmark centred ─────────────
+ * Centre max-width reserves trafficLightPosition.x + 3×12 lights +
+ * 2×8 gaps + 12 trailing on each side. Same origin as
+ * tauri.macos.conf.json / MAC_TRAFFIC_LIGHT_POSITION. */
 
 .window-chrome-center {
   position: absolute;
@@ -57,9 +59,7 @@
 
 .window-chrome-center .window-chrome-title {
   padding: 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* ── Windows / Linux: caption buttons right ───────────────────── */

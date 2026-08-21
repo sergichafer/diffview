@@ -155,7 +155,7 @@ describe("WindowChrome", () => {
     expect(container.querySelector(".window-chrome-mac")).toBeNull();
   });
 
-  test("darwin chrome uses Overlay inset and draws no caption buttons", async () => {
+  test("darwin chrome draws no caption buttons and queries fullscreen", async () => {
     platform.value = "darwin";
     await renderChrome();
     const header = container.querySelector(".window-chrome-mac");
@@ -169,10 +169,9 @@ describe("WindowChrome", () => {
     expect(isMaximized).not.toHaveBeenCalled();
   });
 
-  test("darwin chrome marks fullscreen after a resize reports fullscreen", async () => {
+  test("darwin chrome drops the drag region after a resize reports fullscreen", async () => {
     platform.value = "darwin";
     await renderChrome();
-    expect(container.querySelector(".window-chrome-fullscreen")).toBeNull();
     expect(
       container
         .querySelector(".window-chrome-mac")
@@ -184,7 +183,6 @@ describe("WindowChrome", () => {
 
     const header = container.querySelector(".window-chrome-mac");
     expect(header).not.toBeNull();
-    expect(header?.classList.contains("window-chrome-fullscreen")).toBe(true);
     expect(header?.hasAttribute("data-tauri-drag-region")).toBe(false);
   });
 
@@ -207,7 +205,13 @@ describe("WindowChrome", () => {
   });
 
   test("unmount before isMaximized resolves does not throw and unlistens", async () => {
-    isMaximized.mockImplementation(() => new Promise(() => {}));
+    let resolveMaximized = (_value: boolean) => {};
+    isMaximized.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveMaximized = resolve;
+        }),
+    );
 
     await renderChrome();
     expect(onResized).toHaveBeenCalled();
@@ -218,10 +222,38 @@ describe("WindowChrome", () => {
     });
 
     await act(async () => {
-      await Promise.resolve();
+      resolveMaximized(true);
     });
     expect(unlistenResize).toHaveBeenCalled();
     expect(unlistenFocus).toHaveBeenCalled();
+    expect(container.querySelector(".window-chrome")).toBeNull();
+  });
+
+  test("unmount before isFullscreen resolves does not restore the drag region", async () => {
+    platform.value = "darwin";
+    let resolveFullscreen = (_value: boolean) => {};
+    isFullscreen.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveFullscreen = resolve;
+        }),
+    );
+
+    await renderChrome();
+    expect(
+      container
+        .querySelector(".window-chrome-mac")
+        ?.getAttribute("data-tauri-drag-region"),
+    ).toBe("deep");
+
+    act(() => {
+      root.unmount();
+    });
+
+    await act(async () => {
+      resolveFullscreen(true);
+    });
+    expect(container.querySelector(".window-chrome")).toBeNull();
   });
 
   test("focus after unmount does not throw", async () => {
