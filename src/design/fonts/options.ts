@@ -26,6 +26,11 @@ export const UI_FONT_OPTIONS: readonly FontOption<UiFontId>[] = [
     label: "Plus Jakarta Sans",
     description: "Soft geometric sans",
   },
+  {
+    value: "departure-mono",
+    label: "Departure Mono",
+    description: "Pixel command-line face",
+  },
 ];
 
 export const CODE_FONT_OPTIONS: readonly FontOption<CodeFontId>[] = [

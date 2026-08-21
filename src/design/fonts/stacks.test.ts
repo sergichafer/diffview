@@ -11,6 +11,12 @@ describe("uiFontStack", () => {
       'system-ui, -apple-system, "Segoe UI", sans-serif',
     );
   });
+
+  test("departure-mono uses the upstream family name then system UI fallbacks", () => {
+    const stack = uiFontStack("departure-mono");
+    expect(stack.startsWith('"Departure Mono"')).toBe(true);
+    expect(stack).toContain("system-ui");
+  });
 });
 
 describe("codeFontStack", () => {

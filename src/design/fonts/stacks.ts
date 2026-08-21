@@ -12,6 +12,7 @@ const UI_STACKS: Record<UiFontId, string> = {
   syne: `"Syne", ${SYSTEM_UI_STACK}`,
   "ibm-plex-sans": `"IBM Plex Sans", ${SYSTEM_UI_STACK}`,
   "plus-jakarta-sans": `"Plus Jakarta Sans", ${SYSTEM_UI_STACK}`,
+  "departure-mono": `"Departure Mono", ${SYSTEM_UI_STACK}`,
 };
 
 const CODE_STACKS: Record<CodeFontId, string> = {
