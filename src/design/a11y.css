@@ -30,6 +30,11 @@
   transform: translateY(0);
 }
 
+.app:has(.window-chrome-mac) .skip-link {
+  /* Traffic lights occupy the default origin on Darwin Overlay. */
+  left: var(--window-chrome-traffic-inset, 80px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

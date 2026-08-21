@@ -252,3 +252,53 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+mod window_config_tests {
+    use serde_json::Value;
+
+    fn read_windows(path: &str) -> Vec<Value> {
+        let text = std::fs::read_to_string(path).unwrap_or_else(|e| {
+            panic!("read {path}: {e}");
+        });
+        let v: Value = serde_json::from_str(&text).unwrap_or_else(|e| {
+            panic!("parse {path}: {e}");
+        });
+        v["app"]["windows"]
+            .as_array()
+            .cloned()
+            .unwrap_or_else(|| panic!("{path} app.windows is not an array"))
+    }
+
+    #[test]
+    fn macos_overlay_replaces_windows_array_with_decorations() {
+        let dir = env!("CARGO_MANIFEST_DIR");
+        let base_windows = read_windows(&format!("{dir}/tauri.conf.json"));
+        let mac_windows = read_windows(&format!("{dir}/tauri.macos.conf.json"));
+        assert_eq!(base_windows.len(), 1);
+        assert_eq!(mac_windows.len(), base_windows.len());
+        assert_eq!(mac_windows[0]["label"], base_windows[0]["label"]);
+        let base = &base_windows[0];
+        let mac = &mac_windows[0];
+        let base_obj = base.as_object().expect("base window object");
+        let mac_obj = mac.as_object().expect("macos window object");
+
+        for (key, value) in base_obj {
+            if key == "decorations" {
+                continue;
+            }
+            assert_eq!(
+                mac_obj.get(key),
+                Some(value),
+                "tauri.macos.conf.json windows[0] dropped {key}; RFC 7396 replaces the array"
+            );
+        }
+
+        assert_eq!(base["decorations"], false);
+        assert_eq!(mac["decorations"], true);
+        assert_eq!(mac["hiddenTitle"], true);
+        assert_eq!(mac["titleBarStyle"], "Overlay");
+        assert_eq!(mac["trafficLightPosition"]["x"], serde_json::json!(16));
+        assert_eq!(mac["trafficLightPosition"]["y"], serde_json::json!(8));
+    }
+}
