@@ -2,14 +2,7 @@
  * One strip for every desktop OS:
  *   macOS         → AppKit Overlay traffic lights; wordmark centred, inset
  *   Windows/Linux → wordmark left, caption buttons right
- * The whole strip is a Tauri "deep" drag region: buttons opt out of dragging
- * automatically, and double-click maximise is Tauri's built-in behaviour. */
-
-.window-chrome {
-  border-bottom: none;
-  box-shadow: none;
-  background: transparent;
-}
+ * The windowed strip is a Tauri deep drag region. Caption buttons opt out. */
 
 .window-chrome {
   position: relative;
@@ -18,6 +11,9 @@
   flex-shrink: 0;
   height: var(--window-chrome-height, 28px);
   user-select: none;
+  border-bottom: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 /* ── Window title ───────────────────────────────────────────────
@@ -40,17 +36,12 @@
 }
 
 /* ── macOS: native traffic lights; wordmark centred ─────────────
- * 80px leading inset is 20px edge + three 12px lights with 8px gaps,
- * plus a little air so the wordmark never sits under the green button. */
+ * Leading inset: trafficLightPosition.x 16 + 3×12 lights + 2×8 gaps + 12
+ * trailing. Same origin as tauri.macos.conf.json / MAC_TRAFFIC_LIGHT_POSITION. */
 
 .window-chrome-mac {
-  --window-chrome-traffic-inset: 80px;
   align-items: center;
-  padding: 0 0.75rem 0 var(--window-chrome-traffic-inset);
-}
-
-.window-chrome-mac.window-chrome-fullscreen {
-  --window-chrome-traffic-inset: 0.75rem;
+  padding: 0 0.75rem 0 var(--window-chrome-traffic-inset, 80px);
 }
 
 .window-chrome-center {
@@ -60,7 +51,7 @@
   transform: translate(-50%, -50%);
   display: flex;
   justify-content: center;
-  max-width: calc(100% - 2 * var(--window-chrome-traffic-inset, 0px));
+  max-width: calc(100% - 2 * var(--window-chrome-traffic-inset, 80px));
   overflow: hidden;
 }
 

@@ -16,16 +16,6 @@ use startup::{
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_cli::CliExt;
 
-#[cfg(target_os = "macos")]
-fn apply_macos_overlay_titlebar(window: &tauri::WebviewWindow) {
-    if let Err(e) = window.set_decorations(true) {
-        eprintln!("macOS native decorations: {e}");
-    }
-    if let Err(e) = window.set_title_bar_style(tauri::TitleBarStyle::Overlay) {
-        eprintln!("macOS overlay title bar: {e}");
-    }
-}
-
 fn push_unique_open(opened_workspaces: &mut Vec<OpenRepoResult>, result: OpenRepoResult) {
     if !opened_workspaces
         .iter()
@@ -233,11 +223,6 @@ pub fn run() {
         .plugin(tauri_plugin_cli::init())
         .manage(RepoRegistry::new())
         .setup(|app| {
-            #[cfg(target_os = "macos")]
-            if let Some(window) = app.get_webview_window("main") {
-                apply_macos_overlay_titlebar(&window);
-            }
-
             let snapshot = prepare_startup(app.handle()).unwrap_or_else(|e| {
                 eprintln!("Startup prepare failed: {e}");
                 StartupSnapshot {
@@ -283,26 +268,39 @@ mod window_config_tests {
     }
 
     #[test]
-    fn macos_overlay_keeps_shared_window_fields() {
+    fn macos_overlay_replaces_windows_array_with_decorations() {
         let dir = env!("CARGO_MANIFEST_DIR");
         let base = read_window(&format!("{dir}/tauri.conf.json"));
         let mac = read_window(&format!("{dir}/tauri.macos.conf.json"));
-        for key in [
-            "label",
-            "title",
-            "width",
-            "height",
-            "minWidth",
-            "minHeight",
-            "dragDropEnabled",
-            "hiddenTitle",
-            "titleBarStyle",
-        ] {
-            assert_eq!(base[key], mac[key], "{key}");
+        let base_obj = base.as_object().expect("base window object");
+        let mac_obj = mac.as_object().expect("macos window object");
+
+        assert!(
+            base_obj.get("hiddenTitle").is_none(),
+            "hiddenTitle is a macos Overlay field"
+        );
+        assert!(
+            base_obj.get("titleBarStyle").is_none(),
+            "titleBarStyle Overlay with decorations false is ignored"
+        );
+        assert!(base_obj.get("trafficLightPosition").is_none());
+
+        for (key, value) in base_obj {
+            if key == "decorations" {
+                continue;
+            }
+            assert_eq!(
+                mac_obj.get(key),
+                Some(value),
+                "tauri.macos.conf.json windows[0] dropped {key}; RFC 7396 replaces the array"
+            );
         }
+
         assert_eq!(base["decorations"], false);
         assert_eq!(mac["decorations"], true);
         assert_eq!(mac["hiddenTitle"], true);
         assert_eq!(mac["titleBarStyle"], "Overlay");
+        assert_eq!(mac["trafficLightPosition"]["x"], serde_json::json!(16));
+        assert_eq!(mac["trafficLightPosition"]["y"], serde_json::json!(8));
     }
 }

@@ -1,5 +1,8 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { desktopWindowChromeOptions } from "@/shared/tauri/tauriEnv";
+import {
+  desktopWindowChromeOptions,
+  tauriPlatform,
+} from "@/shared/tauri/tauriEnv";
 
 const PREVIEW_IMAGE_EXTENSIONS = [
   ".png",
@@ -54,7 +57,7 @@ export async function openPreviewWindow(repoPath: string, path: string) {
     height: 720,
     center: true,
     dragDropEnabled: false,
-    ...desktopWindowChromeOptions(),
+    ...desktopWindowChromeOptions(tauriPlatform()),
   });
 }
 

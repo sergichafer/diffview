@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import * as tauriEnvActual from "@/shared/tauri/tauriEnv";
 
-const chromeOptions = {
-  decorations: true,
-  hiddenTitle: true,
-  titleBarStyle: "overlay" as const,
-};
+const platform = { value: "linux" as string | null };
 
 mock.module("@/shared/tauri/tauriEnv", () => ({
-  desktopWindowChromeOptions: () => chromeOptions,
+  ...tauriEnvActual,
+  isTauriApp: () => true,
+  tauriPlatform: () => platform.value,
 }));
 
 type CreateCall = { label: string; options: Record<string, unknown> };
@@ -33,17 +32,34 @@ const { openPreviewWindow } = await import("./preview");
 
 beforeEach(() => {
   creates.length = 0;
+  platform.value = "linux";
 });
 
 describe("openPreviewWindow", () => {
-  test("spreads desktop window chrome onto the preview window", async () => {
+  test("linux preview is frameless with in-content chrome", async () => {
     await openPreviewWindow("/repos/demo", "README.md");
     expect(creates).toHaveLength(1);
     expect(creates[0]?.label).toBe("preview");
     expect(creates[0]?.options).toMatchObject({
+      title: "Preview: README.md",
+      decorations: false,
+      hiddenTitle: false,
+      dragDropEnabled: false,
+    });
+    expect(creates[0]?.options.titleBarStyle).toBeUndefined();
+    expect(creates[0]?.options.trafficLightPosition).toBeUndefined();
+  });
+
+  test("darwin preview uses Overlay traffic lights", async () => {
+    platform.value = "darwin";
+    await openPreviewWindow("/repos/demo", "README.md");
+    expect(creates).toHaveLength(1);
+    expect(creates[0]?.options).toMatchObject({
+      title: "Preview: README.md",
       decorations: true,
       hiddenTitle: true,
       titleBarStyle: "overlay",
+      trafficLightPosition: { x: 16, y: 8 },
       dragDropEnabled: false,
     });
   });

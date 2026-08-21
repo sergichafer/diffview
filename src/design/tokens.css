@@ -20,6 +20,8 @@
   --type-lead-ui: 1.25;
 
   --scroll-edge-size: 10px;
+  --window-chrome-height: 28px;
+  --window-chrome-traffic-inset: 80px;
 }
 
 .app {

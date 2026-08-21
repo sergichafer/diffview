@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   desktopWindowChromeOptions,
+  MAC_TRAFFIC_LIGHT_POSITION,
   usesNativeMacTitlebar,
 } from "./tauriEnv";
 
@@ -15,11 +16,14 @@ describe("usesNativeMacTitlebar", () => {
 
 describe("desktopWindowChromeOptions", () => {
   test("darwin keeps AppKit traffic lights via Overlay", () => {
-    expect(desktopWindowChromeOptions("darwin")).toEqual({
+    const options = desktopWindowChromeOptions("darwin");
+    expect(options).toMatchObject({
       decorations: true,
       hiddenTitle: true,
       titleBarStyle: "overlay",
     });
+    expect(options.trafficLightPosition?.x).toBe(MAC_TRAFFIC_LIGHT_POSITION.x);
+    expect(options.trafficLightPosition?.y).toBe(MAC_TRAFFIC_LIGHT_POSITION.y);
   });
 
   test("windows and linux use in-content caption buttons", () => {

@@ -1,6 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { tauriPlatform, useCustomWindowChrome } from "@/shared/tauri/tauriEnv";
+import {
+  tauriPlatform,
+  useCustomWindowChrome,
+  usesNativeMacTitlebar,
+} from "@/shared/tauri/tauriEnv";
 
 function StrokeIcon({
   label,
@@ -31,7 +35,7 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
   const [maximized, setMaximized] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [focused, setFocused] = useState(true);
-  const isMac = tauriPlatform() === "darwin";
+  const isMac = usesNativeMacTitlebar(tauriPlatform());
 
   useEffect(() => {
     if (!enabled) return;
@@ -71,13 +75,13 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
     isMac && fullscreen ? " window-chrome-fullscreen" : ""
   }`;
 
-  // Deep drag region: buttons opt out; Tauri owns double-click zoom.
-  // macOS Overlay titlebar owns the traffic lights and native fullscreen.
+  // macOS Overlay titlebar owns the traffic lights and Spaces fullscreen.
+  // Windowed strip is a deep drag region; fullscreen is not movable.
   if (isMac) {
     return (
       <header
         className={`${chromeClass} window-chrome-mac`}
-        data-tauri-drag-region="deep"
+        data-tauri-drag-region={fullscreen ? undefined : "deep"}
       >
         <div className="window-chrome-center">
           <span className="window-chrome-title">{title}</span>
@@ -86,23 +90,21 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
     );
   }
 
-  const win = getCurrentWebviewWindow();
-  const minimize = () => void win.minimize();
-  const toggleMaximize = () => void win.toggleMaximize();
-  const close = () => void win.close();
-
   return (
     <header className={chromeClass} data-tauri-drag-region="deep">
       <span className="window-chrome-title">{title}</span>
       <div className="window-chrome-controls window-chrome-controls-stroke">
-        <StrokeIcon label="Minimize" onClick={minimize}>
+        <StrokeIcon
+          label="Minimize"
+          onClick={() => void getCurrentWebviewWindow().minimize()}
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
             <path d="M5 12h14" />
           </svg>
         </StrokeIcon>
         <StrokeIcon
           label={maximized ? "Restore" : "Maximize"}
-          onClick={toggleMaximize}
+          onClick={() => void getCurrentWebviewWindow().toggleMaximize()}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
             {maximized ? (
@@ -118,7 +120,7 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
         <StrokeIcon
           label="Close"
           className="window-chrome-btn-close"
-          onClick={close}
+          onClick={() => void getCurrentWebviewWindow().close()}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" />

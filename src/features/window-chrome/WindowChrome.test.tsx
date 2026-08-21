@@ -162,7 +162,6 @@ describe("WindowChrome", () => {
     );
     expect(maximize).toBeDefined();
     expect(container.querySelector(".window-chrome-mac")).toBeNull();
-    expect(container.querySelector(".window-chrome-traffic")).toBeNull();
   });
 
   test("darwin chrome uses Overlay inset and draws no caption buttons", () => {
@@ -176,8 +175,6 @@ describe("WindowChrome", () => {
     expect(container.querySelector(".window-chrome-title")?.textContent).toBe(
       "Diffview",
     );
-    expect(container.querySelector(".window-chrome-traffic")).toBeNull();
-    expect(container.querySelector(".window-chrome-dot-close")).toBeNull();
     expect(container.querySelectorAll("button")).toHaveLength(0);
     expect(isFullscreen).toHaveBeenCalled();
     expect(isMaximized).not.toHaveBeenCalled();
@@ -189,13 +186,21 @@ describe("WindowChrome", () => {
       root.render(<WindowChrome />);
     });
     expect(container.querySelector(".window-chrome-fullscreen")).toBeNull();
+    expect(
+      container
+        .querySelector(".window-chrome-mac")
+        ?.getAttribute("data-tauri-drag-region"),
+    ).toBe("deep");
 
     await act(async () => {
       resolveFullscreen?.(true);
       await isFullscreenPromise;
     });
 
-    expect(container.querySelector(".window-chrome-fullscreen")).not.toBeNull();
+    const header = container.querySelector(".window-chrome-mac");
+    expect(header).not.toBeNull();
+    expect(header?.classList.contains("window-chrome-fullscreen")).toBe(true);
+    expect(header?.hasAttribute("data-tauri-drag-region")).toBe(false);
   });
 
   test("Maximize label becomes Restore after isMaximized resolves true", async () => {
