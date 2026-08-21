@@ -1,6 +1,6 @@
-/* Custom window chrome: same fill as the window, not a separate bar.
+/* Custom window chrome: same fill as the window.
  * One strip for every desktop OS:
- *   macOS         → close, minimize, zoom left; wordmark centred
+ *   macOS         → AppKit Overlay traffic lights; wordmark centred, inset
  *   Windows/Linux → wordmark left, caption buttons right
  * The whole strip is a Tauri "deep" drag region: buttons opt out of dragging
  * automatically, and double-click maximise is Tauri's built-in behaviour. */
@@ -39,17 +39,18 @@
   transition: opacity 120ms ease;
 }
 
-/* ── macOS: close, minimize, zoom left; wordmark centred ───────── */
+/* ── macOS: native traffic lights; wordmark centred ─────────────
+ * 80px leading inset is 20px edge + three 12px lights with 8px gaps,
+ * plus a little air so the wordmark never sits under the green button. */
 
 .window-chrome-mac {
+  --window-chrome-traffic-inset: 80px;
   align-items: center;
-  padding: 0 0.75rem;
+  padding: 0 0.75rem 0 var(--window-chrome-traffic-inset);
 }
 
-.window-chrome-traffic {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.window-chrome-mac.window-chrome-fullscreen {
+  --window-chrome-traffic-inset: 0.75rem;
 }
 
 .window-chrome-center {
@@ -57,82 +58,17 @@
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  max-width: calc(100% - 2 * var(--window-chrome-traffic-inset, 0px));
+  overflow: hidden;
 }
 
 .window-chrome-center .window-chrome-title {
   padding: 0;
-}
-
-.window-chrome-dot {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  background: transparent;
-  /* Glyph ink: reads on all three light colours, theme-independent. */
-  color: rgba(0, 0, 0, 0.55);
-}
-
-.window-chrome-dot::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: filter 120ms ease;
-}
-
-/* Disc colours stay fixed across themes. */
-.window-chrome-dot-close::before {
-  background: #ff5f57;
-}
-
-.window-chrome-dot-min::before {
-  background: #febc2e;
-}
-
-.window-chrome-dot-max::before {
-  background: #28c840;
-}
-
-/* Native behaviour: unfocused windows grey out the lights. */
-.window-chrome-inactive .window-chrome-dot::before {
-  background: color-mix(in srgb, var(--fg-muted) 30%, var(--bg-window));
-}
-
-.window-chrome-dot svg {
-  width: 12px;
-  height: 12px;
-  stroke-width: 1.1;
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-
-/* Native behaviour: glyphs appear when the light group is hovered. */
-.window-chrome-traffic:hover .window-chrome-dot svg,
-.window-chrome-dot:focus-visible svg {
-  opacity: 1;
-}
-
-.window-chrome-dot:hover::before {
-  filter: brightness(1.08);
-}
-
-.window-chrome-dot:active::before {
-  filter: brightness(0.88);
-}
-
-.window-chrome-dot:focus-visible {
-  outline: 2px solid var(--border-focus, currentColor);
-  outline-offset: 2px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Windows / Linux: caption buttons right ───────────────────── */

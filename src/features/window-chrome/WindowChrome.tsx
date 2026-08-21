@@ -26,74 +26,10 @@ function StrokeIcon({
   );
 }
 
-/** Hover-reveal glyphs live in window-chrome.css. Max swaps zoom vs contract. */
-function MacTraffic({
-  maximized,
-  onMinimize,
-  onToggleMaximize,
-  onClose,
-}: {
-  maximized: boolean;
-  onMinimize: () => void;
-  onToggleMaximize: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="window-chrome-traffic">
-      <button
-        type="button"
-        className="window-chrome-dot window-chrome-dot-close"
-        aria-label="Close"
-        title="Close"
-        onClick={onClose}
-      >
-        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" aria-hidden="true">
-          <path d="M3.6 3.6l4.8 4.8M8.4 3.6L3.6 8.4" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        className="window-chrome-dot window-chrome-dot-min"
-        aria-label="Minimize"
-        title="Minimize"
-        onClick={onMinimize}
-      >
-        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" aria-hidden="true">
-          <path d="M2.8 6h6.4" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        className="window-chrome-dot window-chrome-dot-max"
-        aria-label={maximized ? "Restore" : "Zoom"}
-        title={maximized ? "Restore" : "Zoom"}
-        onClick={onToggleMaximize}
-      >
-        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" aria-hidden="true">
-          {maximized ? (
-            <>
-              <path d="M9 3 6.4 5.6" />
-              <path d="M8.4 5.6H6.4V3.6" />
-              <path d="M3 9l2.6-2.6" />
-              <path d="M3.6 6.4h2v2" />
-            </>
-          ) : (
-            <>
-              <path d="M5.2 6.8 8.9 3.1" />
-              <path d="M8.9 5.3V3.1H6.7" />
-              <path d="M6.8 5.2 3.1 8.9" />
-              <path d="M3.1 6.7V8.9h2.2" />
-            </>
-          )}
-        </svg>
-      </button>
-    </div>
-  );
-}
-
 export function WindowChrome({ title = "Diffview" }: { title?: string }) {
   const enabled = useCustomWindowChrome();
   const [maximized, setMaximized] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const [focused, setFocused] = useState(true);
   const isMac = tauriPlatform() === "darwin";
 
@@ -104,8 +40,13 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
 
     const sync = async () => {
       try {
-        const next = await win.isMaximized();
-        if (!cancelled) setMaximized(next);
+        if (isMac) {
+          const next = await win.isFullscreen();
+          if (!cancelled) setFullscreen(next);
+        } else {
+          const next = await win.isMaximized();
+          if (!cancelled) setMaximized(next);
+        }
       } catch {
         /* ignore */
       }
@@ -122,37 +63,33 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
       void unlistenResize.then((fn) => fn());
       void unlistenFocus.then((fn) => fn());
     };
-  }, [enabled]);
+  }, [enabled, isMac]);
 
   if (!enabled) return null;
 
-  const win = getCurrentWebviewWindow();
-  const minimize = () => void win.minimize();
-  const toggleMaximize = () => void win.toggleMaximize();
-  const close = () => void win.close();
+  const chromeClass = `window-chrome${focused ? "" : " window-chrome-inactive"}${
+    isMac && fullscreen ? " window-chrome-fullscreen" : ""
+  }`;
 
-  const chromeClass = `window-chrome${focused ? "" : " window-chrome-inactive"}`;
-
-  // Deep drag region: buttons opt out; Tauri owns double-click maximize
-  // (macOS cancel-on-move). No manual handlers.
+  // Deep drag region: buttons opt out; Tauri owns double-click zoom.
+  // macOS Overlay titlebar owns the traffic lights and native fullscreen.
   if (isMac) {
     return (
       <header
         className={`${chromeClass} window-chrome-mac`}
         data-tauri-drag-region="deep"
       >
-        <MacTraffic
-          maximized={maximized}
-          onMinimize={minimize}
-          onToggleMaximize={toggleMaximize}
-          onClose={close}
-        />
         <div className="window-chrome-center">
           <span className="window-chrome-title">{title}</span>
         </div>
       </header>
     );
   }
+
+  const win = getCurrentWebviewWindow();
+  const minimize = () => void win.minimize();
+  const toggleMaximize = () => void win.toggleMaximize();
+  const close = () => void win.close();
 
   return (
     <header className={chromeClass} data-tauri-drag-region="deep">

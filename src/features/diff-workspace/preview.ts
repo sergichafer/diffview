@@ -1,4 +1,5 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { desktopWindowChromeOptions } from "@/shared/tauri/tauriEnv";
 
 const PREVIEW_IMAGE_EXTENSIONS = [
   ".png",
@@ -42,8 +43,8 @@ export async function openPreviewWindow(repoPath: string, path: string) {
     await existing.close();
   }
 
-  // Every kind renders inside our own preview page, so the window always
-  // gets the custom chrome (no native OS decorations).
+  // Preview uses the same page chrome as main: Overlay titlebar on macOS,
+  // in-content caption buttons on Windows and Linux.
   const url = `/preview.html?repoPath=${encodeURIComponent(repoPath)}&path=${encodeURIComponent(path)}`;
 
   new WebviewWindow(label, {
@@ -52,8 +53,8 @@ export async function openPreviewWindow(repoPath: string, path: string) {
     width: 960,
     height: 720,
     center: true,
-    decorations: false,
     dragDropEnabled: false,
+    ...desktopWindowChromeOptions(),
   });
 }
 

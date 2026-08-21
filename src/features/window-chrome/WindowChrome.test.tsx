@@ -58,6 +58,17 @@ const toggleMaximize = mock(() => Promise.resolve());
 const close = mock(() => Promise.resolve());
 const isMaximized = mock(() => isMaximizedPromise);
 
+let resolveFullscreen: ((value: boolean) => void) | null = null;
+let isFullscreenPromise: Promise<boolean> = Promise.resolve(false);
+const isFullscreen = mock(() => isFullscreenPromise);
+
+function resetFullscreenDeferred() {
+  resolveFullscreen = null;
+  isFullscreenPromise = new Promise<boolean>((resolve) => {
+    resolveFullscreen = resolve;
+  });
+}
+
 function resetMaximizedDeferred() {
   resolveMaximized = null;
   isMaximizedPromise = new Promise<boolean>((resolve) => {
@@ -84,6 +95,7 @@ mock.module("@tauri-apps/api/webviewWindow", () => ({
     minimize,
     toggleMaximize,
     close,
+    isFullscreen,
   }),
 }));
 
@@ -98,8 +110,11 @@ beforeEach(() => {
   chromeEnabled.value = true;
   platform.value = "linux";
   resetMaximizedDeferred();
+  resetFullscreenDeferred();
   isMaximized.mockReset();
   isMaximized.mockImplementation(() => isMaximizedPromise);
+  isFullscreen.mockReset();
+  isFullscreen.mockImplementation(() => isFullscreenPromise);
   onResized.mockReset();
   onResized.mockImplementation((_handler: () => void) =>
     Promise.resolve(unlistenResize),
@@ -150,24 +165,37 @@ describe("WindowChrome", () => {
     expect(container.querySelector(".window-chrome-traffic")).toBeNull();
   });
 
-  test("darwin chrome shows traffic lights and Zoom", () => {
+  test("darwin chrome uses Overlay inset and draws no caption buttons", () => {
     platform.value = "darwin";
     act(() => {
       root.render(<WindowChrome />);
     });
-    expect(container.querySelector(".window-chrome-mac")).not.toBeNull();
-    expect(container.querySelector(".window-chrome-traffic")).not.toBeNull();
-    expect(container.querySelector(".window-chrome-dot-close")).not.toBeNull();
-    expect(
-      [...container.querySelectorAll("button")].some(
-        (el) => el.getAttribute("aria-label") === "Zoom",
-      ),
-    ).toBe(true);
-    expect(
-      [...container.querySelectorAll("button")].some(
-        (el) => el.getAttribute("aria-label") === "Maximize",
-      ),
-    ).toBe(false);
+    const header = container.querySelector(".window-chrome-mac");
+    expect(header).not.toBeNull();
+    expect(header?.getAttribute("data-tauri-drag-region")).toBe("deep");
+    expect(container.querySelector(".window-chrome-title")?.textContent).toBe(
+      "Diffview",
+    );
+    expect(container.querySelector(".window-chrome-traffic")).toBeNull();
+    expect(container.querySelector(".window-chrome-dot-close")).toBeNull();
+    expect(container.querySelectorAll("button")).toHaveLength(0);
+    expect(isFullscreen).toHaveBeenCalled();
+    expect(isMaximized).not.toHaveBeenCalled();
+  });
+
+  test("darwin chrome marks fullscreen after isFullscreen resolves true", async () => {
+    platform.value = "darwin";
+    act(() => {
+      root.render(<WindowChrome />);
+    });
+    expect(container.querySelector(".window-chrome-fullscreen")).toBeNull();
+
+    await act(async () => {
+      resolveFullscreen?.(true);
+      await isFullscreenPromise;
+    });
+
+    expect(container.querySelector(".window-chrome-fullscreen")).not.toBeNull();
   });
 
   test("Maximize label becomes Restore after isMaximized resolves true", async () => {

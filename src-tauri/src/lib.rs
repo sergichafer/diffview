@@ -16,6 +16,16 @@ use startup::{
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_cli::CliExt;
 
+#[cfg(target_os = "macos")]
+fn apply_macos_overlay_titlebar(window: &tauri::WebviewWindow) {
+    if let Err(e) = window.set_decorations(true) {
+        eprintln!("macOS native decorations: {e}");
+    }
+    if let Err(e) = window.set_title_bar_style(tauri::TitleBarStyle::Overlay) {
+        eprintln!("macOS overlay title bar: {e}");
+    }
+}
+
 fn push_unique_open(opened_workspaces: &mut Vec<OpenRepoResult>, result: OpenRepoResult) {
     if !opened_workspaces
         .iter()
@@ -223,6 +233,11 @@ pub fn run() {
         .plugin(tauri_plugin_cli::init())
         .manage(RepoRegistry::new())
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                apply_macos_overlay_titlebar(&window);
+            }
+
             let snapshot = prepare_startup(app.handle()).unwrap_or_else(|e| {
                 eprintln!("Startup prepare failed: {e}");
                 StartupSnapshot {
@@ -251,4 +266,43 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod window_config_tests {
+    use serde_json::Value;
+
+    fn read_window(path: &str) -> Value {
+        let text = std::fs::read_to_string(path).unwrap_or_else(|e| {
+            panic!("read {path}: {e}");
+        });
+        let v: Value = serde_json::from_str(&text).unwrap_or_else(|e| {
+            panic!("parse {path}: {e}");
+        });
+        v["app"]["windows"][0].clone()
+    }
+
+    #[test]
+    fn macos_overlay_keeps_shared_window_fields() {
+        let dir = env!("CARGO_MANIFEST_DIR");
+        let base = read_window(&format!("{dir}/tauri.conf.json"));
+        let mac = read_window(&format!("{dir}/tauri.macos.conf.json"));
+        for key in [
+            "label",
+            "title",
+            "width",
+            "height",
+            "minWidth",
+            "minHeight",
+            "dragDropEnabled",
+            "hiddenTitle",
+            "titleBarStyle",
+        ] {
+            assert_eq!(base[key], mac[key], "{key}");
+        }
+        assert_eq!(base["decorations"], false);
+        assert_eq!(mac["decorations"], true);
+        assert_eq!(mac["hiddenTitle"], true);
+        assert_eq!(mac["titleBarStyle"], "Overlay");
+    }
 }
