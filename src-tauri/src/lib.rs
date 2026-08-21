@@ -299,6 +299,6 @@ mod window_config_tests {
         assert_eq!(mac["hiddenTitle"], true);
         assert_eq!(mac["titleBarStyle"], "Overlay");
         assert_eq!(mac["trafficLightPosition"]["x"], serde_json::json!(16));
-        assert_eq!(mac["trafficLightPosition"]["y"], serde_json::json!(8));
+        assert_eq!(mac["trafficLightPosition"]["y"], serde_json::json!(16));
     }
 }
