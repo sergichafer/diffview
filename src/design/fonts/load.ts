@@ -40,6 +40,9 @@ export async function ensureUiFontLoaded(id: UiFontId): Promise<void> {
         ]);
       });
       return;
+    case "departure-mono":
+      await loadOnce("departure-mono", () => import("./faces/departure-mono.css"));
+      return;
   }
 }
 

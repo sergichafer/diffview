@@ -3,7 +3,8 @@ export type UiFontId =
   | "system"
   | "syne"
   | "ibm-plex-sans"
-  | "plus-jakarta-sans";
+  | "plus-jakarta-sans"
+  | "departure-mono";
 
 export type CodeFontId =
   | "system"
@@ -18,6 +19,7 @@ export const UI_FONT_IDS = [
   "syne",
   "ibm-plex-sans",
   "plus-jakarta-sans",
+  "departure-mono",
 ] as const satisfies readonly UiFontId[];
 
 export const CODE_FONT_IDS = [

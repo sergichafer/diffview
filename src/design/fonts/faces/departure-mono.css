@@ -1,5 +1,5 @@
 /* Departure Mono. Copyright 2022–2024 Helena Zhang. SIL OFL 1.1. See THIRD_PARTY_NOTICES.md.
-   One Regular cut. Extra weights reuse it so Type specimens do not faux-bold. */
+   One Regular cut. Extra weights reuse it so UI chrome and Type specimens do not faux-bold. */
 @font-face {
   font-family: "Departure Mono";
   font-style: normal;
@@ -23,6 +23,15 @@
   font-style: normal;
   font-display: swap;
   font-weight: 600;
+  src: url("./DepartureMono-Regular.woff2") format("woff2"),
+    url("./DepartureMono-Regular.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Departure Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
   src: url("./DepartureMono-Regular.woff2") format("woff2"),
     url("./DepartureMono-Regular.woff") format("woff");
 }

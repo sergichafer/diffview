@@ -13,6 +13,7 @@ describe("normalizeUiFont", () => {
     expect(normalizeUiFont("syne")).toBe("syne");
     expect(normalizeUiFont("ibm-plex-sans")).toBe("ibm-plex-sans");
     expect(normalizeUiFont("plus-jakarta-sans")).toBe("plus-jakarta-sans");
+    expect(normalizeUiFont("departure-mono")).toBe("departure-mono");
   });
 
   test("falls back to Inter for unknown or missing values", () => {
