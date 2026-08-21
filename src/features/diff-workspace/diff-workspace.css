@@ -75,7 +75,8 @@
 
 .branch-code-view {
   height: 100%;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--bg-canvas);
   --diffs-scrollbar-gutter-override: var(--scrollbar-size, 6px);
   --diffs-bg-buffer-override: var(--bg-canvas);
@@ -135,10 +136,10 @@
 
 .branch-code-view::-webkit-scrollbar {
   width: var(--scrollbar-size);
-  height: var(--scrollbar-size);
+  height: 0;
 }
 
-.branch-code-view::-webkit-scrollbar-track {
+.branch-code-view::-webkit-scrollbar-track:vertical {
   background: var(--bg-elevated);
 }
 
