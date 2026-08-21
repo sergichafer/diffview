@@ -21,8 +21,8 @@ export function useCustomWindowChrome(): boolean {
   return isTauriApp() && tauriPlatform() !== "ios" && tauriPlatform() !== "android";
 }
 
-/** Origin of the traffic-light cluster in the 28px Overlay strip. Keep in sync with tauri.macos.conf.json. */
-export const MAC_TRAFFIC_LIGHT_POSITION = { x: 16, y: 8 } as const;
+/** Traffic-light origin. Tao sets Overlay titlebar height to button height plus y. Keep in sync with tauri.macos.conf.json. */
+export const MAC_TRAFFIC_LIGHT_POSITION = { x: 16, y: 16 } as const;
 
 /** Wordmark clearance: origin.x + 3×12px lights + 2×8px gaps + 12px trailing. */
 export const MAC_TRAFFIC_LIGHT_INSET_PX =

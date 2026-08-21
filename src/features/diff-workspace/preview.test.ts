@@ -67,7 +67,7 @@ describe("openPreviewWindow", () => {
     );
     expect(creates[0]?.options.trafficLightPosition).toMatchObject({
       x: 16,
-      y: 8,
+      y: 16,
     });
   });
 });

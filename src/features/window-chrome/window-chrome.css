@@ -43,8 +43,8 @@
 
 /* ── macOS: native traffic lights; wordmark centred ─────────────
  * Centre max-width reserves trafficLightPosition.x + 3×12 lights +
- * 2×8 gaps + 12 trailing on each side. Same origin as
- * tauri.macos.conf.json / MAC_TRAFFIC_LIGHT_POSITION. */
+ * 2×8 gaps + 12 trailing on each side. y is extra titlebar height
+ * under the lights so the 12px cluster sits in this 28px strip. */
 
 .window-chrome-center {
   position: absolute;
