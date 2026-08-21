@@ -1,3 +1,4 @@
+import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import * as tauriEnvActual from "@/shared/tauri/tauriEnv";
 
@@ -59,8 +60,14 @@ describe("openPreviewWindow", () => {
       decorations: true,
       hiddenTitle: true,
       titleBarStyle: "overlay",
-      trafficLightPosition: { x: 16, y: 8 },
       dragDropEnabled: false,
+    });
+    expect(creates[0]?.options.trafficLightPosition).toBeInstanceOf(
+      LogicalPosition,
+    );
+    expect(creates[0]?.options.trafficLightPosition).toMatchObject({
+      x: 16,
+      y: 8,
     });
   });
 });

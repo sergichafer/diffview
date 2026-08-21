@@ -1,3 +1,4 @@
+import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { describe, expect, test } from "bun:test";
 import {
   desktopWindowChromeOptions,
@@ -15,13 +16,14 @@ describe("usesNativeMacTitlebar", () => {
 });
 
 describe("desktopWindowChromeOptions", () => {
-  test("darwin keeps AppKit traffic lights via Overlay", () => {
+  test("darwin uses Overlay titlebar and traffic light position", () => {
     const options = desktopWindowChromeOptions("darwin");
     expect(options).toMatchObject({
       decorations: true,
       hiddenTitle: true,
       titleBarStyle: "overlay",
     });
+    expect(options.trafficLightPosition).toBeInstanceOf(LogicalPosition);
     expect(options.trafficLightPosition?.x).toBe(MAC_TRAFFIC_LIGHT_POSITION.x);
     expect(options.trafficLightPosition?.y).toBe(MAC_TRAFFIC_LIGHT_POSITION.y);
   });

@@ -21,7 +21,7 @@ export function useCustomWindowChrome(): boolean {
   return isTauriApp() && tauriPlatform() !== "ios" && tauriPlatform() !== "android";
 }
 
-/** AppKit traffic lights via Overlay titlebar (VS Code / Zed style). */
+/** Overlay titlebar on Darwin so the system draws the traffic lights. */
 export function usesNativeMacTitlebar(
   platform: string | null = tauriPlatform(),
 ): boolean {

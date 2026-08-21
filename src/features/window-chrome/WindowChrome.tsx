@@ -41,15 +41,17 @@ export function WindowChrome({ title = "Diffview" }: { title?: string }) {
     if (!enabled) return;
     const win = getCurrentWebviewWindow();
     let cancelled = false;
+    let generation = 0;
 
     const sync = async () => {
+      const token = ++generation;
       try {
         if (isMac) {
           const next = await win.isFullscreen();
-          if (!cancelled) setFullscreen(next);
+          if (!cancelled && token === generation) setFullscreen(next);
         } else {
           const next = await win.isMaximized();
-          if (!cancelled) setMaximized(next);
+          if (!cancelled && token === generation) setMaximized(next);
         }
       } catch {
         /* ignore */

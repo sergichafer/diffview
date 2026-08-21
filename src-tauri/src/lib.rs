@@ -257,21 +257,29 @@ pub fn run() {
 mod window_config_tests {
     use serde_json::Value;
 
-    fn read_window(path: &str) -> Value {
+    fn read_windows(path: &str) -> Vec<Value> {
         let text = std::fs::read_to_string(path).unwrap_or_else(|e| {
             panic!("read {path}: {e}");
         });
         let v: Value = serde_json::from_str(&text).unwrap_or_else(|e| {
             panic!("parse {path}: {e}");
         });
-        v["app"]["windows"][0].clone()
+        v["app"]["windows"]
+            .as_array()
+            .cloned()
+            .unwrap_or_else(|| panic!("{path} app.windows is not an array"))
     }
 
     #[test]
     fn macos_overlay_replaces_windows_array_with_decorations() {
         let dir = env!("CARGO_MANIFEST_DIR");
-        let base = read_window(&format!("{dir}/tauri.conf.json"));
-        let mac = read_window(&format!("{dir}/tauri.macos.conf.json"));
+        let base_windows = read_windows(&format!("{dir}/tauri.conf.json"));
+        let mac_windows = read_windows(&format!("{dir}/tauri.macos.conf.json"));
+        assert_eq!(base_windows.len(), 1);
+        assert_eq!(mac_windows.len(), base_windows.len());
+        assert_eq!(mac_windows[0]["label"], base_windows[0]["label"]);
+        let base = &base_windows[0];
+        let mac = &mac_windows[0];
         let base_obj = base.as_object().expect("base window object");
         let mac_obj = mac.as_object().expect("macos window object");
 
