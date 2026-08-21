@@ -142,7 +142,8 @@ export function BranchDiffPanel({
       diffStyle,
       stickyHeaders: true,
       /** Files sit flush; the 1px seam between them is the only separator. */
-      layout: { paddingTop: 0, paddingBottom: 8, gap: 0 },
+      layout: { paddingTop: 0, paddingBottom: 0, gap: 0 },
+      itemMetrics: { paddingBottom: 0 },
       unsafeCSS,
       loadDiffFiles,
     };

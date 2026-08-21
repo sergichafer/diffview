@@ -74,9 +74,9 @@
 }
 
 .branch-code-view {
-  height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   background: var(--bg-canvas);
   --diffs-scrollbar-gutter-override: var(--scrollbar-size, 6px);
   --diffs-bg-buffer-override: var(--bg-canvas);
@@ -126,7 +126,7 @@
 @supports ((-moz-appearance: none)) {
   .branch-code-view {
     scrollbar-width: thin;
-    scrollbar-color: var(--app-scrollbar-thumb-current) var(--bg-elevated);
+    scrollbar-color: var(--app-scrollbar-thumb-current) transparent;
   }
 }
 
@@ -136,11 +136,11 @@
 
 .branch-code-view::-webkit-scrollbar {
   width: var(--scrollbar-size);
-  height: 0;
+  height: var(--scrollbar-size);
 }
 
-.branch-code-view::-webkit-scrollbar-track:vertical {
-  background: var(--bg-elevated);
+.branch-code-view::-webkit-scrollbar-track {
+  background: none;
 }
 
 .branch-code-view::-webkit-scrollbar-thumb {
