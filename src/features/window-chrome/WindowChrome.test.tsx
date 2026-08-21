@@ -45,36 +45,28 @@ mock.module("@/shared/tauri/tauriEnv", () => ({
 
 type FocusPayload = { payload: boolean };
 
-let resolveMaximized: ((value: boolean) => void) | null = null;
-let isMaximizedPromise: Promise<boolean> = Promise.resolve(false);
+function pendingFlag() {
+  let resolve!: (value: boolean) => void;
+  const promise = new Promise<boolean>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
+let maximized = pendingFlag();
+let fullscreen = pendingFlag();
+
+const unlistenResize = mock(() => {});
+const unlistenFocus = mock(() => {});
 const onResized = mock((_handler: () => void) => Promise.resolve(unlistenResize));
 const onFocusChanged = mock((_handler: (event: FocusPayload) => void) =>
   Promise.resolve(unlistenFocus),
 );
-const unlistenResize = mock(() => {});
-const unlistenFocus = mock(() => {});
 const minimize = mock(() => Promise.resolve());
 const toggleMaximize = mock(() => Promise.resolve());
 const close = mock(() => Promise.resolve());
-const isMaximized = mock(() => isMaximizedPromise);
-
-let resolveFullscreen: ((value: boolean) => void) | null = null;
-let isFullscreenPromise: Promise<boolean> = Promise.resolve(false);
-const isFullscreen = mock(() => isFullscreenPromise);
-
-function resetFullscreenDeferred() {
-  resolveFullscreen = null;
-  isFullscreenPromise = new Promise<boolean>((resolve) => {
-    resolveFullscreen = resolve;
-  });
-}
-
-function resetMaximizedDeferred() {
-  resolveMaximized = null;
-  isMaximizedPromise = new Promise<boolean>((resolve) => {
-    resolveMaximized = resolve;
-  });
-}
+const isMaximized = mock(() => maximized.promise);
+const isFullscreen = mock(() => fullscreen.promise);
 
 class WebviewWindow {
   static getByLabel(_label: string) {
@@ -109,25 +101,21 @@ let root: ReturnType<typeof createRoot>;
 beforeEach(() => {
   chromeEnabled.value = true;
   platform.value = "linux";
-  resetMaximizedDeferred();
-  resetFullscreenDeferred();
-  isMaximized.mockReset();
-  isMaximized.mockImplementation(() => isMaximizedPromise);
-  isFullscreen.mockReset();
-  isFullscreen.mockImplementation(() => isFullscreenPromise);
-  onResized.mockReset();
-  onResized.mockImplementation((_handler: () => void) =>
-    Promise.resolve(unlistenResize),
-  );
-  onFocusChanged.mockReset();
-  onFocusChanged.mockImplementation((_handler: (event: FocusPayload) => void) =>
-    Promise.resolve(unlistenFocus),
-  );
-  unlistenResize.mockReset();
-  unlistenFocus.mockReset();
-  minimize.mockReset();
-  toggleMaximize.mockReset();
-  close.mockReset();
+  maximized = pendingFlag();
+  fullscreen = pendingFlag();
+  for (const m of [
+    isMaximized,
+    isFullscreen,
+    onResized,
+    onFocusChanged,
+    unlistenResize,
+    unlistenFocus,
+    minimize,
+    toggleMaximize,
+    close,
+  ]) {
+    m.mockClear();
+  }
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -193,8 +181,8 @@ describe("WindowChrome", () => {
     ).toBe("deep");
 
     await act(async () => {
-      resolveFullscreen?.(true);
-      await isFullscreenPromise;
+      fullscreen.resolve(true);
+      await fullscreen.promise;
     });
 
     const header = container.querySelector(".window-chrome-mac");
@@ -214,8 +202,8 @@ describe("WindowChrome", () => {
     ).toBe(true);
 
     await act(async () => {
-      resolveMaximized?.(true);
-      await isMaximizedPromise;
+      maximized.resolve(true);
+      await maximized.promise;
     });
 
     expect(
@@ -243,8 +231,8 @@ describe("WindowChrome", () => {
     expect(unlistenFocus).toHaveBeenCalled();
 
     await act(async () => {
-      resolveMaximized?.(true);
-      await isMaximizedPromise;
+      maximized.resolve(true);
+      await maximized.promise;
     });
   });
 
