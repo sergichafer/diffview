@@ -10,7 +10,7 @@
 }
 
 .diff-style-bar {
-  background: var(--bg-canvas);
+  background: var(--bg-elevated);
 }
 
 .workspaces-head::after {
@@ -46,7 +46,6 @@
 
   .workspaces-head,
   .diff-style-bar {
-    background: var(--bg-canvas);
     border-bottom-color: var(--border-strong);
   }
 
