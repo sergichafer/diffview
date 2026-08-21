@@ -10,7 +10,6 @@
 }
 
 .diff-style-bar {
-  /* Same surface as Pierre [data-diffs-header] (`bg.elevated`). */
   background: var(--bg-elevated);
 }
 
