@@ -12,7 +12,7 @@ if (!GlobalRegistrator.isRegistered) {
       height: probe.innerHeight,
     });
   } finally {
-    void probe.happyDOM.close();
+    await probe.happyDOM.close();
   }
 }
 

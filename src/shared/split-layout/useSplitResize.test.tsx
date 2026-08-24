@@ -145,8 +145,20 @@ function dispatchPointer(
 }
 
 describe("useSplitResize", () => {
+  let restoreMatchMedia = () => {};
+
   beforeEach(() => {
+    const globalMatch = globalThis.matchMedia;
+    const windowMatch = window.matchMedia;
+    restoreMatchMedia = () => {
+      globalThis.matchMedia = globalMatch;
+      window.matchMedia = windowMatch;
+    };
     mockMatchMedia(false);
+  });
+
+  afterEach(() => {
+    restoreMatchMedia();
   });
 
   test("End after a smaller max persist uses the latest max", () => {

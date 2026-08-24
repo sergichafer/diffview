@@ -66,8 +66,10 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
-  if (DialogProto && originalShow) DialogProto.show = originalShow;
-  if (DialogProto && originalShowModal) DialogProto.showModal = originalShowModal;
+  if (DialogProto) {
+    DialogProto.show = originalShow;
+    DialogProto.showModal = originalShowModal;
+  }
 });
 
 function renderPopover(
