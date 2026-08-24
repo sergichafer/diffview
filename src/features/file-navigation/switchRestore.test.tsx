@@ -3,36 +3,6 @@
 // + useDiffWorkspace) against a fake CodeViewHandle. Switch reconcile must use
 // the NEW seed, not the previous row's selectedPath: that misses the new file
 // set, commits files[0], and clobbers the remembered file in state and settings.
-import { Window } from "happy-dom";
-
-const dom = new Window();
-for (const key of [
-  "document",
-  "navigator",
-  "HTMLElement",
-  "Element",
-  "Node",
-  "Event",
-  "CustomEvent",
-  "KeyboardEvent",
-  "MouseEvent",
-  "getComputedStyle",
-  "DocumentFragment",
-  "MutationObserver",
-  "ResizeObserver",
-] as const) {
-  // @ts-expect-error assign dom globals
-  if (globalThis[key] === undefined) globalThis[key] = dom[key];
-}
-(globalThis as any).window = dom;
-(globalThis as any).document = dom.document;
-(globalThis as any).navigator = dom.navigator;
-(globalThis as any).customElements = dom.customElements;
-(globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) =>
-  setTimeout(() => cb(performance.now()), 0) as unknown as number;
-(globalThis as any).cancelAnimationFrame = (id: number) => clearTimeout(id);
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-
 const { act, useCallback, useRef, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { useActiveFileNavigation } = await import(
@@ -43,7 +13,7 @@ const { usePersistActivePath } = await import(
 );
 const { useDiffWorkspace } = await import("@/features/diff-workspace/useDiffWorkspace");
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import type { ChangedFile, FileDiffResult } from "@/shared/types/app";
 import type { CodeViewHandle } from "@pierre/diffs/react";
 
@@ -166,12 +136,37 @@ async function flush() {
 }
 
 describe("comparison switch restores the last viewed file", () => {
+  let container: HTMLElement;
+  let root: ReturnType<typeof createRoot>;
+  let restoreRaf = () => {};
+
+  beforeAll(() => {
+    const request = globalThis.requestAnimationFrame;
+    const cancel = globalThis.cancelAnimationFrame;
+    restoreRaf = () => {
+      globalThis.requestAnimationFrame = request;
+      globalThis.cancelAnimationFrame = cancel;
+    };
+    globalThis.requestAnimationFrame = (cb: FrameRequestCallback) =>
+      setTimeout(() => cb(performance.now()), 0) as unknown as number;
+    globalThis.cancelAnimationFrame = (id: number) => clearTimeout(id);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  afterAll(() => {
+    restoreRaf();
+  });
+
   test("A → B → A restores scrolled-to file and keeps it persisted", async () => {
     const fake = makeFakeCodeView();
     fake.state.tops = new Map(topsA);
-    const container = dom.document.createElement("div");
-    dom.document.body.appendChild(container);
-    const root = createRoot(container);
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
 
     let persisted: Record<string, string> = { [KEY_A]: "midA.ts" };
     const capture: HarnessProps["capture"] = { workspace: null };

@@ -1,10 +1,9 @@
 import { IconGlyph } from "@/design/IconButton";
 import { computeAppliedStat } from "@/features/branch-compare/compareStat";
 import type { ComparisonRow } from "@/features/repo-session/types";
+import { WIP_LABEL, WIP_TITLE } from "@/shared/wipCopy";
 import { repoInitial } from "./labels";
 
-const WIP_TITLE =
-  "WIP: checked-out head. Diffs and saves write the working tree.";
 const OUTDATED_TITLE =
   "Outdated: refs moved while idle. Recalculates on visit.";
 
@@ -79,7 +78,7 @@ export function WorkspaceComparisonRow({
       role="treeitem"
       aria-selected={selected}
       tabIndex={tabIndex}
-      title={`${headLabel} → ${row.baseBranch}${row.isLive ? " (WIP)" : ""}`}
+      title={`${headLabel} → ${row.baseBranch}${row.isLive ? ` (${WIP_LABEL})` : ""}`}
       data-ws-key={row.key}
       data-press=""
       onClick={onActivate}
@@ -101,7 +100,7 @@ export function WorkspaceComparisonRow({
                 ·
               </span>
               <span className="workspaces-wip" title={WIP_TITLE}>
-                WIP
+                {WIP_LABEL}
               </span>
             </>
           )}

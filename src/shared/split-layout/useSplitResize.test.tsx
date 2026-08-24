@@ -1,45 +1,3 @@
-import { Window } from "happy-dom";
-
-const dom = new Window();
-for (const key of [
-  "document",
-  "navigator",
-  "HTMLElement",
-  "HTMLButtonElement",
-  "Element",
-  "Node",
-  "Event",
-  "CustomEvent",
-  "KeyboardEvent",
-  "MouseEvent",
-  "PointerEvent",
-  "getComputedStyle",
-  "DocumentFragment",
-  "MutationObserver",
-  "ResizeObserver",
-] as const) {
-  // @ts-expect-error assign dom globals
-  if (globalThis[key] === undefined) globalThis[key] = dom[key];
-}
-(globalThis as any).window = dom;
-(globalThis as any).document = dom.document;
-(globalThis as any).navigator = dom.navigator;
-(globalThis as any).customElements = dom.customElements;
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-if (typeof (globalThis as any).CSS === "undefined") {
-  (globalThis as any).CSS = { escape: (s: string) => s };
-}
-
-const ElProto = (globalThis as any).HTMLElement?.prototype;
-if (ElProto) {
-  if (typeof ElProto.setPointerCapture !== "function") {
-    ElProto.setPointerCapture = function setPointerCapture() {};
-  }
-  if (typeof ElProto.releasePointerCapture !== "function") {
-    ElProto.releasePointerCapture = function releasePointerCapture() {};
-  }
-}
-
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const { act, useEffect, useState } = await import("react");
@@ -177,8 +135,20 @@ function dispatchPointer(
 }
 
 describe("useSplitResize", () => {
+  let restoreMatchMedia = () => {};
+
   beforeEach(() => {
+    const globalMatch = globalThis.matchMedia;
+    const windowMatch = window.matchMedia;
+    restoreMatchMedia = () => {
+      globalThis.matchMedia = globalMatch;
+      window.matchMedia = windowMatch;
+    };
     mockMatchMedia(false);
+  });
+
+  afterEach(() => {
+    restoreMatchMedia();
   });
 
   test("End after a smaller max persist uses the latest max", () => {

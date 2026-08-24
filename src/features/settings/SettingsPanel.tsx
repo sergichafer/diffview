@@ -159,7 +159,7 @@ export function SettingsPanel({ settings, onClose, onChange }: SettingsPanelProp
     <dialog
       ref={dialogRef}
       tabIndex={-1}
-      className="settings-dialog"
+      className="settings-dialog overlay-host"
       aria-labelledby="settings-title settings-pane-title"
       aria-modal="true"
       data-overlay-state={overlayState}
@@ -171,11 +171,11 @@ export function SettingsPanel({ settings, onClose, onChange }: SettingsPanelProp
     >
       <button
         type="button"
-        className="settings-dialog-backdrop"
+        className="settings-dialog-backdrop overlay-backdrop"
         aria-label="Close settings"
         onClick={requestClose}
       />
-      <div ref={modalRef} className="settings-modal">
+      <div ref={modalRef} className="settings-modal overlay-surface">
         <span id="settings-title" className="visually-hidden">
           Settings
         </span>

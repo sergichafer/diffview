@@ -1,0 +1,117 @@
+.compare-graph-anchor {
+  position: relative;
+  display: inline-flex;
+  z-index: 24;
+}
+
+.compare-graph {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  z-index: 24;
+}
+
+.compare-graph-panel {
+  position: relative;
+  inset: auto;
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  padding: 14px 16px 16px;
+  color: inherit;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
+  border: none;
+  border-top: 1px solid var(--border-highlight);
+  box-shadow: var(--shell-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+.compare-graph-head {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--type-track-micro, 0.04em);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.compare-graph-svg {
+  display: block;
+  width: 100%;
+  height: 220px;
+}
+
+.compare-graph-caption {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+.compare-graph-caption strong {
+  color: var(--fg-accent-bright);
+  font-weight: 600;
+}
+
+.compare-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.compare-graph-legend-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.compare-graph-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+.compare-graph-swatch-ahead {
+  background: var(--state-success);
+}
+
+.compare-graph-swatch-behind {
+  background: var(--state-danger);
+}
+
+.compare-graph-swatch-merge {
+  background: var(--state-merge);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+
+.compare-graph-swatch-live {
+  box-sizing: border-box;
+  background: transparent;
+  border: 1.5px solid var(--state-info);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .compare-graph-panel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--bg-elevated);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .compare-graph-panel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--bg-elevated);
+    border-top-color: var(--border-strong);
+  }
+}

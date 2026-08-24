@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRepoSession } from "@/features/repo-session/context";
 import { BranchComparePalette } from "@/features/branch-compare/BranchComparePalette";
+import { CompareGraphPopover } from "@/features/compare-graph/CompareGraphPopover";
 import { IconButton } from "@/design/IconButton";
 import { branchOptionNames } from "@/features/branch-compare/branchCompare";
 import { computeAppliedStat } from "@/features/branch-compare/compareStat";
@@ -94,6 +95,15 @@ export function TopBar({
           onClick={() => void refreshOverview()}
           title={branchLoading ? "Refreshing…" : "Refresh"}
         />
+        {repo && (
+          <CompareGraphPopover
+            head={headBranch}
+            base={baseBranch}
+            overview={overview}
+            metadata={branchMetadata}
+            onNeedMetadata={loadBranchMetadata}
+          />
+        )}
         {startupError && (
           <span
             className="top-bar-error"

@@ -1,34 +1,3 @@
-import { Window } from "happy-dom";
-
-const dom = new Window();
-for (const key of [
-  "document",
-  "navigator",
-  "HTMLElement",
-  "Element",
-  "Node",
-  "Event",
-  "CustomEvent",
-  "KeyboardEvent",
-  "MouseEvent",
-  "PointerEvent",
-  "getComputedStyle",
-  "DocumentFragment",
-  "MutationObserver",
-  "ResizeObserver",
-] as const) {
-  // @ts-expect-error assign dom globals
-  if (globalThis[key] === undefined) globalThis[key] = dom[key];
-}
-(globalThis as any).window = dom;
-(globalThis as any).document = dom.document;
-(globalThis as any).navigator = dom.navigator;
-(globalThis as any).customElements = dom.customElements;
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-if (typeof (globalThis as any).CSS === "undefined") {
-  (globalThis as any).CSS = { escape: (s: string) => s };
-}
-
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const { act, useEffect, useState } = await import("react");
@@ -122,7 +91,17 @@ function mountPresence(visible: boolean, onExited?: () => void) {
 }
 
 describe("useOverlayPresence", () => {
+  let restoreGlobals = () => {};
+
   beforeEach(() => {
+    const request = globalThis.requestAnimationFrame;
+    const cancel = globalThis.cancelAnimationFrame;
+    const matchMedia = globalThis.matchMedia;
+    restoreGlobals = () => {
+      globalThis.requestAnimationFrame = request;
+      globalThis.cancelAnimationFrame = cancel;
+      globalThis.matchMedia = matchMedia;
+    };
     rafId = 0;
     rafPending.clear();
     (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
@@ -148,6 +127,7 @@ describe("useOverlayPresence", () => {
   });
 
   afterEach(() => {
+    restoreGlobals();
     rafPending.clear();
   });
 
@@ -295,26 +275,72 @@ describe("useOverlayPresence", () => {
     h.unmount();
   });
 
-  test("opacity transitionend from a nested settings-modal still unmounts", () => {
+  test("opacity transitionend from a nested overlay-surface still unmounts", () => {
     const onExited = mock(() => {});
     const h = mountPresence(true, onExited);
     flushFrames(2);
     h.setVisible(false);
 
     const dialog = document.createElement("dialog");
-    const modal = document.createElement("div");
-    modal.className = "settings-modal";
-    dialog.appendChild(modal);
+    const surface = document.createElement("div");
+    surface.className = "overlay-surface";
+    dialog.appendChild(surface);
 
     act(() => {
       h.get().onTransitionEnd({
         propertyName: "opacity",
-        target: modal,
+        target: surface,
         currentTarget: dialog,
       });
     });
     expect(h.get().mounted).toBe(false);
     expect(onExited).toHaveBeenCalledTimes(1);
+    h.unmount();
+  });
+
+  test("opacity transitionend from a nested overlay-backdrop still unmounts", () => {
+    const onExited = mock(() => {});
+    const h = mountPresence(true, onExited);
+    flushFrames(2);
+    h.setVisible(false);
+
+    const dialog = document.createElement("dialog");
+    const backdrop = document.createElement("button");
+    backdrop.className = "overlay-backdrop";
+    dialog.appendChild(backdrop);
+
+    act(() => {
+      h.get().onTransitionEnd({
+        propertyName: "opacity",
+        target: backdrop,
+        currentTarget: dialog,
+      });
+    });
+    expect(h.get().mounted).toBe(false);
+    expect(onExited).toHaveBeenCalledTimes(1);
+    h.unmount();
+  });
+
+  test("opacity transitionend from a nested non-overlay element is ignored", () => {
+    const onExited = mock(() => {});
+    const h = mountPresence(true, onExited);
+    flushFrames(2);
+    h.setVisible(false);
+
+    const dialog = document.createElement("dialog");
+    const nested = document.createElement("div");
+    nested.className = "settings-nav";
+    dialog.appendChild(nested);
+
+    act(() => {
+      h.get().onTransitionEnd({
+        propertyName: "opacity",
+        target: nested,
+        currentTarget: dialog,
+      });
+    });
+    expect(h.get().mounted).toBe(true);
+    expect(onExited).not.toHaveBeenCalled();
     h.unmount();
   });
 

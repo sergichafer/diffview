@@ -21,6 +21,8 @@ export function rolesToCssVariables(roles: ThemeRoles): Record<string, string> {
     "--accent-subtle": accent.subtle,
     "--state-success": states.success,
     "--state-danger": states.danger,
+    "--state-merge": states.merge,
+    "--state-info": states.info,
     "--list-hover": list.hoverBg,
     "--list-active": list.activeSelectionBg,
     "--scrollbar": list.scrollbar,

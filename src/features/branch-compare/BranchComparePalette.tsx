@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { IconGlyph } from "@/design/IconButton";
+import { isTypingTarget } from "@/design/isTypingTarget";
 import {
   applyOverlayOrigin,
   useOverlayPresence,
@@ -49,17 +50,6 @@ function score(query: string, name: string): number {
   let qi = 0;
   for (const ch of n) if (ch === q[qi]) qi++;
   return qi === q.length ? 100 - (n.length - q.length) : -1;
-}
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    target.isContentEditable
-  );
 }
 
 function DivergenceChips({ meta }: { meta?: BranchMetadata }) {
@@ -270,7 +260,7 @@ function PaletteDialog({
     <dialog
       ref={dialogRef}
       tabIndex={-1}
-      className="compare-dialog"
+      className="compare-dialog overlay-host"
       aria-label="Choose branches"
       data-overlay-state={overlayState}
       onTransitionEnd={onTransitionEnd}
@@ -282,13 +272,13 @@ function PaletteDialog({
     >
       <button
         type="button"
-        className="compare-backdrop"
+        className="compare-backdrop overlay-backdrop"
         aria-label="Close branch selector"
         onClick={() => {
           if (!closing) onClose();
         }}
       />
-      <div ref={paletteRef} className="compare-sheet" onKeyDown={onKeyDown}>
+      <div ref={paletteRef} className="compare-sheet overlay-surface" onKeyDown={onKeyDown}>
         <div className="compare-slots">
           <button
             type="button"

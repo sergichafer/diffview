@@ -1,52 +1,3 @@
-import { Window } from "happy-dom";
-
-const dom = new Window();
-for (const key of [
-  "document",
-  "navigator",
-  "HTMLElement",
-  "HTMLButtonElement",
-  "HTMLDialogElement",
-  "Element",
-  "Node",
-  "Event",
-  "CustomEvent",
-  "KeyboardEvent",
-  "MouseEvent",
-  "PointerEvent",
-  "getComputedStyle",
-  "DocumentFragment",
-  "MutationObserver",
-  "ResizeObserver",
-] as const) {
-  // @ts-expect-error assign dom globals
-  if (globalThis[key] === undefined) globalThis[key] = dom[key];
-}
-(globalThis as any).window = dom;
-(globalThis as any).document = dom.document;
-(globalThis as any).navigator = dom.navigator;
-(globalThis as any).customElements = dom.customElements;
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-if (typeof (globalThis as any).CSS === "undefined") {
-  (globalThis as any).CSS = { escape: (s: string) => s };
-}
-
-const DialogProto = (globalThis as any).HTMLDialogElement?.prototype;
-if (DialogProto) {
-  if (typeof DialogProto.showModal !== "function") {
-    DialogProto.showModal = function showModal() {
-      this.setAttribute("open", "");
-      this.open = true;
-    };
-  }
-  if (typeof DialogProto.close !== "function") {
-    DialogProto.close = function close() {
-      this.removeAttribute("open");
-      this.open = false;
-    };
-  }
-}
-
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const { act } = await import("react");
@@ -94,7 +45,17 @@ function renderPanel(settings: AppSettings = DEFAULT_SETTINGS) {
 }
 
 describe("SettingsPanel", () => {
+  let restoreGlobals = () => {};
+
   beforeEach(() => {
+    const request = globalThis.requestAnimationFrame;
+    const cancel = globalThis.cancelAnimationFrame;
+    const matchMedia = globalThis.matchMedia;
+    restoreGlobals = () => {
+      globalThis.requestAnimationFrame = request;
+      globalThis.cancelAnimationFrame = cancel;
+      globalThis.matchMedia = matchMedia;
+    };
     rafId = 0;
     rafPending.clear();
     (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
@@ -125,6 +86,7 @@ describe("SettingsPanel", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    restoreGlobals();
     rafPending.clear();
   });
 
