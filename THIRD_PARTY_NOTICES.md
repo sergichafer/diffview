@@ -105,8 +105,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 https://github.com/dempfi/ayu
 https://github.com/ayu-theme/ayu-colors
 
-The Sublime theme and the `ayu-colors` palette are separate MIT works with different copyright holders. We ship adapted hex values, so both notices stay. The permission text is identical, so it appears once.
-
 ```
 MIT License
 
@@ -136,8 +134,6 @@ SOFTWARE.
 
 https://github.com/catppuccin/catppuccin
 https://github.com/catppuccin/palette
-
-The org spec and the palette package are both MIT, same copyright line. One notice covers both.
 
 ```
 MIT License
