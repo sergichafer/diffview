@@ -31,7 +31,7 @@ export function CompareGraphPopover({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDialogElement>(null);
   const presence = useOverlayPresence(open, () => {
     triggerRef.current?.focus();
   });
@@ -44,6 +44,21 @@ export function CompareGraphPopover({
   const toggle = useCallback(() => {
     setOpen((value) => !value);
   }, []);
+
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    if (!panel.open) {
+      try {
+        panel.show();
+      } catch {
+        panel.setAttribute("open", "");
+      }
+    }
+    return () => {
+      if (panel.open) panel.close();
+    };
+  }, [presence.mounted]);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -89,12 +104,14 @@ export function CompareGraphPopover({
           className="compare-graph"
           data-overlay-state={presence.overlayState}
         >
-          <div
+          <dialog
             ref={panelRef}
             className="compare-graph-panel"
-            role="dialog"
             aria-label="Compare graph"
-            tabIndex={-1}
+            onCancel={(event) => {
+              event.preventDefault();
+              if (open) setOpen(false);
+            }}
             onTransitionEnd={presence.onTransitionEnd}
           >
             <p className="compare-graph-head">Graph</p>
@@ -134,7 +151,7 @@ export function CompareGraphPopover({
                 </span>
               ) : null}
             </div>
-          </div>
+          </dialog>
         </div>
       ) : null}
     </div>

@@ -18,9 +18,16 @@
 }
 
 .compare-graph-panel {
+  position: relative;
+  inset: auto;
+  margin: 0;
+  width: 100%;
+  max-width: none;
   padding: 14px 16px 16px;
+  color: inherit;
   border-radius: 16px;
   background: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
+  border: none;
   border-top: 1px solid var(--border-highlight);
   box-shadow: var(--shell-shadow);
   -webkit-backdrop-filter: blur(20px) saturate(180%);

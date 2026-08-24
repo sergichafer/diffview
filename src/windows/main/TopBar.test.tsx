@@ -28,6 +28,11 @@ for (const key of [
 if (typeof (globalThis as any).CSS === "undefined") {
   (globalThis as any).CSS = { escape: (s: string) => s };
 }
+if (typeof globalThis.requestAnimationFrame !== "function") {
+  globalThis.requestAnimationFrame = (cb: FrameRequestCallback) =>
+    Number(setTimeout(() => cb(Date.now()), 0));
+  globalThis.cancelAnimationFrame = (id: number) => clearTimeout(id);
+}
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
@@ -204,7 +209,7 @@ describe("TopBar graph", () => {
     });
     expect(graph.getAttribute("aria-expanded")).toBe("true");
     const dialog = container.querySelector(
-      '[role="dialog"][aria-label="Compare graph"]',
+      'dialog[aria-label="Compare graph"]',
     );
     expect(dialog).toBeTruthy();
     expect(dialog?.getAttribute("aria-modal")).toBeNull();
