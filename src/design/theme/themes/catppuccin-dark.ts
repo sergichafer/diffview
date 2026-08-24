@@ -20,7 +20,7 @@ export const catppuccinDarkRoles: ThemeRoles = {
   border: {
     default: "rgba(108, 112, 134, 0.14)",
     strong: "rgba(108, 112, 134, 0.28)",
-    /** Solid Lavender. An alpha ring fails 1.4.11. */
+    /** Solid. An alpha ring is ~1.2:1 and fails 1.4.11. 7.03:1 on editor. */
     focus: "#b4befe",
     /** 1× seam (10%): section hairlines; not a 1.4.11 boundary. */
     seam: "rgba(108, 112, 134, 0.1)",
@@ -36,7 +36,6 @@ export const catppuccinDarkRoles: ThemeRoles = {
   },
   states: {
     success: "#a6e3a1",
-    /** Official Mocha red, AAA on editor. */
     danger: "#f38ba8",
     modified: "#89b4fa",
     merge: "#cba6f7",
@@ -56,6 +55,7 @@ export const catppuccinDarkRoles: ThemeRoles = {
     shellShadow:
       "0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04)",
   },
+  /** Official Mocha syntax; failing comment AAA-tuned, rest keep official chroma. */
   syntax: {
     keyword: "#cba6f7",
     func: "#89b4fa",
@@ -64,7 +64,6 @@ export const catppuccinDarkRoles: ThemeRoles = {
     entity: "#f9e2af",
     constant: "#fab387",
     operator: "#89dceb",
-    /** AAA-tuned from Overlay 2 toward white for 7:1 on editor. */
     comment: "#a3a9be",
     markup: "#f5c2e7",
   },

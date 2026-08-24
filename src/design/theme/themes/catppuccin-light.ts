@@ -13,20 +13,20 @@ export const catppuccinLightRoles: ThemeRoles = {
     elevated: "#ccd0da",
   },
   fg: {
-    /** AAA-tuned from Text. Hits 7:1 on editor, elevated, inset, and window (title wordmark on the shelf). */
+    /** AAA against window: title wordmark on the shelf. Also elevated/inset (settings). */
     base: "#3a3c50",
-    /** AAA-tuned from Subtext 0. Same four surfaces (caption buttons rest on the shelf). */
+    /** AAA against window: stroke caption buttons rest on the shelf. */
     muted: "#3b3c48",
-    /** AAA-tuned from Subtext 1. AAA against editor: diffs modified ink. */
+    /** AAA against editor: diffs modified ink. */
     accent: "#4d5064",
-    /** AAA-tuned from Text. AAA against editor and elevated (icon buttons / settings headings). */
+    /** AAA against elevated: icon buttons / settings headings. */
     accentBright: "#3a3c50",
   },
   /** Solid greys: Surface 1 for default/seam, Surface 2 for strong/seamStrong. */
   border: {
     default: "#bcc0cc",
     strong: "#acb0be",
-    /** Official Mauve. 1.4.11 ≥3:1 on editor, elevated, and window. Lockstep with accent.primary. Official Lavender fails 3:1. */
+    /** Official Mauve: 1.4.11 non-text 3:1 on editor, elevated, and window (caption focus). */
     focus: "#8839ef",
     /** 1× seam: section hairlines; not a 1.4.11 boundary. */
     seam: "#bcc0cc",
@@ -36,7 +36,7 @@ export const catppuccinLightRoles: ThemeRoles = {
     highlight: "rgba(0, 0, 0, 0.05)",
   },
   accent: {
-    /** Official Mauve. 1.4.11 non-text 3:1 on editor, elevated, and window. */
+    /** Official Mauve: 1.4.11 non-text 3:1 on elevated and window. */
     primary: "#8839ef",
     subtle: "rgba(136, 57, 239, 0.12)",
     contrastOnAccent: "#eff1f5",
@@ -61,9 +61,10 @@ export const catppuccinLightRoles: ThemeRoles = {
   effects: {
     /** Official Mauve; lockstep with `accent.primary`. */
     ringInk: "#8839ef",
-    /** Mid-chroma mauve on near-white. */
+    /** Mauve on near-white needs the raised floor to reach the ~2:1 resting
+     *  arc the darker palettes get for free. */
     ringFloor: "0.60",
-    /** Cool overlay, no white gloss inset. */
+    /** Cool, no white gloss inset. */
     shellShadow: "0 24px 60px rgba(108, 111, 133, 0.07)",
   },
   /** Official Latte syntax, AAA-tuned toward black for 7:1 on editor. */
