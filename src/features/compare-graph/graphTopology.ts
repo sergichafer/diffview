@@ -22,7 +22,6 @@ export type GraphTopology = {
   kind: GraphKind;
   title: string;
   detail: string;
-  caption: string;
   ahead: number;
   behind: number;
   baseLabel: string;
@@ -106,7 +105,6 @@ export function graphTopology(input: GraphTopologyInput): GraphTopology {
     kind,
     title,
     detail,
-    caption: `${title}. ${detail}`,
     ahead,
     behind,
     baseLabel,

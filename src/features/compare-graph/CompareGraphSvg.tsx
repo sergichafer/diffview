@@ -1,13 +1,10 @@
 import type { ReactNode } from "react";
 import { truncateBranchLabel } from "@/features/branch-compare/branchLabel";
+import { GRAPH_LAYOUT } from "./graphLayout";
 import type { GraphTopology } from "./graphTopology";
 
-const VIEW_W = 248;
-const VIEW_H = 220;
-const Y0 = 22;
-const Y1 = VIEW_H - 28;
-const X_AHEAD = VIEW_W * 0.36;
-const X_BEHIND = VIEW_W * 0.64;
+const { viewW: VIEW_W, viewH: VIEW_H, yTip: Y0, yBase: Y1, xAhead: X_AHEAD, xBehind: X_BEHIND } =
+  GRAPH_LAYOUT;
 const X_JOIN = (X_AHEAD + X_BEHIND) / 2;
 
 function Node({
@@ -15,13 +12,15 @@ function Node({
   cy,
   fill,
   r = 4.5,
+  role,
 }: {
   cx: number;
   cy: number;
   fill: string;
   r?: number;
+  role?: string;
 }) {
-  return <circle cx={cx} cy={cy} r={r} fill={fill} />;
+  return <circle cx={cx} cy={cy} r={r} fill={fill} data-graph-node={role} />;
 }
 
 function Hollow({ cx, cy }: { cx: number; cy: number }) {
@@ -33,6 +32,7 @@ function Hollow({ cx, cy }: { cx: number; cy: number }) {
       fill="none"
       stroke="var(--state-info)"
       strokeWidth={1.6}
+      data-graph-node="wip"
     />
   );
 }
@@ -47,6 +47,7 @@ function Diamond({ cx, cy }: { cx: number; cy: number }) {
       rx={1}
       fill="var(--state-merge)"
       transform={`rotate(45 ${cx} ${cy})`}
+      data-graph-node="merge-base"
     />
   );
 }
@@ -147,7 +148,7 @@ export function CompareGraphSvg({ topology, isLive }: CompareGraphSvgProps) {
         />
         <Diamond cx={X_AHEAD} cy={Y1} />
         {laneDots(topology.drawnAhead, X_AHEAD, Y0, Y1, success)}
-        <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} />
+        <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} role="head" />
         {live ? <Hollow cx={X_AHEAD} cy={Y0} /> : null}
         <Label x={X_AHEAD + 12} y={Y1 + 4} text={baseLabel} anchor="start" />
         <Label x={X_AHEAD + 12} y={Y0 + 4} text="HEAD" anchor="start" />
@@ -164,7 +165,7 @@ export function CompareGraphSvg({ topology, isLive }: CompareGraphSvgProps) {
         />
         <Diamond cx={X_AHEAD} cy={Y1} />
         {laneDots(topology.drawnBehind, X_BEHIND, Y0, Y1 - 80, danger)}
-        <Node cx={X_BEHIND} cy={Y0} fill={danger} r={5} />
+        <Node cx={X_BEHIND} cy={Y0} fill={danger} r={5} role="head" />
         {live ? <Hollow cx={X_AHEAD} cy={Y1} /> : null}
         <Label x={8} y={Y1 + 4} text="HEAD" anchor="start" />
         <Label
@@ -193,8 +194,8 @@ export function CompareGraphSvg({ topology, isLive }: CompareGraphSvgProps) {
         <Diamond cx={X_JOIN} cy={Y1} />
         {laneDots(topology.drawnAhead, X_AHEAD, Y0, Y1 - 64, success)}
         {laneDots(topology.drawnBehind, X_BEHIND, Y0 + 8, Y1 - 64, danger)}
-        <Node cx={X_BEHIND} cy={Y0 + 8} fill={danger} r={5} />
-        <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} />
+        <Node cx={X_BEHIND} cy={Y0 + 8} fill={danger} r={5} role="head" />
+        <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} role="head" />
         {live ? <Hollow cx={X_AHEAD} cy={Y0} /> : null}
         <Label x={8} y={Y1 + 12} text="merge-base" anchor="start" />
         <Label x={X_AHEAD - 6} y={Y0 - 8} text="HEAD" anchor="end" />

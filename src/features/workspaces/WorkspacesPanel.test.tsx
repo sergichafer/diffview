@@ -12,6 +12,7 @@ const { makeComparisonKey } = await import("@/features/branch-compare/comparison
 import type { RepoSessionValue } from "@/features/repo-session/useRepoSession";
 import type { ComparisonRow, WorkspaceGroup } from "@/features/repo-session/types";
 import type { BranchOverview, FileDiffResult, RepoInfo } from "@/shared/types/app";
+import { WIP_LABEL, WIP_TITLE } from "@/shared/wipCopy";
 
 const repo: RepoInfo = {
   path: "/repos/demo",
@@ -22,9 +23,6 @@ const repo: RepoInfo = {
 
 const liveKey = makeComparisonKey(repo.path, "main", "feature/panels-seams");
 const frozenKey = makeComparisonKey(repo.path, "main", "release/1.2");
-
-const WIP_TITLE =
-  "WIP: checked-out head. Diffs and saves write the working tree.";
 
 function overview(files: number, isLive: boolean): BranchOverview {
   return {
@@ -164,7 +162,7 @@ describe("WorkspacesPanel Hang row", () => {
   test("live comparison shows the word WIP", () => {
     renderPanel(session());
     const comparison = container.querySelector(`[data-ws-key="${liveKey}"]`);
-    expect(comparison?.textContent).toContain("WIP");
+    expect(comparison?.textContent).toContain(WIP_LABEL);
     const wip = comparison?.querySelector(".workspaces-wip");
     expect(wip?.getAttribute("title")).toBe(WIP_TITLE);
   });
@@ -188,7 +186,7 @@ describe("WorkspacesPanel Hang row", () => {
     expect(comparison?.textContent).toContain("release/1.2");
     expect(comparison?.textContent).toContain("→");
     expect(comparison?.textContent).toContain("main");
-    expect(comparison?.textContent).not.toContain("WIP");
+    expect(comparison?.textContent).not.toContain(WIP_LABEL);
   });
 
   test("warm row keeps the file count and hides +/−", () => {

@@ -4,6 +4,7 @@ const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { CompareGraphPopover } = await import("./CompareGraphPopover");
 import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
+import { WIP_LABEL } from "@/shared/wipCopy";
 
 let showCalls = 0;
 let showModalCalls = 0;
@@ -109,8 +110,10 @@ afterEach(() => {
   restoreRaf();
   rafPending.clear();
   if (DialogProto) {
-    DialogProto.show = originalShow;
-    DialogProto.showModal = originalShowModal;
+    if (originalShow) DialogProto.show = originalShow;
+    else delete (DialogProto as { show?: () => void }).show;
+    if (originalShowModal) DialogProto.showModal = originalShowModal;
+    else delete (DialogProto as { showModal?: () => void }).showModal;
   }
 });
 
@@ -280,7 +283,7 @@ describe("CompareGraphPopover", () => {
       graphButton().click();
     });
     const legend = panel()?.querySelector(".compare-graph-legend")?.textContent;
-    expect(legend).toContain("WIP");
+    expect(legend).toContain(WIP_LABEL);
     expect(legend).not.toContain("Working tree");
   });
 

@@ -43,9 +43,7 @@ describe("graphTopology", () => {
     });
     expect(graph.kind).toBe("diverged");
     expect(graph.title).toBe("Diverged");
-    expect(graph.caption).toBe(
-      "Diverged. 4 ahead of origin/main, 2 behind.",
-    );
+    expect(graph.detail).toBe("4 ahead of origin/main, 2 behind.");
     expect(graph.ahead).toBe(4);
     expect(graph.behind).toBe(2);
     expect(graph.drawnAhead).toBe(3);
@@ -61,7 +59,8 @@ describe("graphTopology", () => {
       metadata: [{ name: "feature", ahead: 6, behind: 0 }],
     });
     expect(graph.kind).toBe("linear");
-    expect(graph.caption).toBe("Linear. 6 ahead, 0 behind.");
+    expect(graph.title).toBe("Linear");
+    expect(graph.detail).toBe("6 ahead, 0 behind.");
     expect(graph.drawnAhead).toBe(5);
     expect(graph.drawnBehind).toBe(0);
   });
@@ -77,7 +76,8 @@ describe("graphTopology", () => {
       metadata: [{ name: "release/1.4", ahead: 0, behind: 3 }],
     });
     expect(graph.kind).toBe("behind");
-    expect(graph.caption).toBe("Behind. 0 ahead, 3 behind.");
+    expect(graph.title).toBe("Behind");
+    expect(graph.detail).toBe("0 ahead, 3 behind.");
     expect(graph.drawnAhead).toBe(0);
     expect(graph.drawnBehind).toBe(2);
   });
@@ -94,7 +94,8 @@ describe("graphTopology", () => {
       metadata: [{ name: "main", ahead: 0, behind: 0 }],
     });
     expect(graph.kind).toBe("sync");
-    expect(graph.caption).toBe("In sync. 0 ahead, 0 behind.");
+    expect(graph.title).toBe("In sync");
+    expect(graph.detail).toBe("0 ahead, 0 behind.");
     expect(graph.drawnAhead).toBe(0);
     expect(graph.drawnBehind).toBe(0);
   });
@@ -137,9 +138,8 @@ describe("graphTopology", () => {
     expect(graph.ahead).toBe(3);
     expect(graph.behind).toBe(1);
     expect(graph.kind).toBe("diverged");
-    expect(graph.caption).toBe(
-      "Diverged. 3 ahead of origin/main, 1 behind.",
-    );
+    expect(graph.title).toBe("Diverged");
+    expect(graph.detail).toBe("3 ahead of origin/main, 1 behind.");
   });
 
   test("missing metadata is unknown until counts load", () => {
@@ -153,7 +153,8 @@ describe("graphTopology", () => {
     expect(graph.kind).toBe("unknown");
     expect(graph.ahead).toBe(0);
     expect(graph.behind).toBe(0);
-    expect(graph.caption).toBe("Graph. Waiting for branch counts.");
+    expect(graph.title).toBe("Graph");
+    expect(graph.detail).toBe("Waiting for branch counts.");
     expect(comparisonIsLive(overview({ isLive: true }), "feature")).toBe(true);
     expect(graph.baseLabel).toBe("origin/main");
     expect(graph.drawnAhead).toBe(0);
@@ -195,7 +196,8 @@ describe("graphTopology", () => {
     });
     expect(comparisonIsLive(null, "feature")).toBe(false);
     expect(graph.kind).toBe("linear");
-    expect(graph.caption).toBe("Linear. 5 ahead, 0 behind.");
+    expect(graph.title).toBe("Linear");
+    expect(graph.detail).toBe("5 ahead, 0 behind.");
   });
 
   test("caps drawn intermediates on a long lane", () => {
@@ -210,9 +212,8 @@ describe("graphTopology", () => {
     expect(graph.behind).toBe(15);
     expect(graph.drawnAhead).toBe(MAX_INTERMEDIATE_DOTS);
     expect(graph.drawnBehind).toBe(MAX_INTERMEDIATE_DOTS);
-    expect(graph.caption).toBe(
-      "Diverged. 20 ahead of origin/main, 15 behind.",
-    );
+    expect(graph.title).toBe("Diverged");
+    expect(graph.detail).toBe("20 ahead of origin/main, 15 behind.");
   });
 
   test("matching mergeBase and headOid is sync when counts have not loaded", () => {
@@ -224,7 +225,8 @@ describe("graphTopology", () => {
     });
     expect(graph.hasMetadata).toBe(false);
     expect(graph.kind).toBe("sync");
-    expect(graph.caption).toBe("In sync. 0 ahead, 0 behind.");
+    expect(graph.title).toBe("In sync");
+    expect(graph.detail).toBe("0 ahead, 0 behind.");
     expect(graph.drawnAhead).toBe(0);
     expect(graph.drawnBehind).toBe(0);
   });

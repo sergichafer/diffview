@@ -14,6 +14,7 @@ import {
   useOverlayPresence,
 } from "@/design/useOverlayPresence";
 import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
+import { WIP_LABEL, WIP_TITLE } from "@/shared/wipCopy";
 import { CompareGraphSvg } from "./CompareGraphSvg";
 import { comparisonIsLive, graphTopology } from "./graphTopology";
 
@@ -24,9 +25,6 @@ interface CompareGraphPopoverProps {
   metadata: BranchMetadata[];
   onNeedMetadata?: () => void;
 }
-
-const WIP_TITLE =
-  "WIP: checked-out head. Diffs and saves write the working tree.";
 
 export function CompareGraphPopover({
   head,
@@ -183,7 +181,7 @@ export function CompareGraphPopover({
                     className="compare-graph-swatch compare-graph-swatch-live"
                     aria-hidden="true"
                   />
-                  WIP
+                  {WIP_LABEL}
                 </span>
               ) : null}
             </div>
