@@ -124,18 +124,16 @@ function graphBody(topology: GraphTopology, isLive: boolean): ReactNode {
     : "base";
 
   switch (topology.kind) {
-    case "unknown":
+    case "unknown": {
+      const y = (Y0 + Y1) / 2;
       return (
         <>
-          <Diamond cx={X_JOIN} cy={(Y0 + Y1) / 2} />
-          <Label
-            x={X_JOIN}
-            y={(Y0 + Y1) / 2 + 22}
-            text="counts pending"
-            anchor="middle"
-          />
+          <Diamond cx={X_JOIN} cy={y} />
+          {isLive ? <Hollow cx={X_JOIN} cy={y} /> : null}
+          <Label x={X_JOIN} y={y + 22} text="counts pending" anchor="middle" />
         </>
       );
+    }
     case "sync": {
       const y = (Y0 + Y1) / 2;
       return (

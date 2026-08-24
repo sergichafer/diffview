@@ -84,6 +84,16 @@ describe("CompareGraphSvg", () => {
     expect(container.querySelector("path")).toBeTruthy();
   });
 
+  test("live unknown still draws a WIP ring on the merge-base", () => {
+    act(() => {
+      root.render(
+        <CompareGraphSvg topology={topology("unknown")} isLive />,
+      );
+    });
+    expect(container.querySelector('[data-graph-node="wip"]')).toBeTruthy();
+    expect(container.textContent).toContain("counts pending");
+  });
+
   test("live sync draws a WIP ring on the merge-base", () => {
     act(() => {
       root.render(<CompareGraphSvg topology={topology("sync")} isLive />);

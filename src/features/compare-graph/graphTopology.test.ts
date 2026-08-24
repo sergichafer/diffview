@@ -17,6 +17,31 @@ const overview = (
   ...overrides,
 });
 
+describe("comparisonIsLive", () => {
+  test("empty head is working-tree live even when overview still says committed", () => {
+    expect(
+      comparisonIsLive({ isLive: false, currentBranch: "feature" }, ""),
+    ).toBe(true);
+  });
+
+  test("head matching the checked-out branch is live", () => {
+    expect(
+      comparisonIsLive({ isLive: false, currentBranch: "feature" }, "feature"),
+    ).toBe(true);
+  });
+
+  test("a named head other than the checked-out branch is committed", () => {
+    expect(
+      comparisonIsLive({ isLive: true, currentBranch: "feature" }, "release/1.4"),
+    ).toBe(false);
+  });
+
+  test("null overview treats empty head as live and a named head as committed", () => {
+    expect(comparisonIsLive(null, "")).toBe(true);
+    expect(comparisonIsLive(null, "feature")).toBe(false);
+  });
+});
+
 describe("graphTopology", () => {
   test("diverged uses head metadata versus the comparison base", () => {
     const graph = graphTopology({
@@ -84,28 +109,6 @@ describe("graphTopology", () => {
     expect(graphDetail(graph)).toBe("0 ahead, 0 behind.");
   });
 
-  test("live working tree keeps comparisonIsLive", () => {
-    const graph = graphTopology({
-      head: "",
-      base: "origin/main",
-      overview: overview({ currentBranch: "feature" }),
-      metadata: [{ name: "feature", ahead: 4, behind: 2 }],
-    });
-    expect(comparisonIsLive({ isLive: true }, "")).toBe(true);
-    expect(graph.kind).toBe("diverged");
-  });
-
-  test("committed comparison is not live", () => {
-    const graph = graphTopology({
-      head: "feature",
-      base: "origin/main",
-      overview: overview(),
-      metadata: [{ name: "feature", ahead: 2, behind: 0 }],
-    });
-    expect(comparisonIsLive({ isLive: false }, "feature")).toBe(false);
-    expect(graph.kind).toBe("linear");
-  });
-
   test("empty head looks up overview.currentBranch in metadata", () => {
     const graph = graphTopology({
       head: "",
@@ -136,7 +139,6 @@ describe("graphTopology", () => {
     expect(graph).toEqual({ kind: "unknown", baseLabel: "origin/main" });
     expect(graphTitle(graph)).toBe("Graph");
     expect(graphDetail(graph)).toBe("Waiting for branch counts.");
-    expect(comparisonIsLive({ isLive: true }, "feature")).toBe(true);
   });
 
   test("metadata for other branches does not count as this head", () => {
@@ -149,14 +151,13 @@ describe("graphTopology", () => {
     expect(graph).toEqual({ kind: "unknown", baseLabel: "origin/main" });
   });
 
-  test("null overview with empty head is live and unknown until metadata", () => {
+  test("null overview with empty head is unknown until metadata", () => {
     const graph = graphTopology({
       head: "",
       base: "main",
       overview: null,
       metadata: [],
     });
-    expect(comparisonIsLive(null, "")).toBe(true);
     expect(graph).toEqual({ kind: "unknown", baseLabel: "main" });
   });
 
@@ -167,7 +168,6 @@ describe("graphTopology", () => {
       overview: null,
       metadata: [{ name: "feature", ahead: 5, behind: 0 }],
     });
-    expect(comparisonIsLive(null, "feature")).toBe(false);
     expect(graph).toEqual({
       kind: "linear",
       ahead: 5,
