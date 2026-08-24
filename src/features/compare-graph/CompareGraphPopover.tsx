@@ -16,7 +16,12 @@ import {
 import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
 import { WIP_LABEL, WIP_TITLE } from "@/shared/wipCopy";
 import { CompareGraphSvg } from "./CompareGraphSvg";
-import { comparisonIsLive, graphTopology } from "./graphTopology";
+import {
+  comparisonIsLive,
+  graphDetail,
+  graphTitle,
+  graphTopology,
+} from "./graphTopology";
 
 interface CompareGraphPopoverProps {
   head: string;
@@ -52,32 +57,25 @@ export function CompareGraphPopover({
   );
   const isLive = comparisonIsLive(overview, head);
 
-  const closeFromTrigger = useCallback(() => {
-    restoreFocusRef.current = true;
+  const close = useCallback((restoreFocus: boolean) => {
+    restoreFocusRef.current = restoreFocus;
     setOpen(false);
   }, []);
 
   const toggle = useCallback(() => {
     if (open) {
-      restoreFocusRef.current = true;
-      setOpen(false);
+      close(true);
       return;
     }
     restoreFocusRef.current = false;
     onNeedMetadata?.();
     setOpen(true);
-  }, [open, onNeedMetadata]);
+  }, [open, onNeedMetadata, close]);
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
-    if (!panel.open) {
-      try {
-        panel.show();
-      } catch {
-        panel.setAttribute("open", "");
-      }
-    }
+    if (!panel.open) panel.show();
     return () => {
       if (panel.open) panel.close();
     };
@@ -98,16 +96,14 @@ export function CompareGraphPopover({
       if (isTypingTarget(event.target)) return;
       if (document.querySelector("dialog:modal")) return;
       event.preventDefault();
-      restoreFocusRef.current = true;
-      setOpen(false);
+      close(true);
     };
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (triggerRef.current?.contains(target)) return;
       if (panelRef.current?.contains(target)) return;
-      restoreFocusRef.current = false;
-      setOpen(false);
+      close(false);
     };
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("pointerdown", onPointerDown);
@@ -115,7 +111,7 @@ export function CompareGraphPopover({
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [open]);
+  }, [open, close]);
 
   return (
     <div className="compare-graph-anchor">
@@ -130,28 +126,21 @@ export function CompareGraphPopover({
       {presence.mounted ? (
         <div
           ref={hostRef}
-          className="compare-graph"
+          className="compare-graph overlay-host"
           data-overlay-state={presence.overlayState}
         >
           <dialog
             ref={panelRef}
             id={panelId}
-            className="compare-graph-panel"
+            className="compare-graph-panel overlay-surface"
             aria-label="Compare graph"
             aria-describedby={captionId}
-            onCancel={(event) => {
-              if (isTypingTarget(event.target) || isTypingTarget(document.activeElement)) {
-                return;
-              }
-              event.preventDefault();
-              if (open) closeFromTrigger();
-            }}
             onTransitionEnd={presence.onTransitionEnd}
           >
             <p className="compare-graph-head">Graph</p>
             <CompareGraphSvg topology={topology} isLive={isLive} />
             <p id={captionId} className="compare-graph-caption">
-              <strong>{topology.title}.</strong> {topology.detail}
+              <strong>{graphTitle(topology)}.</strong> {graphDetail(topology)}
             </p>
             <div className="compare-graph-legend">
               <span className="compare-graph-legend-item">

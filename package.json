@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "bun test --preload ./test/dom.ts",
+    "test": "bun test",
     "doctor": "npx -y react-doctor@latest .",
     "generate:types": ".typeshare-tools/bin/typeshare ./src-tauri/src --lang=typescript --output-file=src/shared/types/generated/types.ts && cargo run --quiet --manifest-path src-tauri/Cargo.toml --example export_default_settings > src/shared/types/generated/settingsDefaults.json"
   },

@@ -19,13 +19,10 @@ export type OverlayTransitionEndLike = {
   currentTarget?: EventTarget | null;
 };
 
-function isDialogOverlaySurface(el: Element): boolean {
+function isOverlayTransitionTarget(el: Element): boolean {
   return (
-    el.classList.contains("compare-sheet") ||
-    el.classList.contains("compare-backdrop") ||
-    el.classList.contains("settings-modal") ||
-    el.classList.contains("settings-dialog-backdrop") ||
-    el.classList.contains("compare-graph-panel")
+    el.classList.contains("overlay-surface") ||
+    el.classList.contains("overlay-backdrop")
   );
 }
 
@@ -169,7 +166,7 @@ export function useOverlayPresence(
         target instanceof Element &&
         current instanceof Element &&
         target !== current &&
-        !isDialogOverlaySurface(target)
+        !isOverlayTransitionTarget(target)
       ) {
         return;
       }

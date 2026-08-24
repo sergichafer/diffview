@@ -1,11 +1,21 @@
 import type { ReactNode } from "react";
-import { truncateBranchLabel } from "@/features/branch-compare/branchLabel";
-import { GRAPH_LAYOUT } from "./graphLayout";
+import { truncateLabel } from "@/shared/truncateLabel";
 import type { GraphTopology } from "./graphTopology";
 
-const { viewW: VIEW_W, viewH: VIEW_H, yTip: Y0, yBase: Y1, xAhead: X_AHEAD, xBehind: X_BEHIND } =
-  GRAPH_LAYOUT;
+const VIEW_W = 248;
+const VIEW_H = 220;
+const Y0 = 22;
+const Y1 = VIEW_H - 28;
+const X_AHEAD = VIEW_W * 0.36;
+const X_BEHIND = VIEW_W * 0.64;
 const X_JOIN = (X_AHEAD + X_BEHIND) / 2;
+const GRAPH_LABEL_CHARS = 16;
+const MAX_INTERMEDIATE_DOTS = 8;
+
+function intermediateDotCount(commitCount: number): number {
+  if (commitCount <= 1) return 0;
+  return Math.min(commitCount - 1, MAX_INTERMEDIATE_DOTS);
+}
 
 function Node({
   cx,
@@ -106,109 +116,119 @@ interface CompareGraphSvgProps {
   isLive: boolean;
 }
 
-export function CompareGraphSvg({ topology, isLive }: CompareGraphSvgProps) {
+function graphBody(topology: GraphTopology, isLive: boolean): ReactNode {
   const success = "var(--state-success)";
   const danger = "var(--state-danger)";
   const baseLabel = topology.baseLabel
-    ? truncateBranchLabel(topology.baseLabel, 16)
+    ? truncateLabel(topology.baseLabel, GRAPH_LABEL_CHARS)
     : "base";
-  const live = isLive;
 
-  let body: ReactNode;
-  if (topology.kind === "unknown") {
-    body = (
-      <>
-        <Diamond cx={X_JOIN} cy={(Y0 + Y1) / 2} />
-        <Label
-          x={X_JOIN}
-          y={(Y0 + Y1) / 2 + 22}
-          text="counts pending"
-          anchor="middle"
-        />
-      </>
-    );
-  } else if (topology.kind === "sync") {
-    const y = (Y0 + Y1) / 2;
-    body = (
-      <>
-        <Diamond cx={X_JOIN} cy={y} />
-        {live ? <Hollow cx={X_JOIN} cy={y} /> : null}
-        <Label x={X_JOIN + 12} y={y - 4} text="HEAD" anchor="start" />
-        <Label x={X_JOIN + 12} y={y + 12} text="merge-base" anchor="start" />
-      </>
-    );
-  } else if (topology.kind === "linear") {
-    body = (
-      <>
-        <path
-          d={`M ${X_AHEAD} ${Y0} V ${Y1}`}
-          stroke={success}
-          strokeWidth={1.6}
-          fill="none"
-        />
-        <Diamond cx={X_AHEAD} cy={Y1} />
-        {laneDots(topology.drawnAhead, X_AHEAD, Y0, Y1, success)}
-        <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} role="head" />
-        {live ? <Hollow cx={X_AHEAD} cy={Y0} /> : null}
-        <Label x={X_AHEAD + 12} y={Y1 + 4} text={baseLabel} anchor="start" />
-        <Label x={X_AHEAD + 12} y={Y0 + 4} text="HEAD" anchor="start" />
-      </>
-    );
-  } else if (topology.kind === "behind") {
-    body = (
-      <>
-        <path
-          d={`M ${X_AHEAD} ${Y1} V ${Y1 - 16} C ${X_AHEAD} ${Y1 - 40}, ${X_BEHIND} ${Y1 - 48}, ${X_BEHIND} ${Y1 - 80} V ${Y0}`}
-          stroke={danger}
-          strokeWidth={1.6}
-          fill="none"
-        />
-        <Diamond cx={X_AHEAD} cy={Y1} />
-        {laneDots(topology.drawnBehind, X_BEHIND, Y0, Y1 - 80, danger)}
-        <Node cx={X_BEHIND} cy={Y0} fill={danger} r={5} role="head" />
-        {live ? <Hollow cx={X_AHEAD} cy={Y1} /> : null}
-        <Label x={8} y={Y1 + 4} text="HEAD" anchor="start" />
-        <Label
-          x={X_BEHIND + 10}
-          y={Y0 + 4}
-          text={baseLabel}
-          anchor="start"
-        />
-      </>
-    );
-  } else {
-    body = (
-      <>
-        <path
-          d={`M ${X_JOIN} ${Y1} C ${X_JOIN} ${Y1 - 28}, ${X_BEHIND} ${Y1 - 36}, ${X_BEHIND} ${Y1 - 64} V ${Y0 + 8}`}
-          stroke={danger}
-          strokeWidth={1.6}
-          fill="none"
-        />
-        <path
-          d={`M ${X_JOIN} ${Y1} C ${X_JOIN} ${Y1 - 28}, ${X_AHEAD} ${Y1 - 36}, ${X_AHEAD} ${Y1 - 64} V ${Y0}`}
-          stroke={success}
-          strokeWidth={1.6}
-          fill="none"
-        />
-        <Diamond cx={X_JOIN} cy={Y1} />
-        {laneDots(topology.drawnAhead, X_AHEAD, Y0, Y1 - 64, success)}
-        {laneDots(topology.drawnBehind, X_BEHIND, Y0 + 8, Y1 - 64, danger)}
-        <Node cx={X_BEHIND} cy={Y0 + 8} fill={danger} r={5} role="head" />
-        <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} role="head" />
-        {live ? <Hollow cx={X_AHEAD} cy={Y0} /> : null}
-        <Label x={8} y={Y1 + 12} text="merge-base" anchor="start" />
-        <Label x={X_AHEAD - 6} y={Y0 - 8} text="HEAD" anchor="end" />
-        <Label
-          x={X_BEHIND + 10}
-          y={Y0 + 12}
-          text={baseLabel}
-          anchor="start"
-        />
-      </>
-    );
+  switch (topology.kind) {
+    case "unknown":
+      return (
+        <>
+          <Diamond cx={X_JOIN} cy={(Y0 + Y1) / 2} />
+          <Label
+            x={X_JOIN}
+            y={(Y0 + Y1) / 2 + 22}
+            text="counts pending"
+            anchor="middle"
+          />
+        </>
+      );
+    case "sync": {
+      const y = (Y0 + Y1) / 2;
+      return (
+        <>
+          <Diamond cx={X_JOIN} cy={y} />
+          {isLive ? <Hollow cx={X_JOIN} cy={y} /> : null}
+          <Label x={X_JOIN + 12} y={y - 4} text="HEAD" anchor="start" />
+          <Label x={X_JOIN + 12} y={y + 12} text="merge-base" anchor="start" />
+        </>
+      );
+    }
+    case "linear":
+      return (
+        <>
+          <path
+            d={`M ${X_AHEAD} ${Y0} V ${Y1}`}
+            stroke={success}
+            strokeWidth={1.6}
+            fill="none"
+          />
+          <Diamond cx={X_AHEAD} cy={Y1} />
+          {laneDots(intermediateDotCount(topology.ahead), X_AHEAD, Y0, Y1, success)}
+          <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} role="head" />
+          {isLive ? <Hollow cx={X_AHEAD} cy={Y0} /> : null}
+          <Label x={X_AHEAD + 12} y={Y1 + 4} text={baseLabel} anchor="start" />
+          <Label x={X_AHEAD + 12} y={Y0 + 4} text="HEAD" anchor="start" />
+        </>
+      );
+    case "behind":
+      return (
+        <>
+          <path
+            d={`M ${X_AHEAD} ${Y1} V ${Y1 - 16} C ${X_AHEAD} ${Y1 - 40}, ${X_BEHIND} ${Y1 - 48}, ${X_BEHIND} ${Y1 - 80} V ${Y0}`}
+            stroke={danger}
+            strokeWidth={1.6}
+            fill="none"
+          />
+          <Diamond cx={X_AHEAD} cy={Y1} />
+          {laneDots(
+            intermediateDotCount(topology.behind),
+            X_BEHIND,
+            Y0,
+            Y1 - 80,
+            danger,
+          )}
+          <Node cx={X_BEHIND} cy={Y0} fill={danger} r={5} role="head" />
+          {isLive ? <Hollow cx={X_AHEAD} cy={Y1} /> : null}
+          <Label x={8} y={Y1 + 4} text="HEAD" anchor="start" />
+          <Label x={X_BEHIND + 10} y={Y0 + 4} text={baseLabel} anchor="start" />
+        </>
+      );
+    case "diverged":
+      return (
+        <>
+          <path
+            d={`M ${X_JOIN} ${Y1} C ${X_JOIN} ${Y1 - 28}, ${X_BEHIND} ${Y1 - 36}, ${X_BEHIND} ${Y1 - 64} V ${Y0 + 8}`}
+            stroke={danger}
+            strokeWidth={1.6}
+            fill="none"
+          />
+          <path
+            d={`M ${X_JOIN} ${Y1} C ${X_JOIN} ${Y1 - 28}, ${X_AHEAD} ${Y1 - 36}, ${X_AHEAD} ${Y1 - 64} V ${Y0}`}
+            stroke={success}
+            strokeWidth={1.6}
+            fill="none"
+          />
+          <Diamond cx={X_JOIN} cy={Y1} />
+          {laneDots(
+            intermediateDotCount(topology.ahead),
+            X_AHEAD,
+            Y0,
+            Y1 - 64,
+            success,
+          )}
+          {laneDots(
+            intermediateDotCount(topology.behind),
+            X_BEHIND,
+            Y0 + 8,
+            Y1 - 64,
+            danger,
+          )}
+          <Node cx={X_BEHIND} cy={Y0 + 8} fill={danger} r={5} role="head" />
+          <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} role="head" />
+          {isLive ? <Hollow cx={X_AHEAD} cy={Y0} /> : null}
+          <Label x={8} y={Y1 + 12} text="merge-base" anchor="start" />
+          <Label x={X_AHEAD - 6} y={Y0 - 8} text="HEAD" anchor="end" />
+          <Label x={X_BEHIND + 10} y={Y0 + 12} text={baseLabel} anchor="start" />
+        </>
+      );
   }
+}
 
+export function CompareGraphSvg({ topology, isLive }: CompareGraphSvgProps) {
   return (
     <svg
       className="compare-graph-svg"
@@ -216,7 +236,7 @@ export function CompareGraphSvg({ topology, isLive }: CompareGraphSvgProps) {
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
     >
-      {body}
+      {graphBody(topology, isLive)}
     </svg>
   );
 }

@@ -260,7 +260,7 @@ function PaletteDialog({
     <dialog
       ref={dialogRef}
       tabIndex={-1}
-      className="compare-dialog"
+      className="compare-dialog overlay-host"
       aria-label="Choose branches"
       data-overlay-state={overlayState}
       onTransitionEnd={onTransitionEnd}
@@ -272,13 +272,13 @@ function PaletteDialog({
     >
       <button
         type="button"
-        className="compare-backdrop"
+        className="compare-backdrop overlay-backdrop"
         aria-label="Close branch selector"
         onClick={() => {
           if (!closing) onClose();
         }}
       />
-      <div ref={paletteRef} className="compare-sheet" onKeyDown={onKeyDown}>
+      <div ref={paletteRef} className="compare-sheet overlay-surface" onKeyDown={onKeyDown}>
         <div className="compare-slots">
           <button
             type="button"

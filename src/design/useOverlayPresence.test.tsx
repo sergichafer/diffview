@@ -275,21 +275,21 @@ describe("useOverlayPresence", () => {
     h.unmount();
   });
 
-  test("opacity transitionend from a nested settings-modal still unmounts", () => {
+  test("opacity transitionend from a nested overlay-surface still unmounts", () => {
     const onExited = mock(() => {});
     const h = mountPresence(true, onExited);
     flushFrames(2);
     h.setVisible(false);
 
     const dialog = document.createElement("dialog");
-    const modal = document.createElement("div");
-    modal.className = "settings-modal";
-    dialog.appendChild(modal);
+    const surface = document.createElement("div");
+    surface.className = "overlay-surface";
+    dialog.appendChild(surface);
 
     act(() => {
       h.get().onTransitionEnd({
         propertyName: "opacity",
-        target: modal,
+        target: surface,
         currentTarget: dialog,
       });
     });
@@ -298,26 +298,49 @@ describe("useOverlayPresence", () => {
     h.unmount();
   });
 
-  test("opacity transitionend from a nested compare-graph-panel still unmounts", () => {
+  test("opacity transitionend from a nested overlay-backdrop still unmounts", () => {
     const onExited = mock(() => {});
     const h = mountPresence(true, onExited);
     flushFrames(2);
     h.setVisible(false);
 
     const dialog = document.createElement("dialog");
-    const panel = document.createElement("div");
-    panel.className = "compare-graph-panel";
-    dialog.appendChild(panel);
+    const backdrop = document.createElement("button");
+    backdrop.className = "overlay-backdrop";
+    dialog.appendChild(backdrop);
 
     act(() => {
       h.get().onTransitionEnd({
         propertyName: "opacity",
-        target: panel,
+        target: backdrop,
         currentTarget: dialog,
       });
     });
     expect(h.get().mounted).toBe(false);
     expect(onExited).toHaveBeenCalledTimes(1);
+    h.unmount();
+  });
+
+  test("opacity transitionend from a nested non-overlay element is ignored", () => {
+    const onExited = mock(() => {});
+    const h = mountPresence(true, onExited);
+    flushFrames(2);
+    h.setVisible(false);
+
+    const dialog = document.createElement("dialog");
+    const nested = document.createElement("div");
+    nested.className = "settings-nav";
+    dialog.appendChild(nested);
+
+    act(() => {
+      h.get().onTransitionEnd({
+        propertyName: "opacity",
+        target: nested,
+        currentTarget: dialog,
+      });
+    });
+    expect(h.get().mounted).toBe(true);
+    expect(onExited).not.toHaveBeenCalled();
     h.unmount();
   });
 

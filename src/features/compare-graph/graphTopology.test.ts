@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
   graphTopology,
   comparisonIsLive,
-  intermediateDotCount,
-  MAX_INTERMEDIATE_DOTS,
+  graphDetail,
+  graphTitle,
   type GraphOverviewSlice,
 } from "./graphTopology";
 
@@ -18,21 +18,6 @@ const overview = (
   ...overrides,
 });
 
-describe("intermediateDotCount", () => {
-  test("skips the tip so 1 commit draws no intermediates", () => {
-    expect(intermediateDotCount(0)).toBe(0);
-    expect(intermediateDotCount(1)).toBe(0);
-    expect(intermediateDotCount(4)).toBe(3);
-  });
-
-  test("caps unlabelled dots", () => {
-    expect(intermediateDotCount(MAX_INTERMEDIATE_DOTS + 1)).toBe(
-      MAX_INTERMEDIATE_DOTS,
-    );
-    expect(intermediateDotCount(40)).toBe(MAX_INTERMEDIATE_DOTS);
-  });
-});
-
 describe("graphTopology", () => {
   test("diverged uses head metadata versus the comparison base", () => {
     const graph = graphTopology({
@@ -41,14 +26,14 @@ describe("graphTopology", () => {
       overview: overview({ isLive: false }),
       metadata: [{ name: "feature", ahead: 4, behind: 2 }],
     });
-    expect(graph.kind).toBe("diverged");
-    expect(graph.title).toBe("Diverged");
-    expect(graph.detail).toBe("4 ahead of origin/main, 2 behind.");
-    expect(graph.ahead).toBe(4);
-    expect(graph.behind).toBe(2);
-    expect(graph.drawnAhead).toBe(3);
-    expect(graph.drawnBehind).toBe(1);
-    expect(graph.hasMetadata).toBe(true);
+    expect(graph).toEqual({
+      kind: "diverged",
+      ahead: 4,
+      behind: 2,
+      baseLabel: "origin/main",
+    });
+    expect(graphTitle(graph)).toBe("Diverged");
+    expect(graphDetail(graph)).toBe("4 ahead of origin/main, 2 behind.");
   });
 
   test("linear is ahead with an empty behind lane", () => {
@@ -58,11 +43,13 @@ describe("graphTopology", () => {
       overview: overview({ isLive: false }),
       metadata: [{ name: "feature", ahead: 6, behind: 0 }],
     });
-    expect(graph.kind).toBe("linear");
-    expect(graph.title).toBe("Linear");
-    expect(graph.detail).toBe("6 ahead, 0 behind.");
-    expect(graph.drawnAhead).toBe(5);
-    expect(graph.drawnBehind).toBe(0);
+    expect(graph).toEqual({
+      kind: "linear",
+      ahead: 6,
+      baseLabel: "origin/main",
+    });
+    expect(graphTitle(graph)).toBe("Linear");
+    expect(graphDetail(graph)).toBe("6 ahead, 0 behind.");
   });
 
   test("behind is an empty ahead lane", () => {
@@ -75,11 +62,13 @@ describe("graphTopology", () => {
       }),
       metadata: [{ name: "release/1.4", ahead: 0, behind: 3 }],
     });
-    expect(graph.kind).toBe("behind");
-    expect(graph.title).toBe("Behind");
-    expect(graph.detail).toBe("0 ahead, 3 behind.");
-    expect(graph.drawnAhead).toBe(0);
-    expect(graph.drawnBehind).toBe(2);
+    expect(graph).toEqual({
+      kind: "behind",
+      behind: 3,
+      baseLabel: "origin/main",
+    });
+    expect(graphTitle(graph)).toBe("Behind");
+    expect(graphDetail(graph)).toBe("0 ahead, 3 behind.");
   });
 
   test("in sync is empty on both lanes", () => {
@@ -93,14 +82,12 @@ describe("graphTopology", () => {
       }),
       metadata: [{ name: "main", ahead: 0, behind: 0 }],
     });
-    expect(graph.kind).toBe("sync");
-    expect(graph.title).toBe("In sync");
-    expect(graph.detail).toBe("0 ahead, 0 behind.");
-    expect(graph.drawnAhead).toBe(0);
-    expect(graph.drawnBehind).toBe(0);
+    expect(graph).toEqual({ kind: "sync", baseLabel: "main" });
+    expect(graphTitle(graph)).toBe("In sync");
+    expect(graphDetail(graph)).toBe("0 ahead, 0 behind.");
   });
 
-  test("live working tree keeps the hollow node flag", () => {
+  test("live working tree keeps comparisonIsLive", () => {
     const slice = overview({ isLive: true, currentBranch: "feature" });
     const graph = graphTopology({
       head: "",
@@ -110,7 +97,6 @@ describe("graphTopology", () => {
     });
     expect(comparisonIsLive(slice, "")).toBe(true);
     expect(graph.kind).toBe("diverged");
-    expect(graph.hasMetadata).toBe(true);
   });
 
   test("committed comparison is not live", () => {
@@ -135,11 +121,14 @@ describe("graphTopology", () => {
         { name: "feature", ahead: 3, behind: 1 },
       ],
     });
-    expect(graph.ahead).toBe(3);
-    expect(graph.behind).toBe(1);
-    expect(graph.kind).toBe("diverged");
-    expect(graph.title).toBe("Diverged");
-    expect(graph.detail).toBe("3 ahead of origin/main, 1 behind.");
+    expect(graph).toEqual({
+      kind: "diverged",
+      ahead: 3,
+      behind: 1,
+      baseLabel: "origin/main",
+    });
+    expect(graphTitle(graph)).toBe("Diverged");
+    expect(graphDetail(graph)).toBe("3 ahead of origin/main, 1 behind.");
   });
 
   test("missing metadata is unknown until counts load", () => {
@@ -149,16 +138,10 @@ describe("graphTopology", () => {
       overview: overview({ isLive: true }),
       metadata: [],
     });
-    expect(graph.hasMetadata).toBe(false);
-    expect(graph.kind).toBe("unknown");
-    expect(graph.ahead).toBe(0);
-    expect(graph.behind).toBe(0);
-    expect(graph.title).toBe("Graph");
-    expect(graph.detail).toBe("Waiting for branch counts.");
+    expect(graph).toEqual({ kind: "unknown", baseLabel: "origin/main" });
+    expect(graphTitle(graph)).toBe("Graph");
+    expect(graphDetail(graph)).toBe("Waiting for branch counts.");
     expect(comparisonIsLive(overview({ isLive: true }), "feature")).toBe(true);
-    expect(graph.baseLabel).toBe("origin/main");
-    expect(graph.drawnAhead).toBe(0);
-    expect(graph.drawnBehind).toBe(0);
   });
 
   test("metadata for other branches does not count as this head", () => {
@@ -168,10 +151,7 @@ describe("graphTopology", () => {
       overview: overview({ isLive: false }),
       metadata: [{ name: "main", ahead: 9, behind: 4 }],
     });
-    expect(graph.hasMetadata).toBe(false);
-    expect(graph.kind).toBe("unknown");
-    expect(graph.ahead).toBe(0);
-    expect(graph.behind).toBe(0);
+    expect(graph).toEqual({ kind: "unknown", baseLabel: "origin/main" });
   });
 
   test("null overview with empty head is live and unknown until metadata", () => {
@@ -182,9 +162,7 @@ describe("graphTopology", () => {
       metadata: [],
     });
     expect(comparisonIsLive(null, "")).toBe(true);
-    expect(graph.kind).toBe("unknown");
-    expect(graph.baseLabel).toBe("main");
-    expect(graph.hasMetadata).toBe(false);
+    expect(graph).toEqual({ kind: "unknown", baseLabel: "main" });
   });
 
   test("null overview with a named head is committed", () => {
@@ -195,25 +173,30 @@ describe("graphTopology", () => {
       metadata: [{ name: "feature", ahead: 5, behind: 0 }],
     });
     expect(comparisonIsLive(null, "feature")).toBe(false);
-    expect(graph.kind).toBe("linear");
-    expect(graph.title).toBe("Linear");
-    expect(graph.detail).toBe("5 ahead, 0 behind.");
+    expect(graph).toEqual({
+      kind: "linear",
+      ahead: 5,
+      baseLabel: "main",
+    });
+    expect(graphTitle(graph)).toBe("Linear");
+    expect(graphDetail(graph)).toBe("5 ahead, 0 behind.");
   });
 
-  test("caps drawn intermediates on a long lane", () => {
+  test("long lanes keep raw counts on the diverged variant", () => {
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
       overview: overview({ isLive: false }),
       metadata: [{ name: "feature", ahead: 20, behind: 15 }],
     });
-    expect(graph.kind).toBe("diverged");
-    expect(graph.ahead).toBe(20);
-    expect(graph.behind).toBe(15);
-    expect(graph.drawnAhead).toBe(MAX_INTERMEDIATE_DOTS);
-    expect(graph.drawnBehind).toBe(MAX_INTERMEDIATE_DOTS);
-    expect(graph.title).toBe("Diverged");
-    expect(graph.detail).toBe("20 ahead of origin/main, 15 behind.");
+    expect(graph).toEqual({
+      kind: "diverged",
+      ahead: 20,
+      behind: 15,
+      baseLabel: "origin/main",
+    });
+    expect(graphTitle(graph)).toBe("Diverged");
+    expect(graphDetail(graph)).toBe("20 ahead of origin/main, 15 behind.");
   });
 
   test("matching mergeBase and headOid is sync when counts have not loaded", () => {
@@ -223,12 +206,9 @@ describe("graphTopology", () => {
       overview: overview({ mergeBase: "abc", headOid: "abc", isLive: false }),
       metadata: [],
     });
-    expect(graph.hasMetadata).toBe(false);
-    expect(graph.kind).toBe("sync");
-    expect(graph.title).toBe("In sync");
-    expect(graph.detail).toBe("0 ahead, 0 behind.");
-    expect(graph.drawnAhead).toBe(0);
-    expect(graph.drawnBehind).toBe(0);
+    expect(graph).toEqual({ kind: "sync", baseLabel: "origin/main" });
+    expect(graphTitle(graph)).toBe("In sync");
+    expect(graphDetail(graph)).toBe("0 ahead, 0 behind.");
   });
 
   test("empty mergeBase does not count as sync", () => {
@@ -238,7 +218,6 @@ describe("graphTopology", () => {
       overview: overview({ mergeBase: "", headOid: "", isLive: false }),
       metadata: [],
     });
-    expect(graph.kind).toBe("unknown");
-    expect(graph.hasMetadata).toBe(false);
+    expect(graph).toEqual({ kind: "unknown", baseLabel: "origin/main" });
   });
 });
