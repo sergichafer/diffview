@@ -275,9 +275,10 @@ describe("CompareGraphPopover", () => {
     outside.remove();
   });
 
-  test("live comparison legends WIP, not Working tree", () => {
+  test("empty head legends WIP even if overview.isLive is still false", () => {
     renderPopover({
-      overview: overview({ isLive: true }),
+      head: "",
+      overview: overview({ isLive: false, currentBranch: "feature" }),
     });
     act(() => {
       graphButton().click();
@@ -285,6 +286,33 @@ describe("CompareGraphPopover", () => {
     const legend = panel()?.querySelector(".compare-graph-legend")?.textContent;
     expect(legend).toContain(WIP_LABEL);
     expect(legend).not.toContain("Working tree");
+  });
+
+  test("head matching currentBranch legends WIP", () => {
+    renderPopover({
+      head: "feature",
+      overview: overview({ isLive: false, currentBranch: "feature" }),
+    });
+    act(() => {
+      graphButton().click();
+    });
+    expect(panel()?.querySelector(".compare-graph-legend")?.textContent).toContain(
+      WIP_LABEL,
+    );
+  });
+
+  test("a named head other than currentBranch does not legend WIP", () => {
+    renderPopover({
+      head: "release/1.4",
+      overview: overview({ isLive: true, currentBranch: "feature" }),
+      metadata: [row("release/1.4", 2, 0)],
+    });
+    act(() => {
+      graphButton().click();
+    });
+    expect(
+      panel()?.querySelector(".compare-graph-legend")?.textContent,
+    ).not.toContain(WIP_LABEL);
   });
 
   test("places overlay origin from the Graph trigger", () => {

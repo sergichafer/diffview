@@ -8,7 +8,7 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 280px;
+  width: max-content;
   z-index: 24;
 }
 
@@ -16,17 +16,29 @@
   position: relative;
   inset: auto;
   margin: 0;
-  width: 100%;
-  max-width: none;
+  width: 280px;
+  max-width: 280px;
   padding: 14px 16px 16px;
   color: inherit;
   border-radius: 16px;
   background: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
   border: none;
   border-top: 1px solid var(--border-highlight);
+  outline: none;
   box-shadow: var(--shell-shadow);
+  -webkit-appearance: none;
+  appearance: none;
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
+}
+
+.compare-graph-panel:focus,
+.compare-graph-panel:focus-visible {
+  outline: none;
+}
+
+.compare-graph-panel::backdrop {
+  background: transparent;
 }
 
 .compare-graph-head {

@@ -26,12 +26,21 @@ function sameCommit(overview: GraphOverviewSlice | null): boolean {
   return overview.mergeBase === overview.headOid;
 }
 
-/** Empty head is live working-tree mode; otherwise trust overview.isLive. */
+/**
+ * Empty or current-branch head is live working-tree mode.
+ * Same rule as `resolve_comparison`: selected `head` wins over a stale
+ * `overview.isLive` so the peek tracks the title-bar comparison.
+ */
 export function comparisonIsLive(
-  overview: Pick<BranchOverview, "isLive"> | null,
+  overview: Pick<BranchOverview, "isLive" | "currentBranch"> | null,
   head: string,
 ): boolean {
-  return overview?.isLive ?? head === "";
+  const trimmed = head.trim();
+  const current = overview?.currentBranch?.trim() ?? "";
+  if (!trimmed) return true;
+  if (current && trimmed === current) return true;
+  if (current && trimmed !== current) return false;
+  return overview?.isLive ?? false;
 }
 
 export function graphTitle(topology: GraphTopology): string {
