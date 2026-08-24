@@ -103,11 +103,13 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 ## Ayu color scheme
 
 https://github.com/dempfi/ayu
+https://github.com/ayu-theme/ayu-colors
 
 ```
 MIT License
 
 Copyright (c) 2016 Ike Kurghinyan (Ike Ku)
+Copyright (c) Konstantin Pschera <me@kons.ch> (kons.ch)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -128,12 +130,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-https://github.com/ayu-theme/ayu-colors
+## Catppuccin color scheme
+
+https://github.com/catppuccin/catppuccin
+https://github.com/catppuccin/palette
 
 ```
 MIT License
 
-Copyright (c) Konstantin Pschera <me@kons.ch> (kons.ch)
+Copyright (c) 2021 Catppuccin
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

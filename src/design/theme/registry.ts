@@ -1,5 +1,7 @@
 import { ayuLightRoles } from "./themes/ayu-light";
 import { ayuMirageRoles } from "./themes/ayu-mirage";
+import { catppuccinDarkRoles } from "./themes/catppuccin-dark";
+import { catppuccinLightRoles } from "./themes/catppuccin-light";
 import { harmonyDarkRoles } from "./themes/harmony-dark";
 import { harmonyLightRoles } from "./themes/harmony-light";
 import type { ColorScheme, ThemeDefinition } from "./types";
@@ -16,6 +18,12 @@ export const THEME_CATALOG = [
     label: "Ayu",
     dark: ayuMirageRoles,
     light: ayuLightRoles,
+  },
+  {
+    id: "catppuccin" as const,
+    label: "Catppuccin",
+    dark: catppuccinDarkRoles,
+    light: catppuccinLightRoles,
   },
 ];
 
