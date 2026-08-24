@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "test": "bun test --preload ./test/dom.ts",
     "doctor": "npx -y react-doctor@latest .",
     "generate:types": ".typeshare-tools/bin/typeshare ./src-tauri/src --lang=typescript --output-file=src/shared/types/generated/types.ts && cargo run --quiet --manifest-path src-tauri/Cargo.toml --example export_default_settings > src/shared/types/generated/settingsDefaults.json"
   },
@@ -34,11 +35,12 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "^20.11.6",
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
-    "happy-dom": "^20.11.1",
+    "happy-dom": "^20.11.6",
     "typescript": "~5.8.3",
     "vite": "^7.0.4"
   }
