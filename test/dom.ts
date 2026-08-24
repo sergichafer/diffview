@@ -2,12 +2,25 @@ import { Window } from "happy-dom";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
 if (!GlobalRegistrator.isRegistered) {
-  GlobalRegistrator.register();
+  const probe = new Window();
+  try {
+    if (typeof probe.HTMLDialogElement !== "function") {
+      throw new Error("happy-dom Window did not provide HTMLDialogElement");
+    }
+    GlobalRegistrator.register({
+      width: probe.innerWidth,
+      height: probe.innerHeight,
+    });
+  } finally {
+    void probe.happyDOM.close();
+  }
 }
-if (typeof document === "undefined" || typeof HTMLDialogElement === "undefined") {
+
+if (typeof document === "undefined" || typeof HTMLDialogElement !== "function") {
   throw new Error(
-    `${Window.name} GlobalRegistrator did not install document`,
+    "happy-dom GlobalRegistrator did not install document/HTMLDialogElement",
   );
 }
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;

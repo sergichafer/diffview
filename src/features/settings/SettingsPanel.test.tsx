@@ -1,19 +1,3 @@
-const DialogProto = (globalThis as any).HTMLDialogElement?.prototype;
-if (DialogProto) {
-  if (typeof DialogProto.showModal !== "function") {
-    DialogProto.showModal = function showModal() {
-      this.setAttribute("open", "");
-      this.open = true;
-    };
-  }
-  if (typeof DialogProto.close !== "function") {
-    DialogProto.close = function close() {
-      this.removeAttribute("open");
-      this.open = false;
-    };
-  }
-}
-
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const { act } = await import("react");
@@ -61,7 +45,17 @@ function renderPanel(settings: AppSettings = DEFAULT_SETTINGS) {
 }
 
 describe("SettingsPanel", () => {
+  let restoreGlobals = () => {};
+
   beforeEach(() => {
+    const request = globalThis.requestAnimationFrame;
+    const cancel = globalThis.cancelAnimationFrame;
+    const matchMedia = globalThis.matchMedia;
+    restoreGlobals = () => {
+      globalThis.requestAnimationFrame = request;
+      globalThis.cancelAnimationFrame = cancel;
+      globalThis.matchMedia = matchMedia;
+    };
     rafId = 0;
     rafPending.clear();
     (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
@@ -92,6 +86,7 @@ describe("SettingsPanel", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    restoreGlobals();
     rafPending.clear();
   });
 

@@ -91,7 +91,17 @@ function mountPresence(visible: boolean, onExited?: () => void) {
 }
 
 describe("useOverlayPresence", () => {
+  let restoreGlobals = () => {};
+
   beforeEach(() => {
+    const request = globalThis.requestAnimationFrame;
+    const cancel = globalThis.cancelAnimationFrame;
+    const matchMedia = globalThis.matchMedia;
+    restoreGlobals = () => {
+      globalThis.requestAnimationFrame = request;
+      globalThis.cancelAnimationFrame = cancel;
+      globalThis.matchMedia = matchMedia;
+    };
     rafId = 0;
     rafPending.clear();
     (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
@@ -117,6 +127,7 @@ describe("useOverlayPresence", () => {
   });
 
   afterEach(() => {
+    restoreGlobals();
     rafPending.clear();
   });
 

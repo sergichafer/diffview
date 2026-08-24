@@ -126,7 +126,15 @@ function mountWorkspace(handle: CodeViewHandle<undefined>): {
 }
 
 describe("restoreRef lazy init vs fulfill", () => {
+  let restoreRaf = () => {};
+
   beforeEach(() => {
+    const request = globalThis.requestAnimationFrame;
+    const cancel = globalThis.cancelAnimationFrame;
+    restoreRaf = () => {
+      globalThis.requestAnimationFrame = request;
+      globalThis.cancelAnimationFrame = cancel;
+    };
     rafId = 0;
     rafPending.clear();
     (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
@@ -140,6 +148,7 @@ describe("restoreRef lazy init vs fulfill", () => {
   });
 
   afterEach(() => {
+    restoreRaf();
     rafPending.clear();
   });
 

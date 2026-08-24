@@ -15,16 +15,6 @@ const DialogProto = (globalThis as any).HTMLDialogElement?.prototype as
   | undefined;
 const originalShow = DialogProto?.show;
 const originalShowModal = DialogProto?.showModal;
-if (DialogProto) {
-  DialogProto.show = function show(this: HTMLDialogElement) {
-    showCalls += 1;
-    this.setAttribute("open", "");
-  };
-  DialogProto.showModal = function showModal(this: HTMLDialogElement) {
-    showModalCalls += 1;
-    this.setAttribute("open", "");
-  };
-}
 
 const overview = (
   overrides: Partial<BranchOverview> = {},
@@ -58,6 +48,16 @@ let root: ReturnType<typeof createRoot>;
 beforeEach(() => {
   showCalls = 0;
   showModalCalls = 0;
+  if (DialogProto) {
+    DialogProto.show = function show(this: HTMLDialogElement) {
+      showCalls += 1;
+      this.setAttribute("open", "");
+    };
+    DialogProto.showModal = function showModal(this: HTMLDialogElement) {
+      showModalCalls += 1;
+      this.setAttribute("open", "");
+    };
+  }
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -66,6 +66,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  if (DialogProto && originalShow) DialogProto.show = originalShow;
+  if (DialogProto && originalShowModal) DialogProto.showModal = originalShowModal;
 });
 
 function renderPopover(
@@ -260,9 +262,4 @@ describe("CompareGraphPopover", () => {
       proto.getBoundingClientRect = originalRect;
     }
   });
-});
-
-afterEach(() => {
-  if (DialogProto && originalShow) DialogProto.show = originalShow;
-  if (DialogProto && originalShowModal) DialogProto.showModal = originalShowModal;
 });

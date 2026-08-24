@@ -3,14 +3,6 @@
 // + useDiffWorkspace) against a fake CodeViewHandle. Switch reconcile must use
 // the NEW seed, not the previous row's selectedPath: that misses the new file
 // set, commits files[0], and clobbers the remembered file in state and settings.
-const nativeRaf = globalThis.requestAnimationFrame;
-const nativeCancelRaf = globalThis.cancelAnimationFrame;
-(globalThis as { requestAnimationFrame: typeof requestAnimationFrame }).requestAnimationFrame =
-  (cb: FrameRequestCallback) =>
-    setTimeout(() => cb(performance.now()), 0) as unknown as number;
-(globalThis as { cancelAnimationFrame: typeof cancelAnimationFrame }).cancelAnimationFrame =
-  (id: number) => clearTimeout(id);
-
 const { act, useCallback, useRef, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { useActiveFileNavigation } = await import(
@@ -21,7 +13,7 @@ const { usePersistActivePath } = await import(
 );
 const { useDiffWorkspace } = await import("@/features/diff-workspace/useDiffWorkspace");
 
-import { afterAll, afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import type { ChangedFile, FileDiffResult } from "@/shared/types/app";
 import type { CodeViewHandle } from "@pierre/diffs/react";
 
@@ -146,6 +138,19 @@ async function flush() {
 describe("comparison switch restores the last viewed file", () => {
   let container: HTMLElement;
   let root: ReturnType<typeof createRoot>;
+  let restoreRaf = () => {};
+
+  beforeAll(() => {
+    const request = globalThis.requestAnimationFrame;
+    const cancel = globalThis.cancelAnimationFrame;
+    restoreRaf = () => {
+      globalThis.requestAnimationFrame = request;
+      globalThis.cancelAnimationFrame = cancel;
+    };
+    globalThis.requestAnimationFrame = (cb: FrameRequestCallback) =>
+      setTimeout(() => cb(performance.now()), 0) as unknown as number;
+    globalThis.cancelAnimationFrame = (id: number) => clearTimeout(id);
+  });
 
   afterEach(() => {
     act(() => root.unmount());
@@ -153,8 +158,7 @@ describe("comparison switch restores the last viewed file", () => {
   });
 
   afterAll(() => {
-    globalThis.requestAnimationFrame = nativeRaf;
-    globalThis.cancelAnimationFrame = nativeCancelRaf;
+    restoreRaf();
   });
 
   test("A → B → A restores scrolled-to file and keeps it persisted", async () => {
