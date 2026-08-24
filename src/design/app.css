@@ -11,6 +11,7 @@
 @import "../features/workspaces/workspaces.css" layer(blocks);
 @import "../features/settings/settings.css" layer(blocks);
 @import "../features/branch-compare/compare.css" layer(blocks);
+@import "../features/compare-graph/compare-graph.css" layer(blocks);
 @import "../features/diff-workspace/diff-workspace.css" layer(blocks);
 @import "./press.css" layer(blocks);
 @import "./overlays.css" layer(blocks);

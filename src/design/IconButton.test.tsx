@@ -105,3 +105,32 @@ describe("IconButton busy", () => {
     expect(btn?.querySelector(".icon-btn-spinner")).toBeNull();
   });
 });
+
+describe("IconButton expanded", () => {
+  test("sets aria-expanded when expanded is boolean", () => {
+    act(() => {
+      root.render(
+        <IconButton name="graph" expanded={false} active={false} />,
+      );
+    });
+    const btn = container.querySelector("button.icon-btn");
+    expect(btn?.getAttribute("aria-expanded")).toBe("false");
+    expect(btn?.getAttribute("aria-pressed")).toBeNull();
+    expect(btn?.classList.contains("is-active")).toBe(false);
+
+    act(() => {
+      root.render(<IconButton name="graph" expanded active />);
+    });
+    const open = container.querySelector("button.icon-btn");
+    expect(open?.getAttribute("aria-expanded")).toBe("true");
+    expect(open?.classList.contains("is-active")).toBe(true);
+  });
+
+  test("omits aria-expanded when the prop is absent", () => {
+    act(() => {
+      root.render(<IconButton name="settings" />);
+    });
+    const btn = container.querySelector("button.icon-btn");
+    expect(btn?.hasAttribute("aria-expanded")).toBe(false);
+  });
+});

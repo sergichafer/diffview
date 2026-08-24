@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { DIFFVIEW_DESIGN } from "./choice";
 import { ICON_LABELS, ICON_PATHS, type IconName, type IconSize } from "./icons";
 
@@ -11,6 +12,8 @@ interface IconButtonProps {
   disabled?: boolean;
   title?: string;
   tabIndex?: number;
+  expanded?: boolean;
+  ref?: Ref<HTMLButtonElement>;
   onClick?: () => void;
 }
 
@@ -22,6 +25,8 @@ export function IconButton({
   disabled = false,
   title,
   tabIndex,
+  expanded,
+  ref,
   onClick,
 }: IconButtonProps) {
   const label = title ?? ICON_LABELS[name];
@@ -29,6 +34,7 @@ export function IconButton({
 
   return (
     <button
+      ref={ref}
       type="button"
       className={`icon-btn icon-btn-${size}${active ? " is-active" : ""}${busy ? " is-busy" : ""}`}
       disabled={disabled}
@@ -38,6 +44,7 @@ export function IconButton({
       title={label}
       {...(busy ? { "aria-busy": true } : {})}
       {...(TOGGLE_ICONS.has(name) ? { "aria-pressed": active } : {})}
+      {...(typeof expanded === "boolean" ? { "aria-expanded": expanded } : {})}
     >
       <span className="icon-btn-surface">
         <svg className="icon-btn-glyph" viewBox="0 0 24 24" aria-hidden="true">

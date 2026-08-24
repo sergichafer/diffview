@@ -175,3 +175,40 @@ describe("TopBar refresh", () => {
     );
   });
 });
+
+describe("TopBar graph", () => {
+  test("shows a Graph control when a repo is in session", () => {
+    renderTopBar(0);
+    const graph = container.querySelector(
+      'button.icon-btn[aria-label="Graph"]',
+    );
+    expect(graph).toBeTruthy();
+    expect(graph?.getAttribute("aria-expanded")).toBe("false");
+    expect(graph?.hasAttribute("disabled")).toBe(false);
+  });
+
+  test("hides Graph when no repo is in session", () => {
+    renderTopBar(0, session({ repo: null }));
+    expect(
+      container.querySelector('button.icon-btn[aria-label="Graph"]'),
+    ).toBeNull();
+  });
+
+  test("opens a non-modal compare graph dialog", () => {
+    renderTopBar(0);
+    const graph = container.querySelector(
+      'button.icon-btn[aria-label="Graph"]',
+    ) as HTMLButtonElement;
+    act(() => {
+      graph.click();
+    });
+    expect(graph.getAttribute("aria-expanded")).toBe("true");
+    const dialog = container.querySelector(
+      '[role="dialog"][aria-label="Compare graph"]',
+    );
+    expect(dialog).toBeTruthy();
+    expect(dialog?.getAttribute("aria-modal")).toBeNull();
+    expect(container.textContent).toContain("In sync. 0 ahead, 0 behind.");
+    expect(container.querySelector(".compare-backdrop")).toBeNull();
+  });
+});
