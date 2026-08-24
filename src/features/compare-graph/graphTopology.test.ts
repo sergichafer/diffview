@@ -212,7 +212,6 @@ describe("graphTopology", () => {
       "Diverged. 20 ahead of origin/main, 15 behind.",
     );
   });
-});
 
   test("matching mergeBase and headOid is sync when counts have not loaded", () => {
     const graph = graphTopology({
@@ -238,4 +237,4 @@ describe("graphTopology", () => {
     expect(graph.kind).toBe("unknown");
     expect(graph.hasMetadata).toBe(false);
   });
-
+});

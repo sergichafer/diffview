@@ -250,57 +250,52 @@ describe("CompareGraphPopover", () => {
 
   test("places overlay origin from the Graph trigger", () => {
     renderPopover();
-    const btn = graphButton();
-    btn.getBoundingClientRect = () =>
-      ({
-        x: 200,
-        y: 20,
-        left: 200,
-        top: 20,
-        width: 40,
-        height: 28,
-        right: 240,
-        bottom: 48,
-        toJSON() {},
-      }) as DOMRect;
-    act(() => {
-      btn.click();
-    });
-    const dialog = panel()!;
-    dialog.getBoundingClientRect = () =>
-      ({
-        x: 80,
-        y: 56,
-        left: 80,
-        top: 56,
-        width: 280,
-        height: 300,
-        right: 360,
-        bottom: 356,
-        toJSON() {},
-      }) as DOMRect;
-    const host = container.querySelector(".compare-graph") as HTMLElement;
-    act(() => {
-      root.render(
-        <CompareGraphPopover
-          head="feature"
-          base="main"
-          overview={overview()}
-          metadata={[]}
-        />,
-      );
-    });
-    // Re-open path: origin is applied on mount. Click again if still open.
-    if (!panel()) {
-      act(() => graphButton().click());
+    const triggerRect = {
+      x: 200,
+      y: 20,
+      left: 200,
+      top: 20,
+      width: 40,
+      height: 28,
+      right: 240,
+      bottom: 48,
+      toJSON() {},
+    } as DOMRect;
+    const panelRect = {
+      x: 80,
+      y: 56,
+      left: 80,
+      top: 56,
+      width: 280,
+      height: 300,
+      right: 360,
+      bottom: 356,
+      toJSON() {},
+    } as DOMRect;
+    const proto = HTMLElement.prototype;
+    const originalRect = proto.getBoundingClientRect;
+    proto.getBoundingClientRect = function getBoundingClientRect() {
+      if (this.getAttribute?.("aria-label") === "Graph") {
+        return triggerRect;
+      }
+      if (this.classList?.contains("compare-graph-panel")) {
+        return panelRect;
+      }
+      return originalRect.call(this);
+    };
+    try {
+      act(() => {
+        graphButton().click();
+      });
+      const host = container.querySelector(".compare-graph") as HTMLElement;
+      const surface = panel()!;
+      expect(host.style.getPropertyValue("--overlay-origin-x")).toBe("220px");
+      expect(host.style.getPropertyValue("--overlay-origin-y")).toBe("34px");
+      expect(surface.style.getPropertyValue("--overlay-origin-x")).toBe("140px");
+      expect(surface.style.getPropertyValue("--overlay-origin-y")).toBe("-22px");
+    } finally {
+      proto.getBoundingClientRect = originalRect;
     }
-    const surface = panel()!;
-    const originX = surface.style.getPropertyValue("--overlay-origin-x");
-    const originY = surface.style.getPropertyValue("--overlay-origin-y");
-    expect(originX.length + originY.length).toBeGreaterThan(0);
-    expect(host.style.getPropertyValue("--overlay-origin-x").length).toBeGreaterThan(
-      0,
-    );
   });
 });
 
