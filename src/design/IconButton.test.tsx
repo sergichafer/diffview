@@ -1,34 +1,3 @@
-import { Window } from "happy-dom";
-
-const dom = new Window();
-for (const key of [
-  "document",
-  "navigator",
-  "HTMLElement",
-  "Element",
-  "Node",
-  "Event",
-  "CustomEvent",
-  "KeyboardEvent",
-  "MouseEvent",
-  "PointerEvent",
-  "getComputedStyle",
-  "DocumentFragment",
-  "MutationObserver",
-  "ResizeObserver",
-] as const) {
-  // @ts-expect-error assign dom globals
-  if (globalThis[key] === undefined) globalThis[key] = dom[key];
-}
-(globalThis as any).window = dom;
-(globalThis as any).document = dom.document;
-(globalThis as any).navigator = dom.navigator;
-(globalThis as any).customElements = dom.customElements;
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-if (typeof (globalThis as any).CSS === "undefined") {
-  (globalThis as any).CSS = { escape: (s: string) => s };
-}
-
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 const { act } = await import("react");
@@ -103,5 +72,34 @@ describe("IconButton busy", () => {
     });
     const btn = container.querySelector("button.icon-btn");
     expect(btn?.querySelector(".icon-btn-spinner")).toBeNull();
+  });
+});
+
+describe("IconButton ARIA forwarding", () => {
+  test("passes disclosure attributes through without inventing haspopup", () => {
+    act(() => {
+      root.render(
+        <IconButton
+          name="graph"
+          aria-expanded={false}
+          aria-haspopup="dialog"
+          aria-controls="compare-graph-panel"
+        />,
+      );
+    });
+    const btn = container.querySelector("button.icon-btn");
+    expect(btn?.getAttribute("aria-expanded")).toBe("false");
+    expect(btn?.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(btn?.getAttribute("aria-controls")).toBe("compare-graph-panel");
+  });
+
+  test("omits disclosure attributes when they are not passed", () => {
+    act(() => {
+      root.render(<IconButton name="settings" />);
+    });
+    const btn = container.querySelector("button.icon-btn");
+    expect(btn?.hasAttribute("aria-expanded")).toBe(false);
+    expect(btn?.hasAttribute("aria-haspopup")).toBe(false);
+    expect(btn?.hasAttribute("aria-controls")).toBe(false);
   });
 });

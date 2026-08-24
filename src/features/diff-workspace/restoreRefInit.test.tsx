@@ -1,30 +1,3 @@
-import { Window } from "happy-dom";
-
-const dom = new Window();
-for (const key of [
-  "document",
-  "navigator",
-  "HTMLElement",
-  "Element",
-  "Node",
-  "Event",
-  "CustomEvent",
-  "KeyboardEvent",
-  "MouseEvent",
-  "getComputedStyle",
-  "DocumentFragment",
-  "MutationObserver",
-  "ResizeObserver",
-] as const) {
-  // @ts-expect-error assign dom globals
-  if (globalThis[key] === undefined) globalThis[key] = dom[key];
-}
-(globalThis as any).window = dom;
-(globalThis as any).document = dom.document;
-(globalThis as any).navigator = dom.navigator;
-(globalThis as any).customElements = dom.customElements;
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 const { act, useRef, useState } = await import("react");
@@ -153,7 +126,15 @@ function mountWorkspace(handle: CodeViewHandle<undefined>): {
 }
 
 describe("restoreRef lazy init vs fulfill", () => {
+  let restoreRaf = () => {};
+
   beforeEach(() => {
+    const request = globalThis.requestAnimationFrame;
+    const cancel = globalThis.cancelAnimationFrame;
+    restoreRaf = () => {
+      globalThis.requestAnimationFrame = request;
+      globalThis.cancelAnimationFrame = cancel;
+    };
     rafId = 0;
     rafPending.clear();
     (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
@@ -167,6 +148,7 @@ describe("restoreRef lazy init vs fulfill", () => {
   });
 
   afterEach(() => {
+    restoreRaf();
     rafPending.clear();
   });
 

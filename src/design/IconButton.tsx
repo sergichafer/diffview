@@ -1,9 +1,15 @@
+import type { ButtonHTMLAttributes, Ref } from "react";
 import { DIFFVIEW_DESIGN } from "./choice";
 import { ICON_LABELS, ICON_PATHS, type IconName, type IconSize } from "./icons";
 
 const TOGGLE_ICONS = new Set<IconName>(["split", "unified"]);
 
-interface IconButtonProps {
+type IconButtonAria = Pick<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "aria-expanded" | "aria-haspopup" | "aria-controls"
+>;
+
+interface IconButtonProps extends IconButtonAria {
   name: IconName;
   size?: IconSize;
   active?: boolean;
@@ -11,6 +17,7 @@ interface IconButtonProps {
   disabled?: boolean;
   title?: string;
   tabIndex?: number;
+  ref?: Ref<HTMLButtonElement>;
   onClick?: () => void;
 }
 
@@ -22,13 +29,18 @@ export function IconButton({
   disabled = false,
   title,
   tabIndex,
+  ref,
   onClick,
+  "aria-expanded": ariaExpanded,
+  "aria-haspopup": ariaHasPopup,
+  "aria-controls": ariaControls,
 }: IconButtonProps) {
   const label = title ?? ICON_LABELS[name];
   const showSpinner = busy !== undefined;
 
   return (
     <button
+      ref={ref}
       type="button"
       className={`icon-btn icon-btn-${size}${active ? " is-active" : ""}${busy ? " is-busy" : ""}`}
       disabled={disabled}
@@ -36,6 +48,9 @@ export function IconButton({
       onClick={busy ? undefined : onClick}
       aria-label={label}
       title={label}
+      aria-expanded={ariaExpanded}
+      aria-haspopup={ariaHasPopup}
+      aria-controls={ariaControls}
       {...(busy ? { "aria-busy": true } : {})}
       {...(TOGGLE_ICONS.has(name) ? { "aria-pressed": active } : {})}
     >

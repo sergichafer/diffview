@@ -1,34 +1,3 @@
-import { Window } from "happy-dom";
-
-const dom = new Window();
-for (const key of [
-  "document",
-  "navigator",
-  "HTMLElement",
-  "Element",
-  "Node",
-  "Event",
-  "CustomEvent",
-  "KeyboardEvent",
-  "MouseEvent",
-  "PointerEvent",
-  "getComputedStyle",
-  "DocumentFragment",
-  "MutationObserver",
-  "ResizeObserver",
-] as const) {
-  // @ts-expect-error assign dom globals
-  if (globalThis[key] === undefined) globalThis[key] = dom[key];
-}
-(globalThis as any).window = dom;
-(globalThis as any).document = dom.document;
-(globalThis as any).navigator = dom.navigator;
-(globalThis as any).customElements = dom.customElements;
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-if (typeof (globalThis as any).CSS === "undefined") {
-  (globalThis as any).CSS = { escape: (s: string) => s };
-}
-
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 mock.module("@/features/branch-compare/BranchComparePalette", () => ({
@@ -173,5 +142,36 @@ describe("TopBar refresh", () => {
     expect(container.textContent).toContain(
       "Could not open: /typo: not a git repository",
     );
+  });
+});
+
+describe("TopBar graph", () => {
+  test("shows a Graph control when a repo is in session", () => {
+    renderTopBar(0);
+    const graph = container.querySelector(
+      'button.icon-btn[aria-label="Graph"]',
+    );
+    expect(graph).toBeTruthy();
+    expect(graph?.getAttribute("aria-expanded")).toBe("false");
+    expect(graph?.hasAttribute("disabled")).toBe(false);
+  });
+
+  test("hides Graph when no repo is in session", () => {
+    renderTopBar(0, session({ repo: null }));
+    expect(
+      container.querySelector('button.icon-btn[aria-label="Graph"]'),
+    ).toBeNull();
+  });
+
+  test("Graph click asks the session for branch metadata", () => {
+    const loadBranchMetadata = mock(() => Promise.resolve());
+    renderTopBar(0, session({ loadBranchMetadata }));
+    const graph = container.querySelector(
+      'button.icon-btn[aria-label="Graph"]',
+    ) as HTMLButtonElement;
+    act(() => {
+      graph.click();
+    });
+    expect(loadBranchMetadata).toHaveBeenCalled();
   });
 });

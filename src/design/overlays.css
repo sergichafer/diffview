@@ -1,5 +1,4 @@
-.compare-dialog,
-.settings-dialog {
+.overlay-host {
   --overlay-duration: 360ms;
   --overlay-ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -11,8 +10,7 @@
   background: transparent;
 }
 
-.compare-backdrop,
-.settings-dialog-backdrop {
+.overlay-backdrop {
   background: rgb(0 0 0 / 0%);
   -webkit-backdrop-filter: blur(0px) saturate(100%);
   backdrop-filter: blur(0px) saturate(100%);
@@ -22,31 +20,32 @@
     -webkit-backdrop-filter var(--overlay-duration) var(--overlay-ease);
 }
 
-.compare-dialog[data-overlay-state="open"] .compare-backdrop,
-.settings-dialog[data-overlay-state="open"] .settings-dialog-backdrop {
+.overlay-host[data-overlay-state="open"] .overlay-backdrop {
   background: rgb(0 0 0 / 55%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
 }
 
-.compare-dialog[data-overlay-state="closing"] .compare-backdrop,
-.settings-dialog[data-overlay-state="closing"] .settings-dialog-backdrop {
+.overlay-host[data-overlay-state="closing"] .overlay-backdrop {
   background: rgb(0 0 0 / 0%);
   -webkit-backdrop-filter: blur(0px) saturate(100%);
   backdrop-filter: blur(0px) saturate(100%);
 }
 
-.compare-sheet,
-.settings-dialog .settings-modal {
+.overlay-surface {
   opacity: 0;
   transform: scale(0.96);
   transform-origin: var(--overlay-origin-x, 50%) var(--overlay-origin-y, 50%);
   will-change: transform, opacity;
-  background: var(--bg-elevated);
-  border-top: 1px solid var(--border-highlight);
   transition:
     opacity var(--overlay-duration) var(--overlay-ease),
     transform var(--overlay-duration) var(--overlay-ease);
+}
+
+.compare-sheet,
+.settings-dialog .settings-modal {
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-highlight);
 }
 
 .settings-dialog .settings-modal {
@@ -66,56 +65,46 @@
   border-bottom: none;
 }
 
-.compare-dialog[data-overlay-state="open"] .compare-sheet,
-.settings-dialog[data-overlay-state="open"] .settings-modal {
+.overlay-host[data-overlay-state="open"] .overlay-surface {
   opacity: 1;
   transform: scale(1);
 }
 
-.compare-dialog:not([data-overlay-state="open"]) .compare-sheet,
-.settings-dialog:not([data-overlay-state="open"]) .settings-modal {
+.overlay-host:not([data-overlay-state="open"]) .overlay-surface {
   opacity: 0;
   transform: scale(0.96);
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .compare-backdrop,
-  .compare-sheet,
-  .settings-dialog-backdrop,
-  .settings-dialog .settings-modal {
+  .overlay-backdrop,
+  .overlay-surface {
     transform: none !important;
     transition-property: opacity, background-color, background !important;
     transition-duration: 200ms !important;
     transition-timing-function: ease !important;
   }
 
-  .compare-backdrop,
-  .settings-dialog-backdrop {
+  .overlay-backdrop {
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     backdrop-filter: blur(20px) saturate(180%);
   }
 
-  .compare-dialog:not([data-overlay-state="open"]) .compare-backdrop,
-  .settings-dialog:not([data-overlay-state="open"]) .settings-dialog-backdrop {
+  .overlay-host:not([data-overlay-state="open"]) .overlay-backdrop {
     -webkit-backdrop-filter: blur(0px) saturate(100%);
     backdrop-filter: blur(0px) saturate(100%);
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .compare-backdrop,
-  .settings-dialog-backdrop,
-  .compare-dialog[data-overlay-state="open"] .compare-backdrop,
-  .settings-dialog[data-overlay-state="open"] .settings-dialog-backdrop,
-  .compare-dialog[data-overlay-state="closing"] .compare-backdrop,
-  .settings-dialog[data-overlay-state="closing"] .settings-dialog-backdrop {
+  .overlay-backdrop,
+  .overlay-host[data-overlay-state="open"] .overlay-backdrop,
+  .overlay-host[data-overlay-state="closing"] .overlay-backdrop {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  .compare-dialog[data-overlay-state="open"] .compare-backdrop,
-  .settings-dialog[data-overlay-state="open"] .settings-dialog-backdrop {
+  .overlay-host[data-overlay-state="open"] .overlay-backdrop {
     background: rgb(0 0 0 / 72%);
   }
 }
