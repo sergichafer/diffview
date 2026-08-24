@@ -10,7 +10,6 @@ import {
 const overview = (
   overrides: Partial<GraphOverviewSlice> = {},
 ): GraphOverviewSlice => ({
-  isLive: true,
   mergeBase: "mb",
   headOid: "hd",
   currentBranch: "feature",
@@ -23,7 +22,7 @@ describe("graphTopology", () => {
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
-      overview: overview({ isLive: false }),
+      overview: overview(),
       metadata: [{ name: "feature", ahead: 4, behind: 2 }],
     });
     expect(graph).toEqual({
@@ -40,7 +39,7 @@ describe("graphTopology", () => {
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
-      overview: overview({ isLive: false }),
+      overview: overview(),
       metadata: [{ name: "feature", ahead: 6, behind: 0 }],
     });
     expect(graph).toEqual({
@@ -57,7 +56,6 @@ describe("graphTopology", () => {
       head: "release/1.4",
       base: "origin/main",
       overview: overview({
-        isLive: false,
         currentBranch: "release/1.4",
       }),
       metadata: [{ name: "release/1.4", ahead: 0, behind: 3 }],
@@ -76,7 +74,6 @@ describe("graphTopology", () => {
       head: "main",
       base: "main",
       overview: overview({
-        isLive: false,
         currentBranch: "main",
         baseBranch: "main",
       }),
@@ -88,26 +85,24 @@ describe("graphTopology", () => {
   });
 
   test("live working tree keeps comparisonIsLive", () => {
-    const slice = overview({ isLive: true, currentBranch: "feature" });
     const graph = graphTopology({
       head: "",
       base: "origin/main",
-      overview: slice,
+      overview: overview({ currentBranch: "feature" }),
       metadata: [{ name: "feature", ahead: 4, behind: 2 }],
     });
-    expect(comparisonIsLive(slice, "")).toBe(true);
+    expect(comparisonIsLive({ isLive: true }, "")).toBe(true);
     expect(graph.kind).toBe("diverged");
   });
 
   test("committed comparison is not live", () => {
-    const slice = overview({ isLive: false });
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
-      overview: slice,
+      overview: overview(),
       metadata: [{ name: "feature", ahead: 2, behind: 0 }],
     });
-    expect(comparisonIsLive(slice, "feature")).toBe(false);
+    expect(comparisonIsLive({ isLive: false }, "feature")).toBe(false);
     expect(graph.kind).toBe("linear");
   });
 
@@ -115,7 +110,7 @@ describe("graphTopology", () => {
     const graph = graphTopology({
       head: "",
       base: "origin/main",
-      overview: overview({ isLive: true, currentBranch: "feature" }),
+      overview: overview({ currentBranch: "feature" }),
       metadata: [
         { name: "main", ahead: 0, behind: 0 },
         { name: "feature", ahead: 3, behind: 1 },
@@ -135,20 +130,20 @@ describe("graphTopology", () => {
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
-      overview: overview({ isLive: true }),
+      overview: overview(),
       metadata: [],
     });
     expect(graph).toEqual({ kind: "unknown", baseLabel: "origin/main" });
     expect(graphTitle(graph)).toBe("Graph");
     expect(graphDetail(graph)).toBe("Waiting for branch counts.");
-    expect(comparisonIsLive(overview({ isLive: true }), "feature")).toBe(true);
+    expect(comparisonIsLive({ isLive: true }, "feature")).toBe(true);
   });
 
   test("metadata for other branches does not count as this head", () => {
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
-      overview: overview({ isLive: false }),
+      overview: overview(),
       metadata: [{ name: "main", ahead: 9, behind: 4 }],
     });
     expect(graph).toEqual({ kind: "unknown", baseLabel: "origin/main" });
@@ -186,7 +181,7 @@ describe("graphTopology", () => {
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
-      overview: overview({ isLive: false }),
+      overview: overview(),
       metadata: [{ name: "feature", ahead: 20, behind: 15 }],
     });
     expect(graph).toEqual({
@@ -203,7 +198,7 @@ describe("graphTopology", () => {
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
-      overview: overview({ mergeBase: "abc", headOid: "abc", isLive: false }),
+      overview: overview({ mergeBase: "abc", headOid: "abc" }),
       metadata: [],
     });
     expect(graph).toEqual({ kind: "sync", baseLabel: "origin/main" });
@@ -215,7 +210,7 @@ describe("graphTopology", () => {
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
-      overview: overview({ mergeBase: "", headOid: "", isLive: false }),
+      overview: overview({ mergeBase: "", headOid: "" }),
       metadata: [],
     });
     expect(graph).toEqual({ kind: "unknown", baseLabel: "origin/main" });

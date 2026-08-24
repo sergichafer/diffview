@@ -2,7 +2,7 @@ import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
 
 export type GraphOverviewSlice = Pick<
   BranchOverview,
-  "isLive" | "mergeBase" | "headOid" | "currentBranch" | "baseBranch"
+  "mergeBase" | "headOid" | "currentBranch" | "baseBranch"
 >;
 
 export type GraphMetadataRow = Pick<BranchMetadata, "name" | "ahead" | "behind">;

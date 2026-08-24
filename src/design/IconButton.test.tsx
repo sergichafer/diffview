@@ -75,28 +75,25 @@ describe("IconButton busy", () => {
   });
 });
 
-describe("IconButton expanded", () => {
-  test("sets aria-expanded when expanded is boolean", () => {
+describe("IconButton ARIA forwarding", () => {
+  test("passes disclosure attributes through without inventing haspopup", () => {
     act(() => {
       root.render(
-        <IconButton name="graph" expanded={false} active={false} />,
+        <IconButton
+          name="graph"
+          aria-expanded={false}
+          aria-haspopup="dialog"
+          aria-controls="compare-graph-panel"
+        />,
       );
     });
     const btn = container.querySelector("button.icon-btn");
     expect(btn?.getAttribute("aria-expanded")).toBe("false");
     expect(btn?.getAttribute("aria-haspopup")).toBe("dialog");
-    expect(btn?.getAttribute("aria-pressed")).toBeNull();
-    expect(btn?.classList.contains("is-active")).toBe(false);
-
-    act(() => {
-      root.render(<IconButton name="graph" expanded active />);
-    });
-    const open = container.querySelector("button.icon-btn");
-    expect(open?.getAttribute("aria-expanded")).toBe("true");
-    expect(open?.classList.contains("is-active")).toBe(true);
+    expect(btn?.getAttribute("aria-controls")).toBe("compare-graph-panel");
   });
 
-  test("omits aria-expanded when the prop is absent", () => {
+  test("omits disclosure attributes when they are not passed", () => {
     act(() => {
       root.render(<IconButton name="settings" />);
     });
@@ -104,16 +101,5 @@ describe("IconButton expanded", () => {
     expect(btn?.hasAttribute("aria-expanded")).toBe(false);
     expect(btn?.hasAttribute("aria-haspopup")).toBe(false);
     expect(btn?.hasAttribute("aria-controls")).toBe(false);
-  });
-
-  test("sets aria-controls when controls is passed", () => {
-    act(() => {
-      root.render(
-        <IconButton name="graph" expanded controls="compare-graph-panel" />,
-      );
-    });
-    const btn = container.querySelector("button.icon-btn");
-    expect(btn?.getAttribute("aria-controls")).toBe("compare-graph-panel");
-    expect(btn?.getAttribute("aria-haspopup")).toBe("dialog");
   });
 });

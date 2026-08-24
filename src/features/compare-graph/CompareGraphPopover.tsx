@@ -119,8 +119,9 @@ export function CompareGraphPopover({
         ref={triggerRef}
         name="graph"
         active={open}
-        expanded={open}
-        controls={presence.mounted ? panelId : undefined}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-controls={presence.mounted ? panelId : undefined}
         onClick={toggle}
       />
       {presence.mounted ? (

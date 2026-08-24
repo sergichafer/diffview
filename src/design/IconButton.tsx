@@ -1,10 +1,15 @@
-import type { Ref } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 import { DIFFVIEW_DESIGN } from "./choice";
 import { ICON_LABELS, ICON_PATHS, type IconName, type IconSize } from "./icons";
 
 const TOGGLE_ICONS = new Set<IconName>(["split", "unified"]);
 
-interface IconButtonProps {
+type IconButtonAria = Pick<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "aria-expanded" | "aria-haspopup" | "aria-controls"
+>;
+
+interface IconButtonProps extends IconButtonAria {
   name: IconName;
   size?: IconSize;
   active?: boolean;
@@ -12,8 +17,6 @@ interface IconButtonProps {
   disabled?: boolean;
   title?: string;
   tabIndex?: number;
-  expanded?: boolean;
-  controls?: string;
   ref?: Ref<HTMLButtonElement>;
   onClick?: () => void;
 }
@@ -26,10 +29,11 @@ export function IconButton({
   disabled = false,
   title,
   tabIndex,
-  expanded,
-  controls,
   ref,
   onClick,
+  "aria-expanded": ariaExpanded,
+  "aria-haspopup": ariaHasPopup,
+  "aria-controls": ariaControls,
 }: IconButtonProps) {
   const label = title ?? ICON_LABELS[name];
   const showSpinner = busy !== undefined;
@@ -44,12 +48,11 @@ export function IconButton({
       onClick={busy ? undefined : onClick}
       aria-label={label}
       title={label}
+      aria-expanded={ariaExpanded}
+      aria-haspopup={ariaHasPopup}
+      aria-controls={ariaControls}
       {...(busy ? { "aria-busy": true } : {})}
       {...(TOGGLE_ICONS.has(name) ? { "aria-pressed": active } : {})}
-      {...(typeof expanded === "boolean"
-        ? { "aria-expanded": expanded, "aria-haspopup": "dialog" }
-        : {})}
-      {...(controls ? { "aria-controls": controls } : {})}
     >
       <span className="icon-btn-surface">
         <svg className="icon-btn-glyph" viewBox="0 0 24 24" aria-hidden="true">
