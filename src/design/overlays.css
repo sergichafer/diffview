@@ -38,16 +38,21 @@
 }
 
 .compare-sheet,
-.settings-dialog .settings-modal {
+.settings-dialog .settings-modal,
+.compare-graph-panel {
   opacity: 0;
   transform: scale(0.96);
   transform-origin: var(--overlay-origin-x, 50%) var(--overlay-origin-y, 50%);
   will-change: transform, opacity;
-  background: var(--bg-elevated);
-  border-top: 1px solid var(--border-highlight);
   transition:
     opacity var(--overlay-duration) var(--overlay-ease),
     transform var(--overlay-duration) var(--overlay-ease);
+}
+
+.compare-sheet,
+.settings-dialog .settings-modal {
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-highlight);
 }
 
 .settings-dialog .settings-modal {
@@ -68,13 +73,15 @@
 }
 
 .compare-dialog[data-overlay-state="open"] .compare-sheet,
-.settings-dialog[data-overlay-state="open"] .settings-modal {
+.settings-dialog[data-overlay-state="open"] .settings-modal,
+.compare-graph[data-overlay-state="open"] .compare-graph-panel {
   opacity: 1;
   transform: scale(1);
 }
 
 .compare-dialog:not([data-overlay-state="open"]) .compare-sheet,
-.settings-dialog:not([data-overlay-state="open"]) .settings-modal {
+.settings-dialog:not([data-overlay-state="open"]) .settings-modal,
+.compare-graph:not([data-overlay-state="open"]) .compare-graph-panel {
   opacity: 0;
   transform: scale(0.96);
   pointer-events: none;

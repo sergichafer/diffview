@@ -44,10 +44,50 @@ const row = (name: string, ahead: number, behind: number): BranchMetadata => ({
 
 let container: HTMLElement;
 let root: ReturnType<typeof createRoot>;
+let rafId = 0;
+const rafPending = new Map<number, FrameRequestCallback>();
+
+function flushFrames(count = 1) {
+  for (let i = 0; i < count; i++) {
+    const batch = [...rafPending.values()];
+    rafPending.clear();
+    act(() => {
+      for (const cb of batch) cb(0);
+    });
+  }
+}
+
+function finishClose() {
+  const dialog = panel();
+  const WinEvent = (window as typeof window & { Event: typeof Event }).Event;
+  act(() => {
+    const event = new WinEvent("transitionend", { bubbles: true });
+    Object.defineProperty(event, "propertyName", { value: "opacity" });
+    dialog?.dispatchEvent(event);
+  });
+}
+
+let restoreRaf = () => {};
 
 beforeEach(() => {
   showCalls = 0;
   showModalCalls = 0;
+  rafId = 0;
+  rafPending.clear();
+  const request = globalThis.requestAnimationFrame;
+  const cancel = globalThis.cancelAnimationFrame;
+  restoreRaf = () => {
+    globalThis.requestAnimationFrame = request;
+    globalThis.cancelAnimationFrame = cancel;
+  };
+  (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => {
+    const id = ++rafId;
+    rafPending.set(id, cb);
+    return id;
+  };
+  (globalThis as any).cancelAnimationFrame = (id: number) => {
+    rafPending.delete(id);
+  };
   if (DialogProto) {
     DialogProto.show = function show(this: HTMLDialogElement) {
       showCalls += 1;
@@ -66,6 +106,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  restoreRaf();
+  rafPending.clear();
   if (DialogProto) {
     DialogProto.show = originalShow;
     DialogProto.showModal = originalShowModal;
@@ -104,6 +146,10 @@ function panel() {
   return container.querySelector(
     "dialog.compare-graph-panel",
   ) as HTMLDialogElement | null;
+}
+
+function host() {
+  return container.querySelector(".compare-graph") as HTMLElement | null;
 }
 
 describe("CompareGraphPopover", () => {
@@ -158,10 +204,12 @@ describe("CompareGraphPopover", () => {
 
   test("Escape closes the peek and preventDefault when it does", () => {
     renderPopover();
+    const btn = graphButton();
     act(() => {
-      graphButton().click();
+      btn.click();
     });
-    expect(panel()).toBeTruthy();
+    flushFrames(2);
+    expect(host()?.getAttribute("data-overlay-state")).toBe("open");
     const event = new KeyboardEvent("keydown", {
       key: "Escape",
       bubbles: true,
@@ -171,7 +219,11 @@ describe("CompareGraphPopover", () => {
       document.dispatchEvent(event);
     });
     expect(event.defaultPrevented).toBe(true);
+    expect(host()?.getAttribute("data-overlay-state")).toBe("closing");
+    expect(panel()).toBeTruthy();
+    finishClose();
     expect(panel()).toBeNull();
+    expect(document.activeElement).toBe(btn);
   });
 
   test("Escape from a typing target does not close or preventDefault", () => {
@@ -179,6 +231,7 @@ describe("CompareGraphPopover", () => {
     act(() => {
       graphButton().click();
     });
+    flushFrames(2);
     const input = document.createElement("textarea");
     document.body.appendChild(input);
     const event = new KeyboardEvent("keydown", {
@@ -191,6 +244,7 @@ describe("CompareGraphPopover", () => {
     });
     expect(event.defaultPrevented).toBe(false);
     expect(panel()).toBeTruthy();
+    expect(host()?.getAttribute("data-overlay-state")).toBe("open");
     input.remove();
   });
 
@@ -200,6 +254,7 @@ describe("CompareGraphPopover", () => {
     act(() => {
       btn.click();
     });
+    flushFrames(2);
     expect(panel()).toBeTruthy();
     const outside = document.createElement("button");
     outside.textContent = "file";
@@ -210,9 +265,23 @@ describe("CompareGraphPopover", () => {
         new PointerEvent("pointerdown", { bubbles: true, cancelable: true }),
       );
     });
+    expect(host()?.getAttribute("data-overlay-state")).toBe("closing");
+    finishClose();
     expect(panel()).toBeNull();
     expect(document.activeElement).toBe(outside);
     outside.remove();
+  });
+
+  test("live comparison legends WIP, not Working tree", () => {
+    renderPopover({
+      overview: overview({ isLive: true }),
+    });
+    act(() => {
+      graphButton().click();
+    });
+    const legend = panel()?.querySelector(".compare-graph-legend")?.textContent;
+    expect(legend).toContain("WIP");
+    expect(legend).not.toContain("Working tree");
   });
 
   test("places overlay origin from the Graph trigger", () => {

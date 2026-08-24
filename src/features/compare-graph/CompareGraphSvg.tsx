@@ -102,15 +102,16 @@ function laneDots(
 
 interface CompareGraphSvgProps {
   topology: GraphTopology;
+  isLive: boolean;
 }
 
-export function CompareGraphSvg({ topology }: CompareGraphSvgProps) {
+export function CompareGraphSvg({ topology, isLive }: CompareGraphSvgProps) {
   const success = "var(--state-success)";
   const danger = "var(--state-danger)";
   const baseLabel = topology.baseLabel
     ? truncateBranchLabel(topology.baseLabel, 16)
     : "base";
-  const live = topology.isLive;
+  const live = isLive;
 
   let body: ReactNode;
   if (topology.kind === "unknown") {

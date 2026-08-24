@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { IconGlyph } from "@/design/IconButton";
+import { isTypingTarget } from "@/design/isTypingTarget";
 import {
   applyOverlayOrigin,
   useOverlayPresence,
@@ -49,17 +50,6 @@ function score(query: string, name: string): number {
   let qi = 0;
   for (const ch of n) if (ch === q[qi]) qi++;
   return qi === q.length ? 100 - (n.length - q.length) : -1;
-}
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    target.isContentEditable
-  );
 }
 
 function DivergenceChips({ meta }: { meta?: BranchMetadata }) {

@@ -18,7 +18,6 @@ function topology(kind: GraphTopology["kind"]): GraphTopology {
     caption: kind,
     ahead: 0,
     behind: kind === "behind" ? 3 : 0,
-    isLive: false,
     baseLabel: "main",
     drawnAhead: 0,
     drawnBehind: kind === "behind" ? 2 : 0,
@@ -43,7 +42,7 @@ afterEach(() => {
 describe("CompareGraphSvg", () => {
   test("sync is one commit, not a full-height lane", () => {
     act(() => {
-      root.render(<CompareGraphSvg topology={topology("sync")} />);
+      root.render(<CompareGraphSvg topology={topology("sync")} isLive={false} />);
     });
     expect(container.querySelector("path")).toBeNull();
     expect(container.querySelectorAll("rect")).toHaveLength(1);
@@ -54,7 +53,7 @@ describe("CompareGraphSvg", () => {
 
   test("behind does not stack a node on the merge-base diamond", () => {
     act(() => {
-      root.render(<CompareGraphSvg topology={topology("behind")} />);
+      root.render(<CompareGraphSvg topology={topology("behind")} isLive={false} />);
     });
     const filled = [...container.querySelectorAll("circle")].filter(
       (el) => el.getAttribute("fill") && el.getAttribute("fill") !== "none",

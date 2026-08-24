@@ -8,13 +8,14 @@ import {
   useState,
 } from "react";
 import { IconButton } from "@/design/IconButton";
+import { isTypingTarget } from "@/design/isTypingTarget";
 import {
   applyOverlayOrigin,
   useOverlayPresence,
 } from "@/design/useOverlayPresence";
 import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
 import { CompareGraphSvg } from "./CompareGraphSvg";
-import { graphTopology } from "./graphTopology";
+import { comparisonIsLive, graphTopology } from "./graphTopology";
 
 interface CompareGraphPopoverProps {
   head: string;
@@ -24,16 +25,8 @@ interface CompareGraphPopoverProps {
   onNeedMetadata?: () => void;
 }
 
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    target.isContentEditable
-  );
-}
+const WIP_TITLE =
+  "WIP: checked-out head. Diffs and saves write the working tree.";
 
 export function CompareGraphPopover({
   head,
@@ -59,6 +52,7 @@ export function CompareGraphPopover({
     () => graphTopology({ head, base, overview, metadata }),
     [head, base, overview, metadata],
   );
+  const isLive = comparisonIsLive(overview, head);
 
   const closeFromTrigger = useCallback(() => {
     restoreFocusRef.current = true;
@@ -157,10 +151,9 @@ export function CompareGraphPopover({
             onTransitionEnd={presence.onTransitionEnd}
           >
             <p className="compare-graph-head">Graph</p>
-            <CompareGraphSvg topology={topology} />
+            <CompareGraphSvg topology={topology} isLive={isLive} />
             <p id={captionId} className="compare-graph-caption">
-              <strong>{topology.caption.slice(0, topology.caption.indexOf(". ") + 1)}</strong>
-              {topology.caption.slice(topology.caption.indexOf(". ") + 1)}
+              <strong>{topology.title}.</strong> {topology.detail}
             </p>
             <div className="compare-graph-legend">
               <span className="compare-graph-legend-item">
@@ -184,13 +177,13 @@ export function CompareGraphPopover({
                 />
                 behind
               </span>
-              {topology.isLive ? (
-                <span className="compare-graph-legend-item">
+              {isLive ? (
+                <span className="compare-graph-legend-item" title={WIP_TITLE}>
                   <span
                     className="compare-graph-swatch compare-graph-swatch-live"
                     aria-hidden="true"
                   />
-                  Working tree
+                  WIP
                 </span>
               ) : null}
             </div>

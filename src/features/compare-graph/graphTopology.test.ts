@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   graphTopology,
+  comparisonIsLive,
   intermediateDotCount,
   MAX_INTERMEDIATE_DOTS,
   type GraphOverviewSlice,
@@ -49,7 +50,6 @@ describe("graphTopology", () => {
     expect(graph.behind).toBe(2);
     expect(graph.drawnAhead).toBe(3);
     expect(graph.drawnBehind).toBe(1);
-    expect(graph.isLive).toBe(false);
     expect(graph.hasMetadata).toBe(true);
   });
 
@@ -100,25 +100,27 @@ describe("graphTopology", () => {
   });
 
   test("live working tree keeps the hollow node flag", () => {
+    const slice = overview({ isLive: true, currentBranch: "feature" });
     const graph = graphTopology({
       head: "",
       base: "origin/main",
-      overview: overview({ isLive: true, currentBranch: "feature" }),
+      overview: slice,
       metadata: [{ name: "feature", ahead: 4, behind: 2 }],
     });
-    expect(graph.isLive).toBe(true);
+    expect(comparisonIsLive(slice, "")).toBe(true);
     expect(graph.kind).toBe("diverged");
     expect(graph.hasMetadata).toBe(true);
   });
 
   test("committed comparison is not live", () => {
+    const slice = overview({ isLive: false });
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
-      overview: overview({ isLive: false }),
+      overview: slice,
       metadata: [{ name: "feature", ahead: 2, behind: 0 }],
     });
-    expect(graph.isLive).toBe(false);
+    expect(comparisonIsLive(slice, "feature")).toBe(false);
     expect(graph.kind).toBe("linear");
   });
 
@@ -152,7 +154,7 @@ describe("graphTopology", () => {
     expect(graph.ahead).toBe(0);
     expect(graph.behind).toBe(0);
     expect(graph.caption).toBe("Graph. Waiting for branch counts.");
-    expect(graph.isLive).toBe(true);
+    expect(comparisonIsLive(overview({ isLive: true }), "feature")).toBe(true);
     expect(graph.baseLabel).toBe("origin/main");
     expect(graph.drawnAhead).toBe(0);
     expect(graph.drawnBehind).toBe(0);
@@ -178,7 +180,7 @@ describe("graphTopology", () => {
       overview: null,
       metadata: [],
     });
-    expect(graph.isLive).toBe(true);
+    expect(comparisonIsLive(null, "")).toBe(true);
     expect(graph.kind).toBe("unknown");
     expect(graph.baseLabel).toBe("main");
     expect(graph.hasMetadata).toBe(false);
@@ -191,7 +193,7 @@ describe("graphTopology", () => {
       overview: null,
       metadata: [{ name: "feature", ahead: 5, behind: 0 }],
     });
-    expect(graph.isLive).toBe(false);
+    expect(comparisonIsLive(null, "feature")).toBe(false);
     expect(graph.kind).toBe("linear");
     expect(graph.caption).toBe("Linear. 5 ahead, 0 behind.");
   });

@@ -1,20 +1,15 @@
+import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
+
 export const MAX_INTERMEDIATE_DOTS = 8;
 
 export type GraphKind = "diverged" | "linear" | "behind" | "sync" | "unknown";
 
-export type GraphOverviewSlice = {
-  isLive: boolean;
-  mergeBase: string;
-  headOid: string;
-  currentBranch: string;
-  baseBranch: string;
-};
+export type GraphOverviewSlice = Pick<
+  BranchOverview,
+  "isLive" | "mergeBase" | "headOid" | "currentBranch" | "baseBranch"
+>;
 
-export type GraphMetadataRow = {
-  name: string;
-  ahead: number;
-  behind: number;
-};
+export type GraphMetadataRow = Pick<BranchMetadata, "name" | "ahead" | "behind">;
 
 export type GraphTopologyInput = {
   head: string;
@@ -30,7 +25,6 @@ export type GraphTopology = {
   caption: string;
   ahead: number;
   behind: number;
-  isLive: boolean;
   baseLabel: string;
   drawnAhead: number;
   drawnBehind: number;
@@ -82,6 +76,14 @@ function sameCommit(overview: GraphOverviewSlice | null): boolean {
   return overview.mergeBase === overview.headOid;
 }
 
+/** Empty head is live working-tree mode; otherwise trust overview.isLive. */
+export function comparisonIsLive(
+  overview: Pick<BranchOverview, "isLive"> | null,
+  head: string,
+): boolean {
+  return overview?.isLive ?? head === "";
+}
+
 export function graphTopology(input: GraphTopologyInput): GraphTopology {
   const { head, base, overview, metadata } = input;
   const headName = head || overview?.currentBranch || "";
@@ -107,7 +109,6 @@ export function graphTopology(input: GraphTopologyInput): GraphTopology {
     caption: `${title}. ${detail}`,
     ahead,
     behind,
-    isLive: overview?.isLive ?? head === "",
     baseLabel,
     drawnAhead: hasMetadata ? intermediateDotCount(ahead) : 0,
     drawnBehind: hasMetadata ? intermediateDotCount(behind) : 0,
