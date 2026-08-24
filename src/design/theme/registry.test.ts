@@ -23,7 +23,7 @@ describe("theme catalog", () => {
     }
   });
 
-  test("getPierreThemePair returns the Harmony and Ayu names", () => {
+  test("getPierreThemePair returns catalog pierre names", () => {
     expect(getPierreThemePair("harmony")).toEqual({
       dark: "diffview-harmony",
       light: "diffview-harmony-light",
@@ -32,11 +32,16 @@ describe("theme catalog", () => {
       dark: "diffview-ayu",
       light: "diffview-ayu-light",
     });
+    expect(getPierreThemePair("catppuccin")).toEqual({
+      dark: "diffview-catppuccin",
+      light: "diffview-catppuccin-light",
+    });
   });
 
   test("normalizeThemeId keeps known ids and falls back to harmony", () => {
     expect(normalizeThemeId("harmony")).toBe("harmony");
     expect(normalizeThemeId("ayu")).toBe("ayu");
+    expect(normalizeThemeId("catppuccin")).toBe("catppuccin");
     expect(normalizeThemeId("not-a-theme")).toBe(DEFAULT_THEME_ID);
     expect(normalizeThemeId("")).toBe("harmony");
     expect(normalizeThemeId(undefined)).toBe("harmony");

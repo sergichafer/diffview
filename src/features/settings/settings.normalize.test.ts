@@ -49,6 +49,9 @@ describe("normalizeAppSettings", () => {
 
   test("keeps a known themeId", () => {
     expect(normalizeAppSettings({ themeId: "ayu" }).themeId).toBe("ayu");
+    expect(normalizeAppSettings({ themeId: "catppuccin" }).themeId).toBe(
+      "catppuccin",
+    );
   });
 
   test("unknown or empty themeId becomes harmony", () => {
