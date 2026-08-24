@@ -1,13 +1,3 @@
-const ElProto = (globalThis as any).HTMLElement?.prototype;
-if (ElProto) {
-  if (typeof ElProto.setPointerCapture !== "function") {
-    ElProto.setPointerCapture = function setPointerCapture() {};
-  }
-  if (typeof ElProto.releasePointerCapture !== "function") {
-    ElProto.releasePointerCapture = function releasePointerCapture() {};
-  }
-}
-
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const { act, useEffect, useState } = await import("react");

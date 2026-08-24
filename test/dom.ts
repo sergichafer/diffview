@@ -22,5 +22,16 @@ if (typeof document === "undefined" || typeof HTMLDialogElement !== "function") 
   );
 }
 
+const elementProto = HTMLElement.prototype as HTMLElement & {
+  setPointerCapture?: (pointerId: number) => void;
+  releasePointerCapture?: (pointerId: number) => void;
+};
+if (typeof elementProto.setPointerCapture !== "function") {
+  elementProto.setPointerCapture = function setPointerCapture() {};
+}
+if (typeof elementProto.releasePointerCapture !== "function") {
+  elementProto.releasePointerCapture = function releasePointerCapture() {};
+}
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
