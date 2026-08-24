@@ -213,3 +213,29 @@ describe("graphTopology", () => {
     );
   });
 });
+
+  test("matching mergeBase and headOid is sync when counts have not loaded", () => {
+    const graph = graphTopology({
+      head: "feature",
+      base: "origin/main",
+      overview: overview({ mergeBase: "abc", headOid: "abc", isLive: false }),
+      metadata: [],
+    });
+    expect(graph.hasMetadata).toBe(false);
+    expect(graph.kind).toBe("sync");
+    expect(graph.caption).toBe("In sync. 0 ahead, 0 behind.");
+    expect(graph.drawnAhead).toBe(0);
+    expect(graph.drawnBehind).toBe(0);
+  });
+
+  test("empty mergeBase does not count as sync", () => {
+    const graph = graphTopology({
+      head: "feature",
+      base: "origin/main",
+      overview: overview({ mergeBase: "", headOid: "", isLive: false }),
+      metadata: [],
+    });
+    expect(graph.kind).toBe("unknown");
+    expect(graph.hasMetadata).toBe(false);
+  });
+

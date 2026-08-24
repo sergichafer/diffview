@@ -77,6 +77,11 @@ function kindDetail(
   }
 }
 
+function sameCommit(overview: GraphOverviewSlice | null): boolean {
+  if (!overview?.mergeBase) return false;
+  return overview.mergeBase === overview.headOid;
+}
+
 export function graphTopology(input: GraphTopologyInput): GraphTopology {
   const { head, base, overview, metadata } = input;
   const headName = head || overview?.currentBranch || "";
@@ -86,7 +91,11 @@ export function graphTopology(input: GraphTopologyInput): GraphTopology {
   const hasMetadata = row != null;
   const ahead = row?.ahead ?? 0;
   const behind = row?.behind ?? 0;
-  const kind = hasMetadata ? kindOf(ahead, behind) : "unknown";
+  const kind = hasMetadata
+    ? kindOf(ahead, behind)
+    : sameCommit(overview)
+      ? "sync"
+      : "unknown";
   const title = KIND_TITLE[kind];
   const baseLabel = overview?.baseBranch || base;
   const detail = kindDetail(kind, ahead, behind, baseLabel);

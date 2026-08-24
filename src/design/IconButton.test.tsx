@@ -134,5 +134,17 @@ describe("IconButton expanded", () => {
     const btn = container.querySelector("button.icon-btn");
     expect(btn?.hasAttribute("aria-expanded")).toBe(false);
     expect(btn?.hasAttribute("aria-haspopup")).toBe(false);
+    expect(btn?.hasAttribute("aria-controls")).toBe(false);
+  });
+
+  test("sets aria-controls when controls is passed", () => {
+    act(() => {
+      root.render(
+        <IconButton name="graph" expanded controls="compare-graph-panel" />,
+      );
+    });
+    const btn = container.querySelector("button.icon-btn");
+    expect(btn?.getAttribute("aria-controls")).toBe("compare-graph-panel");
+    expect(btn?.getAttribute("aria-haspopup")).toBe("dialog");
   });
 });

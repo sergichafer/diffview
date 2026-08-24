@@ -1,5 +1,6 @@
 .compare-dialog,
-.settings-dialog {
+.settings-dialog,
+.compare-graph {
   --overlay-duration: 360ms;
   --overlay-ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -83,7 +84,8 @@
   .compare-backdrop,
   .compare-sheet,
   .settings-dialog-backdrop,
-  .settings-dialog .settings-modal {
+  .settings-dialog .settings-modal,
+  .compare-graph-panel {
     transform: none !important;
     transition-property: opacity, background-color, background !important;
     transition-duration: 200ms !important;

@@ -13,6 +13,7 @@ interface IconButtonProps {
   title?: string;
   tabIndex?: number;
   expanded?: boolean;
+  controls?: string;
   ref?: Ref<HTMLButtonElement>;
   onClick?: () => void;
 }
@@ -26,6 +27,7 @@ export function IconButton({
   title,
   tabIndex,
   expanded,
+  controls,
   ref,
   onClick,
 }: IconButtonProps) {
@@ -47,6 +49,7 @@ export function IconButton({
       {...(typeof expanded === "boolean"
         ? { "aria-expanded": expanded, "aria-haspopup": "dialog" }
         : {})}
+      {...(controls ? { "aria-controls": controls } : {})}
     >
       <span className="icon-btn-surface">
         <svg className="icon-btn-glyph" viewBox="0 0 24 24" aria-hidden="true">

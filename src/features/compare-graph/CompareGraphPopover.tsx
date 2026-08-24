@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -23,6 +24,17 @@ interface CompareGraphPopoverProps {
   onNeedMetadata?: () => void;
 }
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  );
+}
+
 export function CompareGraphPopover({
   head,
   base,
@@ -35,6 +47,8 @@ export function CompareGraphPopover({
   const hostRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef(false);
+  const panelId = useId();
+  const captionId = useId();
 
   const presence = useOverlayPresence(open, () => {
     if (restoreFocusRef.current) triggerRef.current?.focus();
@@ -88,14 +102,9 @@ export function CompareGraphPopover({
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.closest("input, textarea, select, [contenteditable='true']") ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
+      if (event.defaultPrevented) return;
+      if (isTypingTarget(event.target)) return;
+      if (document.querySelector("dialog:modal")) return;
       event.preventDefault();
       restoreFocusRef.current = true;
       setOpen(false);
@@ -123,6 +132,7 @@ export function CompareGraphPopover({
         name="graph"
         active={open}
         expanded={open}
+        controls={presence.mounted ? panelId : undefined}
         onClick={toggle}
       />
       {presence.mounted ? (
@@ -133,9 +143,14 @@ export function CompareGraphPopover({
         >
           <dialog
             ref={panelRef}
+            id={panelId}
             className="compare-graph-panel"
             aria-label="Compare graph"
+            aria-describedby={captionId}
             onCancel={(event) => {
+              if (isTypingTarget(event.target) || isTypingTarget(document.activeElement)) {
+                return;
+              }
               event.preventDefault();
               if (open) closeFromTrigger();
             }}
@@ -143,8 +158,9 @@ export function CompareGraphPopover({
           >
             <p className="compare-graph-head">Graph</p>
             <CompareGraphSvg topology={topology} />
-            <p className="compare-graph-caption">
-              <strong>{topology.title}.</strong> {topology.detail}
+            <p id={captionId} className="compare-graph-caption">
+              <strong>{topology.caption.slice(0, topology.caption.indexOf(". ") + 1)}</strong>
+              {topology.caption.slice(topology.caption.indexOf(". ") + 1)}
             </p>
             <div className="compare-graph-legend">
               <span className="compare-graph-legend-item">

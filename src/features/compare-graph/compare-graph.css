@@ -5,8 +5,6 @@
 }
 
 .compare-graph {
-  --overlay-duration: 360ms;
-  --overlay-ease: cubic-bezier(0.32, 0.72, 0, 1);
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -117,15 +115,6 @@
   box-sizing: border-box;
   background: transparent;
   border: 1.5px solid var(--state-info);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .compare-graph-panel {
-    transform: none !important;
-    transition-property: opacity !important;
-    transition-duration: 200ms !important;
-    transition-timing-function: ease !important;
-  }
 }
 
 @media (prefers-reduced-transparency: reduce) {

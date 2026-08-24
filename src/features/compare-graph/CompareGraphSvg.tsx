@@ -126,19 +126,13 @@ export function CompareGraphSvg({ topology }: CompareGraphSvgProps) {
       </>
     );
   } else if (topology.kind === "sync") {
+    const y = (Y0 + Y1) / 2;
     body = (
       <>
-        <path
-          d={`M ${X_AHEAD} ${Y0} V ${Y1}`}
-          stroke={success}
-          strokeWidth={1.6}
-          fill="none"
-        />
-        <Diamond cx={X_AHEAD} cy={Y1} />
-        <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} />
-        {live ? <Hollow cx={X_AHEAD} cy={Y0} /> : null}
-        <Label x={X_AHEAD + 12} y={Y1 + 4} text="merge-base" anchor="start" />
-        <Label x={X_AHEAD + 12} y={Y0 + 4} text="HEAD" anchor="start" />
+        <Diamond cx={X_JOIN} cy={y} />
+        {live ? <Hollow cx={X_JOIN} cy={y} /> : null}
+        <Label x={X_JOIN + 12} y={y - 4} text="HEAD" anchor="start" />
+        <Label x={X_JOIN + 12} y={y + 12} text="merge-base" anchor="start" />
       </>
     );
   } else if (topology.kind === "linear") {
@@ -168,7 +162,6 @@ export function CompareGraphSvg({ topology }: CompareGraphSvgProps) {
           fill="none"
         />
         <Diamond cx={X_AHEAD} cy={Y1} />
-        <Node cx={X_AHEAD} cy={Y1} fill={success} r={5} />
         {laneDots(topology.drawnBehind, X_BEHIND, Y0, Y1 - 80, danger)}
         <Node cx={X_BEHIND} cy={Y0} fill={danger} r={5} />
         {live ? <Hollow cx={X_AHEAD} cy={Y1} /> : null}
