@@ -101,6 +101,7 @@ export function TopBar({
             base={baseBranch}
             overview={overview}
             metadata={branchMetadata}
+            onNeedMetadata={loadBranchMetadata}
           />
         )}
         {startupError && (

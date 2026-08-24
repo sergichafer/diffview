@@ -44,7 +44,9 @@ export function IconButton({
       title={label}
       {...(busy ? { "aria-busy": true } : {})}
       {...(TOGGLE_ICONS.has(name) ? { "aria-pressed": active } : {})}
-      {...(typeof expanded === "boolean" ? { "aria-expanded": expanded } : {})}
+      {...(typeof expanded === "boolean"
+        ? { "aria-expanded": expanded, "aria-haspopup": "dialog" }
+        : {})}
     >
       <span className="icon-btn-surface">
         <svg className="icon-btn-glyph" viewBox="0 0 24 24" aria-hidden="true">

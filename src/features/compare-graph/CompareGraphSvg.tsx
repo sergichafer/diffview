@@ -113,7 +113,19 @@ export function CompareGraphSvg({ topology }: CompareGraphSvgProps) {
   const live = topology.isLive;
 
   let body: ReactNode;
-  if (topology.kind === "sync") {
+  if (topology.kind === "unknown") {
+    body = (
+      <>
+        <Diamond cx={X_JOIN} cy={(Y0 + Y1) / 2} />
+        <Label
+          x={X_JOIN}
+          y={(Y0 + Y1) / 2 + 22}
+          text="counts pending"
+          anchor="middle"
+        />
+      </>
+    );
+  } else if (topology.kind === "sync") {
     body = (
       <>
         <path

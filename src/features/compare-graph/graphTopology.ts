@@ -1,6 +1,6 @@
 export const MAX_INTERMEDIATE_DOTS = 8;
 
-export type GraphKind = "diverged" | "linear" | "behind" | "sync";
+export type GraphKind = "diverged" | "linear" | "behind" | "sync" | "unknown";
 
 export type GraphOverviewSlice = {
   isLive: boolean;
@@ -42,6 +42,7 @@ const KIND_TITLE: Record<GraphKind, string> = {
   linear: "Linear",
   behind: "Behind",
   sync: "In sync",
+  unknown: "Graph",
 };
 
 export function intermediateDotCount(commitCount: number): number {
@@ -71,6 +72,8 @@ function kindDetail(
       return `0 ahead, ${behind} behind.`;
     case "sync":
       return "0 ahead, 0 behind.";
+    case "unknown":
+      return "Waiting for branch counts.";
   }
 }
 
@@ -80,9 +83,10 @@ export function graphTopology(input: GraphTopologyInput): GraphTopology {
   const row = headName
     ? metadata.find((entry) => entry.name === headName)
     : undefined;
+  const hasMetadata = row != null;
   const ahead = row?.ahead ?? 0;
   const behind = row?.behind ?? 0;
-  const kind = kindOf(ahead, behind);
+  const kind = hasMetadata ? kindOf(ahead, behind) : "unknown";
   const title = KIND_TITLE[kind];
   const baseLabel = overview?.baseBranch || base;
   const detail = kindDetail(kind, ahead, behind, baseLabel);
@@ -96,8 +100,8 @@ export function graphTopology(input: GraphTopologyInput): GraphTopology {
     behind,
     isLive: overview?.isLive ?? head === "",
     baseLabel,
-    drawnAhead: intermediateDotCount(ahead),
-    drawnBehind: intermediateDotCount(behind),
-    hasMetadata: row != null,
+    drawnAhead: hasMetadata ? intermediateDotCount(ahead) : 0,
+    drawnBehind: hasMetadata ? intermediateDotCount(behind) : 0,
+    hasMetadata,
   };
 }

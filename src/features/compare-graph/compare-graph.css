@@ -1,10 +1,7 @@
-.topbar-zone {
-  position: relative;
-  z-index: 24;
-}
-
 .compare-graph-anchor {
+  position: relative;
   display: inline-flex;
+  z-index: 24;
 }
 
 .compare-graph {
@@ -136,5 +133,14 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background: var(--bg-elevated);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .compare-graph-panel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--bg-elevated);
+    border-top-color: var(--border-strong);
   }
 }

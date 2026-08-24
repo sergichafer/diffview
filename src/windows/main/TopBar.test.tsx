@@ -200,7 +200,8 @@ describe("TopBar graph", () => {
   });
 
   test("opens a non-modal compare graph dialog", () => {
-    renderTopBar(0);
+    const loadBranchMetadata = mock(() => Promise.resolve());
+    renderTopBar(0, session({ loadBranchMetadata }));
     const graph = container.querySelector(
       'button.icon-btn[aria-label="Graph"]',
     ) as HTMLButtonElement;
@@ -208,12 +209,46 @@ describe("TopBar graph", () => {
       graph.click();
     });
     expect(graph.getAttribute("aria-expanded")).toBe("true");
+    expect(graph.getAttribute("aria-haspopup")).toBe("dialog");
     const dialog = container.querySelector(
       'dialog[aria-label="Compare graph"]',
     );
     expect(dialog).toBeTruthy();
     expect(dialog?.getAttribute("aria-modal")).toBeNull();
-    expect(container.textContent).toContain("In sync. 0 ahead, 0 behind.");
+    expect(container.textContent).toContain(
+      "Graph. Waiting for branch counts.",
+    );
     expect(container.querySelector(".compare-backdrop")).toBeNull();
+    expect(loadBranchMetadata).toHaveBeenCalled();
+  });
+
+  test("renders ahead/behind from head metadata", () => {
+    renderTopBar(
+      0,
+      session({
+        branchMetadata: [
+          {
+            name: "feature",
+            ahead: 4,
+            behind: 2,
+            lastSubject: "",
+            author: "",
+            authorInitials: "",
+            lastCommitTime: 0,
+            isDefault: false,
+            isCurrent: true,
+          },
+        ],
+      }),
+    );
+    const graph = container.querySelector(
+      'button.icon-btn[aria-label="Graph"]',
+    ) as HTMLButtonElement;
+    act(() => {
+      graph.click();
+    });
+    expect(container.textContent).toContain(
+      "Diverged. 4 ahead of main, 2 behind.",
+    );
   });
 });

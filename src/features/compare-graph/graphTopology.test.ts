@@ -140,7 +140,7 @@ describe("graphTopology", () => {
     );
   });
 
-  test("missing metadata still renders sync counts of 0", () => {
+  test("missing metadata is unknown until counts load", () => {
     const graph = graphTopology({
       head: "feature",
       base: "origin/main",
@@ -148,12 +148,14 @@ describe("graphTopology", () => {
       metadata: [],
     });
     expect(graph.hasMetadata).toBe(false);
-    expect(graph.kind).toBe("sync");
+    expect(graph.kind).toBe("unknown");
     expect(graph.ahead).toBe(0);
     expect(graph.behind).toBe(0);
-    expect(graph.caption).toBe("In sync. 0 ahead, 0 behind.");
+    expect(graph.caption).toBe("Graph. Waiting for branch counts.");
     expect(graph.isLive).toBe(true);
     expect(graph.baseLabel).toBe("origin/main");
+    expect(graph.drawnAhead).toBe(0);
+    expect(graph.drawnBehind).toBe(0);
   });
 
   test("metadata for other branches does not count as this head", () => {
@@ -164,12 +166,12 @@ describe("graphTopology", () => {
       metadata: [{ name: "main", ahead: 9, behind: 4 }],
     });
     expect(graph.hasMetadata).toBe(false);
-    expect(graph.kind).toBe("sync");
+    expect(graph.kind).toBe("unknown");
     expect(graph.ahead).toBe(0);
     expect(graph.behind).toBe(0);
   });
 
-  test("null overview with empty head is live and defaults counts", () => {
+  test("null overview with empty head is live and unknown until metadata", () => {
     const graph = graphTopology({
       head: "",
       base: "main",
@@ -177,7 +179,7 @@ describe("graphTopology", () => {
       metadata: [],
     });
     expect(graph.isLive).toBe(true);
-    expect(graph.kind).toBe("sync");
+    expect(graph.kind).toBe("unknown");
     expect(graph.baseLabel).toBe("main");
     expect(graph.hasMetadata).toBe(false);
   });

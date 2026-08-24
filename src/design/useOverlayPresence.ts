@@ -24,7 +24,8 @@ function isDialogOverlaySurface(el: Element): boolean {
     el.classList.contains("compare-sheet") ||
     el.classList.contains("compare-backdrop") ||
     el.classList.contains("settings-modal") ||
-    el.classList.contains("settings-dialog-backdrop")
+    el.classList.contains("settings-dialog-backdrop") ||
+    el.classList.contains("compare-graph-panel")
   );
 }
 

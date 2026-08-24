@@ -318,6 +318,29 @@ describe("useOverlayPresence", () => {
     h.unmount();
   });
 
+  test("opacity transitionend from a nested compare-graph-panel still unmounts", () => {
+    const onExited = mock(() => {});
+    const h = mountPresence(true, onExited);
+    flushFrames(2);
+    h.setVisible(false);
+
+    const dialog = document.createElement("dialog");
+    const panel = document.createElement("div");
+    panel.className = "compare-graph-panel";
+    dialog.appendChild(panel);
+
+    act(() => {
+      h.get().onTransitionEnd({
+        propertyName: "opacity",
+        target: panel,
+        currentTarget: dialog,
+      });
+    });
+    expect(h.get().mounted).toBe(false);
+    expect(onExited).toHaveBeenCalledTimes(1);
+    h.unmount();
+  });
+
   test("finishClose double-invoke in the same tick fires onExited once", () => {
     const onExited = mock(() => {});
     const timers = mockOverlayTimeouts();

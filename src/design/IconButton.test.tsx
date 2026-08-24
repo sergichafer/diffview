@@ -115,6 +115,7 @@ describe("IconButton expanded", () => {
     });
     const btn = container.querySelector("button.icon-btn");
     expect(btn?.getAttribute("aria-expanded")).toBe("false");
+    expect(btn?.getAttribute("aria-haspopup")).toBe("dialog");
     expect(btn?.getAttribute("aria-pressed")).toBeNull();
     expect(btn?.classList.contains("is-active")).toBe(false);
 
@@ -132,5 +133,6 @@ describe("IconButton expanded", () => {
     });
     const btn = container.querySelector("button.icon-btn");
     expect(btn?.hasAttribute("aria-expanded")).toBe(false);
+    expect(btn?.hasAttribute("aria-haspopup")).toBe(false);
   });
 });

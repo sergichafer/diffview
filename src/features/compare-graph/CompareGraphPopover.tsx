@@ -20,6 +20,7 @@ interface CompareGraphPopoverProps {
   base: string;
   overview: BranchOverview | null;
   metadata: BranchMetadata[];
+  onNeedMetadata?: () => void;
 }
 
 export function CompareGraphPopover({
@@ -27,13 +28,17 @@ export function CompareGraphPopover({
   base,
   overview,
   metadata,
+  onNeedMetadata,
 }: CompareGraphPopoverProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDialogElement>(null);
+  const restoreFocusRef = useRef(false);
+
   const presence = useOverlayPresence(open, () => {
-    triggerRef.current?.focus();
+    if (restoreFocusRef.current) triggerRef.current?.focus();
+    restoreFocusRef.current = false;
   });
 
   const topology = useMemo(
@@ -41,9 +46,21 @@ export function CompareGraphPopover({
     [head, base, overview, metadata],
   );
 
-  const toggle = useCallback(() => {
-    setOpen((value) => !value);
+  const closeFromTrigger = useCallback(() => {
+    restoreFocusRef.current = true;
+    setOpen(false);
   }, []);
+
+  const toggle = useCallback(() => {
+    if (open) {
+      restoreFocusRef.current = true;
+      setOpen(false);
+      return;
+    }
+    restoreFocusRef.current = false;
+    onNeedMetadata?.();
+    setOpen(true);
+  }, [open, onNeedMetadata]);
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
@@ -71,7 +88,16 @@ export function CompareGraphPopover({
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.closest("input, textarea, select, [contenteditable='true']") ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       event.preventDefault();
+      restoreFocusRef.current = true;
       setOpen(false);
     };
     const onPointerDown = (event: PointerEvent) => {
@@ -79,6 +105,7 @@ export function CompareGraphPopover({
       if (!(target instanceof Node)) return;
       if (triggerRef.current?.contains(target)) return;
       if (panelRef.current?.contains(target)) return;
+      restoreFocusRef.current = false;
       setOpen(false);
     };
     document.addEventListener("keydown", onKeyDown);
@@ -110,7 +137,7 @@ export function CompareGraphPopover({
             aria-label="Compare graph"
             onCancel={(event) => {
               event.preventDefault();
-              if (open) setOpen(false);
+              if (open) closeFromTrigger();
             }}
             onTransitionEnd={presence.onTransitionEnd}
           >
@@ -147,7 +174,7 @@ export function CompareGraphPopover({
                     className="compare-graph-swatch compare-graph-swatch-live"
                     aria-hidden="true"
                   />
-                  working tree
+                  Working tree
                 </span>
               ) : null}
             </div>
