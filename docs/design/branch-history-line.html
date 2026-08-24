@@ -20,6 +20,8 @@
       --ws-w: 236px;
       --tree-w: 248px;
       --graph-col-w: 196px;
+      --graph-end-w: 220px;
+      --graph-pop-w: 280px;
       --motion-press: 100ms ease-out;
       --motion-open: 400ms cubic-bezier(0.32, 0.72, 0, 1);
     }
@@ -319,8 +321,13 @@
       transform: translateX(-50%);
     }
 
-    .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-
+    .app-main {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
     .top-bar {
       display: flex;
       align-items: center;
@@ -432,6 +439,14 @@
     }
     .icon-btn:active .surface { transform: scale(0.97); }
 
+    .icon-btn.topbar-graph { display: none; }
+    .app[data-placement="right"] .icon-btn.topbar-graph,
+    .app[data-placement="popover"] .icon-btn.topbar-graph,
+    .app[data-placement="top"] .icon-btn.topbar-graph { display: inline-flex; }
+    .app[data-placement="right"] .icon-btn.style-graph,
+    .app[data-placement="popover"] .icon-btn.style-graph,
+    .app[data-placement="top"] .icon-btn.style-graph { display: none; }
+
     .workspace {
       display: flex;
       flex: 1;
@@ -501,7 +516,11 @@
       background: var(--bg-inset);
       transition: width var(--motion-open);
     }
-    .app[data-placement="column"][data-graph="on"] .graph-col { width: var(--graph-col-w); }
+    .app[data-placement="column"][data-graph="on"] .graph-mid { width: var(--graph-col-w); }
+    .app[data-placement="right"][data-graph="on"] .graph-end {
+      width: var(--graph-end-w);
+      box-shadow: inset 1px 0 0 var(--seam);
+    }
     .graph-col-head {
       height: 36px;
       display: flex;
@@ -544,6 +563,51 @@
       transition: height var(--motion-open);
     }
     .app[data-placement="strip"][data-graph="on"] .graph-strip { height: 68px; }
+    .graph-top {
+      height: 0;
+      overflow: hidden;
+      background: var(--bg-inset);
+      flex-shrink: 0;
+      transition: height var(--motion-open);
+    }
+    .app[data-placement="top"][data-graph="on"] .graph-top { height: 72px; }
+    .graph-top-inner {
+      height: 72px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .graph-top .g-caption { margin: 0; flex: 0 1 280px; }
+    .graph-top .g-svg { flex: 1; min-width: 0; height: 48px; }
+
+    .graph-popover {
+      display: none;
+      position: absolute;
+      top: calc(var(--control-size) + 26px);
+      right: 18px;
+      width: var(--graph-pop-w);
+      max-height: min(420px, calc(100% - 72px));
+      overflow: auto;
+      padding: 14px 16px 16px;
+      border-radius: 16px;
+      background: var(--bg-elevated);
+      border-top: 1px solid var(--border-highlight);
+      box-shadow: var(--shell-shadow);
+      z-index: 24;
+      transform-origin: top right;
+      animation: sheetIn var(--motion-open) both;
+    }
+    .app[data-placement="popover"][data-graph="on"] .graph-popover { display: block; }
+    .graph-popover-head {
+      margin: 0 0 10px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--fg-muted);
+    }
+    .graph-popover .g-svg { height: 220px; }
     .graph-strip-inner {
       height: 68px;
       padding: 0 16px;
@@ -605,7 +669,7 @@
     .g-legend i.w { box-sizing: border-box; background: transparent; border: 1.5px solid var(--state-info); }
     .g-svg { display: block; width: 100%; }
     .graph-strip .g-svg { height: 44px; }
-    .graph-col .g-svg, .tree-graph .g-svg { height: 260px; }
+    .graph-col .g-svg, .tree-graph .g-svg, .graph-end .g-svg { height: 260px; }
 
     .settings-dialog {
       display: none;
@@ -785,8 +849,10 @@
   <div class="page">
     <h1>Graph as a layout option</h1>
     <p class="lede">
-      Same Diffview window. Graph sits on the style bar next to split and unified, as its own toggle.
-      It shows whether this compare is linear, diverged, behind, or in sync.
+      Same Diffview window. Graph is a layout option with six placements.
+      Strip, column, and tree tab toggle from the style bar.
+      Right, popover, and top toggle from the title bar, next to Settings.
+      The graph shows whether this compare is linear, diverged, behind, or in sync.
     </p>
 
     <div class="doc-bar">
@@ -807,6 +873,9 @@
         <button type="button" data-place="strip" aria-checked="true">Strip</button>
         <button type="button" data-place="column" aria-checked="false">Column</button>
         <button type="button" data-place="tree" aria-checked="false">Tree tab</button>
+        <button type="button" data-place="right" aria-checked="false">Right</button>
+        <button type="button" data-place="popover" aria-checked="false">Popover</button>
+        <button type="button" data-place="top" aria-checked="false">Top</button>
       </div>
       <button type="button" class="doc-toggle" id="liveBtn" aria-pressed="true">Working tree</button>
       <button type="button" class="doc-toggle" id="reduceBtn" aria-pressed="false">Reduce motion</button>
@@ -868,11 +937,15 @@
                 <button type="button" class="icon-btn" aria-label="Refresh">
                   <span class="surface"><svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg></span>
                 </button>
+                <button type="button" class="icon-btn is-active topbar-graph" id="graphBtnTop" aria-pressed="true" aria-label="Graph">
+                  <span class="surface"><svg viewBox="0 0 24 24"><path d="M7 16c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM12 4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 5.5c-.4 0-.7.1-1 .2L8.3 13c.4.4.7.9.7 1.5 0 .2 0 .3-.1.5l2.4-1.5c.2.1.4.1.7.1s.5 0 .7-.1l2.4 1.5c0-.2-.1-.3-.1-.5 0-.6.3-1.1.7-1.5L13 9.7c-.3-.1-.6-.2-1-.2z"/></svg></span>
+                </button>
                 <button type="button" class="icon-btn" id="settingsBtn" aria-label="Settings">
                   <span class="surface"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81a.488.488 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></span>
                 </button>
               </div>
             </header>
+            <aside class="graph-top" id="graphTop" aria-label="Graph"></aside>
             <div class="workspace">
               <aside class="tree-panel">
                 <div class="tree-seg">
@@ -891,7 +964,7 @@
                 <div class="tree-graph" id="graphTree"></div>
               </aside>
               <div class="splitter"></div>
-              <aside class="graph-col">
+              <aside class="graph-col graph-mid">
                 <div class="graph-col-head">Graph</div>
                 <div class="graph-col-body" id="graphCol"></div>
               </aside>
@@ -904,7 +977,7 @@
                     <button type="button" class="icon-btn sm" data-style="unified" aria-pressed="false" aria-label="Unified view">
                       <span class="surface"><svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg></span>
                     </button>
-                    <button type="button" class="icon-btn sm is-active" id="graphBtn" aria-pressed="true" aria-label="Graph">
+                    <button type="button" class="icon-btn sm is-active style-graph" id="graphBtn" aria-pressed="true" aria-label="Graph">
                       <span class="surface"><svg viewBox="0 0 24 24"><path d="M7 16c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM12 4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 5.5c-.4 0-.7.1-1 .2L8.3 13c.4.4.7.9.7 1.5 0 .2 0 .3-.1.5l2.4-1.5c.2.1.4.1.7.1s.5 0 .7-.1l2.4 1.5c0-.2-.1-.3-.1-.5 0-.6.3-1.1.7-1.5L13 9.7c-.3-.1-.6-.2-1-.2z"/></svg></span>
                     </button>
                   </div>
@@ -926,7 +999,12 @@
                   </div>
                 </div>
               </div>
+              <aside class="graph-col graph-end">
+                <div class="graph-col-head">Graph</div>
+                <div class="graph-col-body" id="graphRight"></div>
+              </aside>
             </div>
+            <aside class="graph-popover" id="graphPopover" aria-label="Graph"></aside>
           </div>
         </div>
       </div>
@@ -988,7 +1066,7 @@
     <div class="notes">
       <h2>What this is</h2>
       <p>
-        A layout option in the existing Diffview chrome. Graph is a third <code>IconButton</code> on the style bar, same 32px small size as split and unified. Split and unified stay on the style bar. Workspaces, title, compare trigger, file tree, and hunk pane stay as they are.
+        A layout option in the existing Diffview chrome. For strip, column, and tree tab, graph is a third <code>IconButton</code> on the style bar, same 32px small size as split and unified. For right, popover, and top, the trigger is a 40px <code>IconButton</code> in the title bar, after Refresh and before Settings. Split and unified stay on the style bar. Workspaces, title, compare trigger, file tree, and hunk pane stay as they are.
       </p>
       <h2>What the graph answers</h2>
       <p>
@@ -998,9 +1076,12 @@
         Linear: behind is empty, merge-base is the base tip. Diverged: both lanes have commits. Behind: ahead is empty. In sync: head, base, and merge-base are one commit.
       </p>
       <h2>Placements</h2>
-      <p><strong>Strip.</strong> Graph on expands a 68px inset row under the style bar, same surface as the workspaces column. The diff stays full width.</p>
-      <p><strong>Column.</strong> Graph on opens a 196px column between the file tree and the diff, with the same splitter language and the 400ms workspaces curve.</p>
-      <p><strong>Tree tab.</strong> Files | Graph in the existing tree column, using the Review segment control. No new chrome.</p>
+      <p><strong>Strip.</strong> Graph on expands a 68px inset row under the style bar, same surface as the workspaces column. The diff stays full width. Toggle is on the style bar.</p>
+      <p><strong>Column.</strong> Graph on opens a 196px column between the file tree and the diff, with the same splitter language and the 400ms workspaces curve. Toggle is on the style bar.</p>
+      <p><strong>Tree tab.</strong> Files | Graph in the existing tree column, using the Review segment control. No new chrome. Toggle is on the style bar.</p>
+      <p><strong>Right.</strong> Graph on opens a 220px column after the diffs. File tree and hunk stay put. Toggle is the title-bar button next to Settings.</p>
+      <p><strong>Popover.</strong> The same title-bar button opens a 280px overlay from the top right. Diff layout does not shift.</p>
+      <p><strong>Top.</strong> The same title-bar button expands a 72px strip under the title bar, above the file tree and diffs.</p>
       <h2>Settings</h2>
       <p>
         Review keeps the Split and Unified cards. Graph is a separate row because it is independent: split with graph on, unified with graph off.
@@ -1210,6 +1291,17 @@
       $("#graphStrip").innerHTML = `<div style="flex:1;min-width:0">${drawH(640, 44)}</div>${cap}`;
       $("#graphCol").innerHTML = `${drawV(176, 260)}${cap}${legend()}`;
       $("#graphTree").innerHTML = `${drawV(220, 240)}${cap}${legend()}`;
+      $("#graphRight").innerHTML = `${drawV(196, 260)}${cap}${legend()}`;
+      $("#graphTop").innerHTML = `<div class="graph-top-inner"><div style="flex:1;min-width:0">${drawH(800, 48)}</div>${cap}</div>`;
+      $("#graphPopover").innerHTML = `<p class="graph-popover-head">Graph</p>${drawV(248, 220)}${cap}${legend()}`;
+    }
+
+    function setGraphButtons() {
+      ["#graphBtn", "#graphBtnTop"].forEach((sel) => {
+        const b = $(sel);
+        b.classList.toggle("is-active", state.graph);
+        b.setAttribute("aria-pressed", String(state.graph));
+      });
     }
 
     function apply() {
@@ -1233,8 +1325,7 @@
       $("#cmpStat").innerHTML = `${filesLabel} · <span class="add">+${t.add}</span> <span class="del">−${t.del}</span>`;
       $("#fileCount").textContent = `${t.files} changed file${t.files === 1 ? "" : "s"}`;
 
-      $("#graphBtn").classList.toggle("is-active", state.graph);
-      $("#graphBtn").setAttribute("aria-pressed", String(state.graph));
+      setGraphButtons();
       $$(".icon-btn[data-style]").forEach((b) => {
         const on = b.dataset.style === state.style;
         b.classList.toggle("is-active", on);
@@ -1266,6 +1357,7 @@
     $("#liveBtn").addEventListener("click", () => { state.live = !state.live; apply(); });
     $("#reduceBtn").addEventListener("click", () => { state.reduce = !state.reduce; apply(); });
     $("#graphBtn").addEventListener("click", () => { state.graph = !state.graph; apply(); });
+    $("#graphBtnTop").addEventListener("click", () => { state.graph = !state.graph; apply(); });
     $$(".icon-btn[data-style]").forEach((b) => b.addEventListener("click", () => { state.style = b.dataset.style; apply(); }));
     $$(".choice[data-card-style]").forEach((c) => c.addEventListener("click", () => { state.style = c.dataset.cardStyle; apply(); }));
     $("#graphDefault").addEventListener("click", () => { state.graph = !state.graph; apply(); });
@@ -1273,6 +1365,15 @@
     $("#settingsClose").addEventListener("click", () => $("#app").classList.remove("is-settings"));
     $("#settingsDialog").addEventListener("click", (e) => {
       if (e.target === $("#settingsDialog")) $("#app").classList.remove("is-settings");
+    });
+    document.addEventListener("click", (e) => {
+      if (state.place !== "popover" || !state.graph) return;
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (!t.closest("#app")) return;
+      if (t.closest("#graphPopover") || t.closest("#graphBtnTop") || t.closest("#settingsDialog")) return;
+      state.graph = false;
+      apply();
     });
 
     const params = new URLSearchParams(location.search);
