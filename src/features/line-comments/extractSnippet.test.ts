@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { FileDiffMetadata, Hunk } from "@pierre/diffs";
-import { extractSnippet } from "./extractSnippet";
+import { extractSnippet, captureCommentSnippet } from "./extractSnippet";
 
 function hunk(partial: {
   additionStart: number;
@@ -105,5 +105,46 @@ describe("extractSnippet", () => {
     );
     expect(extractSnippet(diff, "additions", 1, 9)).toBe("keep-a\nkeep-b\nkeep-c");
     expect(extractSnippet(diff, "additions", 2, 7)).toBe("");
+  });
+});
+
+describe("captureCommentSnippet", () => {
+  test("uses fileDiff.lang when set, otherwise the path suffix", () => {
+    const annotation = {
+      side: "additions" as const,
+      lineNumber: 10,
+      metadata: {
+        kind: "saved" as const,
+        key: "c1",
+        message: "note",
+        range: { start: 10, end: 11, side: "additions" as const },
+        snippet: "",
+        language: "",
+      },
+    };
+    const withLang = fileDiff(
+      ["alpha\n", "beta\n"],
+      [],
+      [
+        hunk({
+          additionStart: 10,
+          additionCount: 2,
+          additionLineIndex: 0,
+          deletionStart: 10,
+          deletionCount: 0,
+          deletionLineIndex: 0,
+        }),
+      ],
+    );
+    withLang.lang = "ts";
+    expect(captureCommentSnippet(withLang, "src/App.tsx", annotation)).toEqual({
+      snippet: "alpha\nbeta",
+      language: "ts",
+    });
+    delete withLang.lang;
+    expect(captureCommentSnippet(withLang, "src/App.tsx", annotation)).toEqual({
+      snippet: "alpha\nbeta",
+      language: "tsx",
+    });
   });
 });

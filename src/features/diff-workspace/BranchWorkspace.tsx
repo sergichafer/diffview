@@ -111,8 +111,8 @@ export function BranchWorkspace({
     codeViewRef,
     workerPool,
     comparisonKey: activeKey,
-    pathComments,
-    commentsRev,
+    itemAnnotations: pathComments,
+    annotationsRev: commentsRev,
   });
 
   const handlePreview = (path: string) => {

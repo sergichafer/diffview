@@ -39,13 +39,12 @@ afterEach(() => {
 
 describe("CommentCard", () => {
   test("saves with meta/ctrl/shift enter and not with enter alone", () => {
-    const onSave = mock((_path: string, _key: string, _message: string) => {});
+    const onSave = mock((_message: string) => {});
     const onDiscard = mock(() => {});
     act(() => {
       root.render(
         <CommentCard
           annotation={annotation("draft", "hello")}
-          path="a.ts"
           onSave={onSave}
           onDiscard={onDiscard}
           onEdit={() => {}}
@@ -72,7 +71,7 @@ describe("CommentCard", () => {
       );
     });
     expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenCalledWith("a.ts", "c-1", "hello");
+    expect(onSave).toHaveBeenCalledWith("hello");
 
     act(() => {
       textarea.dispatchEvent(
@@ -92,7 +91,6 @@ describe("CommentCard", () => {
       root.render(
         <CommentCard
           annotation={annotation("draft", "temp")}
-          path="a.ts"
           onSave={() => {}}
           onDiscard={onDiscard}
           onEdit={() => {}}
@@ -106,7 +104,7 @@ describe("CommentCard", () => {
         new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
       );
     });
-    expect(onDiscard).toHaveBeenCalledWith("a.ts", "c-1");
+    expect(onDiscard).toHaveBeenCalledTimes(1);
   });
 
   test("saved body keeps newlines and edit/delete fire", () => {
@@ -116,7 +114,6 @@ describe("CommentCard", () => {
       root.render(
         <CommentCard
           annotation={annotation("saved", "line one\nline two")}
-          path="a.ts"
           onSave={() => {}}
           onDiscard={onDiscard}
           onEdit={onEdit}
@@ -130,10 +127,10 @@ describe("CommentCard", () => {
     act(() => {
       buttons.find((btn) => btn.textContent === "Edit")?.click();
     });
-    expect(onEdit).toHaveBeenCalledWith("a.ts", "c-1");
+    expect(onEdit).toHaveBeenCalledTimes(1);
     act(() => {
       buttons.find((btn) => btn.textContent === "Delete")?.click();
     });
-    expect(onDiscard).toHaveBeenCalledWith("a.ts", "c-1");
+    expect(onDiscard).toHaveBeenCalledTimes(1);
   });
 });

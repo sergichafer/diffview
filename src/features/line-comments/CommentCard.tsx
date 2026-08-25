@@ -4,29 +4,27 @@ import type { CommentMeta } from "./commentMeta";
 
 interface CommentCardProps {
   annotation: DiffLineAnnotation<CommentMeta>;
-  path: string;
-  onSave: (path: string, key: string, message: string) => void;
-  onDiscard: (path: string, key: string) => void;
-  onEdit: (path: string, key: string) => void;
-  onSelectRange: (path: string, annotation: DiffLineAnnotation<CommentMeta>) => void;
+  onSave: (message: string) => void;
+  onDiscard: () => void;
+  onEdit: () => void;
+  onSelectRange: () => void;
 }
 
 export function CommentCard({
   annotation,
-  path,
   onSave,
   onDiscard,
   onEdit,
   onSelectRange,
 }: CommentCardProps) {
-  const { kind, key, message: savedMessage } = annotation.metadata;
+  const { kind, message: savedMessage } = annotation.metadata;
   const [message, setMessage] = useState(savedMessage);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const trimmed = message.trim();
 
   useEffect(() => {
     setMessage(savedMessage);
-  }, [key, kind, savedMessage]);
+  }, [annotation.metadata.key, kind, savedMessage]);
 
   useEffect(() => {
     if (kind !== "draft") return;
@@ -35,17 +33,17 @@ export function CommentCard({
     textarea.focus({ preventScroll: true });
     const cursor = textarea.value.length;
     textarea.setSelectionRange(cursor, cursor);
-  }, [kind, key]);
+  }, [kind, annotation.metadata.key]);
 
   function save() {
     if (trimmed.length === 0) return;
-    onSave(path, key, message);
+    onSave(message);
   }
 
   function onComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
-      onDiscard(path, key);
+      onDiscard();
       return;
     }
     if (event.key !== "Enter") return;
@@ -69,7 +67,7 @@ export function CommentCard({
           aria-label="Comment"
         />
         <div className="comment-card-actions">
-          <button type="button" onClick={() => onDiscard(path, key)}>
+          <button type="button" onClick={onDiscard}>
             Cancel
           </button>
           <button type="button" onClick={save} disabled={trimmed.length === 0}>
@@ -85,15 +83,15 @@ export function CommentCard({
       <button
         type="button"
         className="comment-card-range"
-        onClick={() => onSelectRange(path, annotation)}
+        onClick={onSelectRange}
       >
         <p className="comment-card-body">{savedMessage}</p>
       </button>
       <div className="comment-card-actions">
-        <button type="button" onClick={() => onEdit(path, key)}>
+        <button type="button" onClick={onEdit}>
           Edit
         </button>
-        <button type="button" onClick={() => onDiscard(path, key)}>
+        <button type="button" onClick={onDiscard}>
           Delete
         </button>
       </div>

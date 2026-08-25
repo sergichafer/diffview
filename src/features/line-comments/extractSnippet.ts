@@ -1,4 +1,5 @@
-import type { FileDiffMetadata } from "@pierre/diffs";
+import type { DiffLineAnnotation, FileDiffMetadata } from "@pierre/diffs";
+import { languageFromPath, type CommentMeta } from "./commentMeta";
 
 function lineText(
   fileDiff: FileDiffMetadata,
@@ -37,3 +38,16 @@ export function extractSnippet(
   }
   return lines.join("\n");
 }
+
+export function captureCommentSnippet(
+  fileDiff: FileDiffMetadata,
+  path: string,
+  annotation: DiffLineAnnotation<CommentMeta>,
+): { snippet: string; language: string } {
+  const { range } = annotation.metadata;
+  return {
+    snippet: extractSnippet(fileDiff, annotation.side, range.start, range.end),
+    language: fileDiff.lang || languageFromPath(path),
+  };
+}
+

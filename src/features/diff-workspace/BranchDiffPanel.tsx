@@ -1,31 +1,19 @@
-import type {
-  CodeViewLineSelection,
-  DiffLineAnnotation,
-  LineAnnotation,
-} from "@pierre/diffs";
 import {
   CodeView,
   type CodeViewHandle,
   type CodeViewDiffItem,
-  type CodeViewItem,
   type CodeViewReactOptions,
 } from "@pierre/diffs/react";
-import { useCallback, useEffect, useMemo, useState, type RefObject } from "react";
+import { useCallback, useMemo, type RefObject } from "react";
 import {
   diffLayoutUnsafeCss,
   getPierreThemePair,
 } from "@/design/theme";
 import { useDiffEdit } from "@/features/diff-edit/useDiffEdit";
 import { useDiffReview } from "@/features/diff-review/DiffReviewProvider";
-import { CommentCard } from "@/features/line-comments/CommentCard";
-import { CopyReviewPrompt } from "@/features/line-comments/CopyReviewPrompt";
-import {
-  buildExportPrompt,
-  languageFromPath,
-  type CommentMeta,
-} from "@/features/line-comments/commentMeta";
-import { extractSnippet } from "@/features/line-comments/extractSnippet";
+import { useCommentCodeView } from "@/features/line-comments/useCommentCodeView";
 import { useLineComments } from "@/features/line-comments/LineCommentsProvider";
+import type { CommentMeta } from "@/features/line-comments/commentMeta";
 import type { CodeFontId, DiffStyle, ThemeId, UiFontId } from "@/shared/types/app";
 import { useRepoSession } from "@/features/repo-session/context";
 import { useDiffItemHeader } from "./DiffItemHeader";
@@ -87,20 +75,13 @@ export function BranchDiffPanel({
     handleViewedChange,
     handleToggleDiffCollapsed,
   } = useDiffReview();
-  const {
-    savedCommentCount,
-    startDraft,
-    saveComment,
-    beginEdit,
-    deleteComment,
-    pathComments,
-  } = useLineComments();
-  const [selectedLines, setSelectedLines] =
-    useState<CodeViewLineSelection | null>(null);
-
-  useEffect(() => {
-    setSelectedLines(null);
-  }, [activeKey]);
+  const comments = useLineComments();
+  const commentView = useCommentCodeView({
+    comments,
+    displayItems,
+    editingPaths,
+    activeKey,
+  });
 
   const onSavedLive = useCallback(() => {
     void refreshOverviewMeta();
@@ -161,77 +142,6 @@ export function BranchDiffPanel({
     onRetrySave: retrySave,
   });
 
-  const handleSaveComment = useCallback(
-    (path: string, key: string, message: string) => {
-      const item = displayItems.find((row) => row.id === path);
-      if (item == null || item.type !== "diff") return;
-      const annotation = item.annotations?.find(
-        (row) => row.metadata.key === key,
-      );
-      if (annotation == null) return;
-      const range = annotation.metadata.range;
-      const snippet = extractSnippet(
-        item.fileDiff,
-        annotation.side,
-        range.start,
-        range.end,
-      );
-      const language = item.fileDiff.lang || languageFromPath(item.id);
-      saveComment(path, key, message, snippet, language);
-      setSelectedLines(null);
-    },
-    [displayItems, saveComment],
-  );
-
-  const handleDiscardComment = useCallback(
-    (path: string, key: string) => {
-      deleteComment(path, key);
-      setSelectedLines(null);
-    },
-    [deleteComment],
-  );
-
-  const handleEditComment = useCallback(
-    (path: string, key: string) => {
-      beginEdit(path, key);
-    },
-    [beginEdit],
-  );
-
-  const handleSelectRange = useCallback(
-    (path: string, annotation: DiffLineAnnotation<CommentMeta>) => {
-      setSelectedLines({ id: path, range: annotation.metadata.range });
-    },
-    [],
-  );
-
-  const renderAnnotation = useCallback(
-    (
-      annotation: LineAnnotation<CommentMeta> | DiffLineAnnotation<CommentMeta>,
-      item: CodeViewItem<CommentMeta>,
-    ) => {
-      if (!("side" in annotation) || item.type !== "diff") return null;
-      return (
-        <div style={{ whiteSpace: "normal" }}>
-          <CommentCard
-            annotation={annotation}
-            path={item.id}
-            onSave={handleSaveComment}
-            onDiscard={handleDiscardComment}
-            onEdit={handleEditComment}
-            onSelectRange={handleSelectRange}
-          />
-        </div>
-      );
-    },
-    [
-      handleDiscardComment,
-      handleEditComment,
-      handleSaveComment,
-      handleSelectRange,
-    ],
-  );
-
   const unsafeCSS = diffLayoutUnsafeCss(themeMode, themeId, uiFont, codeFont);
 
   const diffOptions = useMemo((): CodeViewReactOptions<CommentMeta> => {
@@ -243,7 +153,7 @@ export function BranchDiffPanel({
       /** Files sit flush; the 1px seam between them is the only separator. */
       layout: {
         paddingTop: 0,
-        paddingBottom: savedCommentCount > 0 ? 80 : 0,
+        paddingBottom: commentView.panelPaddingBottom,
         gap: 0,
       },
       itemMetrics: { paddingBottom: 0 },
@@ -251,11 +161,7 @@ export function BranchDiffPanel({
       loadDiffFiles,
       enableGutterUtility: true,
       enableLineSelection: true,
-      onGutterUtilityClick(range, context) {
-        if (context.item.type !== "diff") return;
-        if (editingPaths.has(context.item.id)) return;
-        startDraft(context.item.id, range);
-      },
+      onGutterUtilityClick: commentView.onGutterUtilityClick,
     };
   }, [
     themeMode,
@@ -263,19 +169,9 @@ export function BranchDiffPanel({
     diffStyle,
     unsafeCSS,
     loadDiffFiles,
-    savedCommentCount,
-    editingPaths,
-    startDraft,
+    commentView.panelPaddingBottom,
+    commentView.onGutterUtilityClick,
   ]);
-
-  const exportPrompt = useMemo(
-    () =>
-      buildExportPrompt(
-        displayItems.map((item) => item.id),
-        pathComments,
-      ),
-    [displayItems, pathComments],
-  );
 
   const skippedCount = files.length - itemCount;
 
@@ -323,14 +219,14 @@ export function BranchDiffPanel({
         className="branch-code-view"
         options={diffOptions}
         onScroll={onScroll}
-        selectedLines={selectedLines}
-        onSelectedLinesChange={setSelectedLines}
+        selectedLines={commentView.selectedLines}
+        onSelectedLinesChange={commentView.onSelectedLinesChange}
         renderHeaderMetadata={renderHeaderMetadata}
-        renderAnnotation={renderAnnotation}
+        renderAnnotation={commentView.renderAnnotation}
         onItemEditChange={onItemEditChange}
         onItemEditComplete={onItemEditComplete}
       />
-      {savedCommentCount > 0 ? <CopyReviewPrompt prompt={exportPrompt} /> : null}
+      {commentView.chip}
     </section>
   );
 }
