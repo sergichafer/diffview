@@ -48,7 +48,6 @@ describe("CommentCard", () => {
           onSave={onSave}
           onDiscard={onDiscard}
           onEdit={() => {}}
-          onSelectRange={() => {}}
         />,
       );
     });
@@ -94,7 +93,6 @@ describe("CommentCard", () => {
           onSave={() => {}}
           onDiscard={onDiscard}
           onEdit={() => {}}
-          onSelectRange={() => {}}
         />,
       );
     });
@@ -117,7 +115,6 @@ describe("CommentCard", () => {
           onSave={() => {}}
           onDiscard={onDiscard}
           onEdit={onEdit}
-          onSelectRange={() => {}}
         />,
       );
     });

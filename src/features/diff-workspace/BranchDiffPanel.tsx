@@ -162,6 +162,7 @@ export function BranchDiffPanel({
       enableGutterUtility: true,
       enableLineSelection: true,
       onGutterUtilityClick: commentView.onGutterUtilityClick,
+      onPostRender: commentView.onPostRender,
     };
   }, [
     themeMode,
@@ -171,6 +172,7 @@ export function BranchDiffPanel({
     loadDiffFiles,
     commentView.panelPaddingBottom,
     commentView.onGutterUtilityClick,
+    commentView.onPostRender,
   ]);
 
   const skippedCount = files.length - itemCount;

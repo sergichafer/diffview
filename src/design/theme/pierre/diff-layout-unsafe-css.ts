@@ -7,12 +7,33 @@ export interface DiffFontStacks {
   mono: string;
 }
 
-/** Layout-only Pierre diffs shadow DOM overrides; not part of the color palette. */
+function commentLineHighlightCss(mix: string): string {
+  return `
+/* Comment ranges reuse Pierre's line and gutter slots, mixed with states.info. */
+[data-comment-line]:not([data-selected-line]) {
+  --mix-comment-light: 82%;
+  --mix-comment-dark: 75%;
+  --diffs-comment-mix-target: ${mix};
+  --diffs-computed-selected-line-bg: light-dark(
+    color-mix(in lab, var(--diffs-computed-diff-line-bg) var(--mix-comment-light), var(--diffs-comment-mix-target)),
+    color-mix(in lab, var(--diffs-computed-diff-line-bg) var(--mix-comment-dark), var(--diffs-comment-mix-target))
+  );
+}
+
+[data-gutter-buffer][data-comment-line]:not([data-selected-line]),
+[data-column-number][data-comment-line]:not([data-selected-line]) {
+  color: ${mix};
+}
+`;
+}
+
+/** Pierre diffs shadow DOM overrides, including comment-range color. Document
+ *  CSS variables do not reach this host, so mix the info color here. */
 export function buildDiffLayoutUnsafeCss(
-  roles: Pick<ThemeRoles, "bg" | "fg" | "border" | "list">,
+  roles: Pick<ThemeRoles, "bg" | "fg" | "border" | "list" | "states">,
   fonts?: DiffFontStacks,
 ): string {
-  const { bg, fg, border, list } = roles;
+  const { bg, fg, border, list, states } = roles;
   // RISK: Pierre shadow DOM. Inject resolved values, not document CSS vars.
   // Light-DOM custom properties are unreliable here; unresolved border-color
   // falls back to currentColor and paints a dark line on every header.
@@ -186,5 +207,6 @@ ${fontRules}
   display: none !important;
 }
 
+${commentLineHighlightCss(states.info)}
 `.trim();
 }
