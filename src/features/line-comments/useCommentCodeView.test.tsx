@@ -187,10 +187,11 @@ describe("useCommentCodeView", () => {
     h.unmount();
   });
 
-  test("comment range stays selected until that comment is removed", () => {
+  test("selection stays user-controlled after comments are saved", () => {
     const items = [item("a.ts")];
     const h = mountView({ items });
     const range = { start: 1, end: 2, side: "additions" as const };
+    const nextRange = { start: 2, end: 2, side: "additions" as const };
 
     act(() => {
       h.view().onSelectedLinesChange({ id: "a.ts", range });
@@ -203,6 +204,10 @@ describe("useCommentCodeView", () => {
 
     act(() => {
       h.view().onGutterUtilityClick(range, { item: items[0]! });
+    });
+    expect(h.view().selectedLines).toBeNull();
+    act(() => {
+      h.view().onSelectedLinesChange({ id: "a.ts", range });
     });
     expect(h.view().selectedLines).toEqual({ id: "a.ts", range });
 
@@ -222,37 +227,70 @@ describe("useCommentCodeView", () => {
 
     act(() => {
       h.view().onSelectedLinesChange(null);
-      h.view().onSelectedLinesChange({
-        id: "a.ts",
-        range: { start: 2, end: 2, side: "additions" },
-      });
+      h.view().onSelectedLinesChange({ id: "a.ts", range: nextRange });
     });
-    expect(h.view().selectedLines).toEqual({ id: "a.ts", range });
-
-    act(() => {
-      h.comments().deleteComment("a.ts", draft.metadata.key);
-    });
-    expect(h.view().selectedLines).toBeNull();
+    expect(h.view().selectedLines).toEqual({ id: "a.ts", range: nextRange });
+    expect(h.comments().pathComments["a.ts"]?.[0]?.metadata.range).toEqual(
+      range,
+    );
     h.unmount();
   });
 
-  test("discarding a draft releases the line range", () => {
+  test("saving from the card clears the ephemeral selection", () => {
     const items = [item("a.ts")];
     const h = mountView({ items });
     const range = { start: 1, end: 1, side: "additions" as const };
     act(() => {
       h.view().onGutterUtilityClick(range, { item: items[0]! });
+      h.view().onSelectedLinesChange({ id: "a.ts", range });
     });
-    const draft = h.comments().pathComments["a.ts"]?.[0];
-    if (draft == null) throw new Error("expected draft");
+    const textarea = h.host.querySelector("textarea");
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error("missing composer");
+    }
     act(() => {
-      h.comments().deleteComment("a.ts", draft.metadata.key);
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(textarea, "keep");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
     });
+    const save = [...h.host.querySelectorAll("button")].find(
+      (btn) => btn.textContent === "Save",
+    );
+    if (!(save instanceof HTMLButtonElement)) throw new Error("missing save");
+    act(() => {
+      save.click();
+    });
+    expect(h.comments().pathComments["a.ts"]?.[0]?.metadata.kind).toBe("saved");
     expect(h.view().selectedLines).toBeNull();
     h.unmount();
   });
 
-  test("clicking a saved comment focuses that comment's range", () => {
+  test("discarding a draft from the card clears the selection", () => {
+    const items = [item("a.ts")];
+    const h = mountView({ items });
+    const range = { start: 1, end: 1, side: "additions" as const };
+    act(() => {
+      h.view().onGutterUtilityClick(range, { item: items[0]! });
+      h.view().onSelectedLinesChange({ id: "a.ts", range });
+    });
+    const cancel = [...h.host.querySelectorAll("button")].find(
+      (btn) => btn.textContent === "Cancel",
+    );
+    if (!(cancel instanceof HTMLButtonElement)) {
+      throw new Error("missing cancel");
+    }
+    act(() => {
+      cancel.click();
+    });
+    expect(h.comments().pathComments["a.ts"]).toBeUndefined();
+    expect(h.view().selectedLines).toBeNull();
+    h.unmount();
+  });
+
+  test("editing a saved comment does not steal the current selection", () => {
     const items = [item("a.ts"), item("b.ts")];
     const h = mountView({ items });
     const rangeA = { start: 1, end: 1, side: "additions" as const };
@@ -264,34 +302,57 @@ describe("useCommentCodeView", () => {
     if (draftA == null) throw new Error("expected draft a");
     act(() => {
       h.comments().saveComment("a.ts", draftA.metadata.key, "a", "x", "ts");
+      h.view().onSelectedLinesChange({ id: "b.ts", range: rangeB });
     });
     act(() => {
-      h.view().onGutterUtilityClick(rangeB, { item: items[1]! });
-    });
-    const draftB = h.comments().pathComments["b.ts"]?.[0];
-    if (draftB == null) throw new Error("expected draft b");
-    act(() => {
-      h.comments().saveComment("b.ts", draftB.metadata.key, "b", "y", "ts");
+      h.comments().beginEdit("a.ts", draftA.metadata.key);
     });
     expect(h.view().selectedLines).toEqual({ id: "b.ts", range: rangeB });
+    h.unmount();
+  });
 
-    const rangeButton = h.host.querySelector(".comment-card-range");
-    if (!(rangeButton instanceof HTMLButtonElement)) {
-      throw new Error("missing range button");
-    }
+  test("onPostRender paints comment ranges without touching selectedLines", () => {
+    const items = [item("a.ts")];
+    const h = mountView({ items });
+    const range = { start: 1, end: 2, side: "additions" as const };
     act(() => {
-      rangeButton.click();
+      h.view().onGutterUtilityClick(range, { item: items[0]! });
     });
-    expect(h.view().selectedLines).toEqual({ id: "a.ts", range: rangeA });
+    const host = document.createElement("div");
+    host.innerHTML = `
+      <pre data-diff-type="unified">
+        <code data-code>
+          <div data-gutter>
+            <div data-column-number="1" data-line-index="0,0"></div>
+            <div data-column-number="2" data-line-index="1,1"></div>
+          </div>
+          <div data-content>
+            <div data-line="1" data-line-index="0,0"></div>
+            <div data-line="2" data-line-index="1,1"></div>
+          </div>
+        </code>
+      </pre>
+    `;
     act(() => {
-      h.view().onSelectedLinesChange(null);
+      h.view().onPostRender(
+        host,
+        {
+          getLineIndex: (lineNumber: number): [number, number] => [
+            lineNumber - 1,
+            lineNumber - 1,
+          ],
+        },
+        "update",
+        { item: items[0]! },
+      );
     });
-    expect(h.view().selectedLines).toEqual({ id: "a.ts", range: rangeA });
-
-    act(() => {
-      h.comments().beginEdit("b.ts", draftB.metadata.key);
-    });
-    expect(h.view().selectedLines).toEqual({ id: "b.ts", range: rangeB });
+    expect(host.querySelector('[data-line="1"]')?.getAttribute("data-comment-line")).toBe(
+      "first",
+    );
+    expect(host.querySelector('[data-line="2"]')?.getAttribute("data-comment-line")).toBe(
+      "last",
+    );
+    expect(h.view().selectedLines).toBeNull();
     h.unmount();
   });
 
@@ -300,7 +361,7 @@ describe("useCommentCodeView", () => {
     const h = mountView({ items });
     const range = { start: 1, end: 1, side: "additions" as const };
     act(() => {
-      h.view().onGutterUtilityClick(range, { item: items[0]! });
+      h.view().onSelectedLinesChange({ id: "a.ts", range });
     });
     expect(h.view().selectedLines).toEqual({ id: "a.ts", range });
     h.setActiveKey(null);

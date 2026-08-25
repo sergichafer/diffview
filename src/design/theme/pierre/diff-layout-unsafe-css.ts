@@ -7,12 +7,40 @@ export interface DiffFontStacks {
   mono: string;
 }
 
+function commentLineHighlightCss(mix: string): string {
+  return `
+/* Comment ranges reuse Pierre's line and gutter slots, mixed with states.info. */
+[data-line][data-comment-line]:not([data-selected-line]),
+[data-line-annotation][data-comment-line]:not([data-selected-line]),
+[data-merge-conflict][data-comment-line]:not([data-selected-line]),
+[data-merge-conflict-actions][data-comment-line]:not([data-selected-line]),
+[data-no-newline][data-comment-line]:not([data-selected-line]),
+[data-gutter-buffer][data-comment-line]:not([data-selected-line]),
+[data-column-number][data-comment-line]:not([data-selected-line]) {
+  --mix-comment-light: 82%;
+  --mix-comment-dark: 75%;
+  --diffs-comment-mix-target: ${mix};
+  --diffs-computed-selected-line-bg: light-dark(
+    color-mix(in lab, var(--diffs-computed-diff-line-bg) var(--mix-comment-light), var(--diffs-comment-mix-target)),
+    color-mix(in lab, var(--diffs-computed-diff-line-bg) var(--mix-comment-dark), var(--diffs-comment-mix-target))
+  );
+}
+
+[data-gutter-buffer][data-comment-line]:not([data-selected-line]),
+[data-column-number][data-comment-line]:not([data-selected-line]) {
+  --mix-comment-light: 75%;
+  --mix-comment-dark: 60%;
+  color: var(--diffs-selection-number-fg);
+}
+`;
+}
+
 /** Layout-only Pierre diffs shadow DOM overrides; not part of the color palette. */
 export function buildDiffLayoutUnsafeCss(
-  roles: Pick<ThemeRoles, "bg" | "fg" | "border" | "list">,
+  roles: Pick<ThemeRoles, "bg" | "fg" | "border" | "list" | "states">,
   fonts?: DiffFontStacks,
 ): string {
-  const { bg, fg, border, list } = roles;
+  const { bg, fg, border, list, states } = roles;
   // RISK: Pierre shadow DOM. Inject resolved values, not document CSS vars.
   // Light-DOM custom properties are unreliable here; unresolved border-color
   // falls back to currentColor and paints a dark line on every header.
@@ -186,5 +214,6 @@ ${fontRules}
   display: none !important;
 }
 
+${commentLineHighlightCss(states.info)}
 `.trim();
 }

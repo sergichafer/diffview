@@ -7,7 +7,6 @@ interface CommentCardProps {
   onSave: (message: string) => void;
   onDiscard: () => void;
   onEdit: () => void;
-  onSelectRange: () => void;
 }
 
 export function CommentCard({
@@ -15,7 +14,6 @@ export function CommentCard({
   onSave,
   onDiscard,
   onEdit,
-  onSelectRange,
 }: CommentCardProps) {
   const { kind, message: savedMessage } = annotation.metadata;
   const [message, setMessage] = useState(savedMessage);
@@ -80,13 +78,7 @@ export function CommentCard({
 
   return (
     <div className="comment-card is-saved">
-      <button
-        type="button"
-        className="comment-card-range"
-        onClick={onSelectRange}
-      >
-        <p className="comment-card-body">{savedMessage}</p>
-      </button>
+      <p className="comment-card-body">{savedMessage}</p>
       <div className="comment-card-actions">
         <button type="button" onClick={onEdit}>
           Edit

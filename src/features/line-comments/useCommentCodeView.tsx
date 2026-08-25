@@ -5,16 +5,16 @@ import {
   type LineAnnotation,
   type SelectedLineRange,
 } from "@pierre/diffs";
-import type { CodeViewDiffItem, CodeViewItem } from "@pierre/diffs/react";
+import type {
+  CodeViewDiffItem,
+  CodeViewItem,
+  CodeViewReactOptions,
+} from "@pierre/diffs/react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { CommentCard } from "./CommentCard";
 import { CopyReviewPrompt } from "./CopyReviewPrompt";
-import {
-  activeDraft,
-  buildExportPrompt,
-  findComment,
-  type CommentMeta,
-} from "./commentMeta";
+import { buildExportPrompt, type CommentMeta } from "./commentMeta";
+import { paintCommentLines } from "./commentLineHighlight";
 import { captureCommentSnippet } from "./extractSnippet";
 import type { LineCommentsValue } from "./LineCommentsProvider";
 
@@ -23,13 +23,13 @@ export const COPY_PROMPT_PANEL_PADDING = 80;
 
 type SelectionState = {
   key: string | null;
-  commentKey: string | null;
   lines: CodeViewLineSelection | null;
 };
 
 export type CommentCodeViewBindings = {
   selectedLines: CodeViewLineSelection | null;
   onSelectedLinesChange: (selection: CodeViewLineSelection | null) => void;
+  onPostRender: NonNullable<CodeViewReactOptions<CommentMeta>["onPostRender"]>;
   renderAnnotation: (
     annotation: LineAnnotation<CommentMeta> | DiffLineAnnotation<CommentMeta>,
     item: CodeViewItem<CommentMeta>,
@@ -64,31 +64,20 @@ export function useCommentCodeView({
 
   const [selection, setSelection] = useState<SelectionState>({
     key: activeKey,
-    commentKey: null,
     lines: null,
   });
-  /** Draft wins so the range survives save. */
-  const locked =
-    activeDraft(pathComments) ??
-    findComment(pathComments, selection.commentKey);
-  const lockKey = locked?.annotation.metadata.key ?? null;
-  if (selection.key !== activeKey || selection.commentKey !== lockKey) {
-    setSelection({ key: activeKey, commentKey: lockKey, lines: null });
+  if (selection.key !== activeKey) {
+    setSelection({ key: activeKey, lines: null });
   }
 
   const selectedLines =
-    locked != null
-      ? { id: locked.path, range: locked.annotation.metadata.range }
-      : selection.key === activeKey
-        ? selection.lines
-        : null;
+    selection.key === activeKey ? selection.lines : null;
 
   const onSelectedLinesChange = useCallback(
     (lines: CodeViewLineSelection | null) => {
-      if (lockKey != null) return;
-      setSelection({ key: activeKey, commentKey: null, lines });
+      setSelection({ key: activeKey, lines });
     },
-    [activeKey, lockKey],
+    [activeKey],
   );
 
   const handleSave = useCallback(
@@ -107,8 +96,9 @@ export function useCommentCodeView({
         captured.snippet,
         captured.language,
       );
+      setSelection({ key: activeKey, lines: null });
     },
-    [displayItems, saveComment],
+    [activeKey, displayItems, saveComment],
   );
 
   const renderAnnotation = useCallback(
@@ -123,11 +113,11 @@ export function useCommentCodeView({
         <CommentCard
           annotation={annotation}
           onSave={(message) => handleSave(path, annotation, message)}
-          onDiscard={() => deleteComment(path, key)}
+          onDiscard={() => {
+            deleteComment(path, key);
+            setSelection({ key: activeKey, lines: null });
+          }}
           onEdit={() => beginEdit(path, key)}
-          onSelectRange={() =>
-            setSelection({ key: activeKey, commentKey: key, lines: null })
-          }
         />
       );
     },
@@ -141,6 +131,17 @@ export function useCommentCodeView({
       startDraft(context.item.id, range);
     },
     [editingPaths, startDraft],
+  );
+
+  const onPostRender = useCallback<
+    NonNullable<CodeViewReactOptions<CommentMeta>["onPostRender"]>
+  >(
+    (node, instance, phase, context) => {
+      if (phase === "unmount") return;
+      if (context.item.type !== "diff") return;
+      paintCommentLines(node, instance, pathComments[context.item.id] ?? []);
+    },
+    [pathComments],
   );
 
   const itemOrder = useMemo(
@@ -157,6 +158,7 @@ export function useCommentCodeView({
   return {
     selectedLines,
     onSelectedLinesChange,
+    onPostRender,
     renderAnnotation,
     onGutterUtilityClick,
     panelPaddingBottom: hasSaved ? COPY_PROMPT_PANEL_PADDING : 0,
