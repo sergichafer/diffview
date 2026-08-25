@@ -4,7 +4,7 @@ import type { CodeViewDiffItem } from "@pierre/diffs/react";
 import type { CommentMeta } from "./commentMeta";
 import { COPY_PROMPT_PANEL_PADDING } from "./useCommentCodeView";
 
-const { act, isValidElement, useEffect, useState, type ReactNode } = await import("react");
+const { act, isValidElement, useEffect, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { useLineCommentsState } = await import("./LineCommentsProvider");
 const { useCommentCodeView } = await import("./useCommentCodeView");
@@ -56,7 +56,7 @@ type CardHandlers = {
   onSelectRange: () => void;
 };
 
-function cardHandlers(node: ReactNode): CardHandlers {
+function cardHandlers(node: ReturnType<ViewApi["renderAnnotation"]>): CardHandlers {
   if (!isValidElement(node)) throw new Error("expected comment card");
   return node.props as CardHandlers;
 }
