@@ -11,10 +11,6 @@
   white-space: normal;
 }
 
-.comment-card.is-saved {
-  cursor: default;
-}
-
 .comment-card-body {
   margin: 0;
   white-space: pre-wrap;

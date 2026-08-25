@@ -1,8 +1,9 @@
 import {
+  FileDiff,
+  areSelectionsEqual,
   isDiffAnnotation,
   type CodeViewLineSelection,
   type DiffLineAnnotation,
-  type GetLineIndexUtility,
   type LineAnnotation,
   type SelectedLineRange,
 } from "@pierre/diffs";
@@ -42,28 +43,6 @@ export type CommentCodeViewBindings = {
   panelPaddingBottom: number;
   chip: ReactNode;
 };
-
-function selectionCoversRange(
-  lines: CodeViewLineSelection | null,
-  path: string,
-  range: SelectedLineRange,
-): boolean {
-  if (lines == null || lines.id !== path) return false;
-  const current = lines.range;
-  return (
-    current.start === range.start &&
-    current.end === range.end &&
-    current.side === range.side &&
-    current.endSide === range.endSide
-  );
-}
-
-function lineIndexFromHost(instance: object): GetLineIndexUtility | undefined {
-  if (!("getLineIndex" in instance)) return undefined;
-  const lookup = instance.getLineIndex;
-  if (typeof lookup !== "function") return undefined;
-  return lookup as GetLineIndexUtility;
-}
 
 export function useCommentCodeView({
   comments,
@@ -108,7 +87,9 @@ export function useCommentCodeView({
       setSelection((prev) => {
         if (
           prev.key !== activeKey ||
-          !selectionCoversRange(prev.lines, path, range)
+          prev.lines == null ||
+          prev.lines.id !== path ||
+          !areSelectionsEqual(prev.lines.range, range)
         ) {
           return prev;
         }
@@ -175,13 +156,13 @@ export function useCommentCodeView({
     NonNullable<CodeViewReactOptions<CommentMeta>["onPostRender"]>
   >((node, instance, phase, context) => {
     if (phase === "unmount") return;
-    if (context.item.type !== "diff") return;
-    const getLineIndex = lineIndexFromHost(instance);
-    if (getLineIndex == null) return;
-    const ranges = (context.item.annotations ?? []).map(
-      (row) => row.metadata.range,
+    if (!(instance instanceof FileDiff)) return;
+    if (context.type !== "diff") return;
+    paintCommentLines(
+      node,
+      instance.getLineIndex,
+      (context.item.annotations ?? []).map((row) => row.metadata.range),
     );
-    paintCommentLines(node, getLineIndex, ranges);
   }, []);
 
   const itemOrder = useMemo(

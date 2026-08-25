@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { FileDiffMetadata, Hunk } from "@pierre/diffs";
+import { FileDiff, type FileDiffMetadata, type Hunk } from "@pierre/diffs";
 import type { CodeViewDiffItem } from "@pierre/diffs/react";
 import type { CommentMeta } from "./commentMeta";
 import { COPY_PROMPT_PANEL_PADDING } from "./useCommentCodeView";
@@ -370,7 +370,7 @@ describe("useCommentCodeView", () => {
     h.unmount();
   });
 
-  test("onPostRender paints comment ranges without touching selectedLines", () => {
+  test("onPostRender paints from item.annotations without touching selectedLines", () => {
     const items = [item("a.ts")];
     const h = mountView({ items });
     const range = { start: 1, end: 2, side: "additions" as const };
@@ -394,6 +394,47 @@ describe("useCommentCodeView", () => {
         </code>
       </pre>
     `;
+    const instance = new FileDiff();
+    instance.getLineIndex = (lineNumber) => [lineNumber - 1, lineNumber - 1];
+    act(() => {
+      h.view().onPostRender(host, instance, "update", {
+        type: "diff",
+        item: { ...items[0]!, annotations: [draft] },
+        instance,
+      });
+    });
+    expect(
+      host.querySelector('[data-line="1"]')?.hasAttribute("data-comment-line"),
+    ).toBe(true);
+    expect(
+      host.querySelector('[data-line="2"]')?.hasAttribute("data-comment-line"),
+    ).toBe(true);
+    expect(h.view().selectedLines).toBeNull();
+    h.unmount();
+  });
+
+  test("onPostRender skips hosts that are not FileDiff", () => {
+    const items = [item("a.ts")];
+    const h = mountView({ items });
+    const range = { start: 1, end: 1, side: "additions" as const };
+    act(() => {
+      h.view().onGutterUtilityClick(range, { item: items[0]! });
+    });
+    const draft = h.comments().pathComments["a.ts"]?.[0];
+    if (draft == null) throw new Error("expected draft");
+    const host = document.createElement("div");
+    host.innerHTML = `
+      <pre data-diff-type="unified">
+        <code data-code>
+          <div data-gutter>
+            <div data-column-number="1" data-line-index="0,0"></div>
+          </div>
+          <div data-content>
+            <div data-line="1" data-line-index="0,0"></div>
+          </div>
+        </code>
+      </pre>
+    `;
     act(() => {
       h.view().onPostRender(
         host,
@@ -409,10 +450,7 @@ describe("useCommentCodeView", () => {
     });
     expect(
       host.querySelector('[data-line="1"]')?.hasAttribute("data-comment-line"),
-    ).toBe(true);
-    expect(
-      host.querySelector('[data-line="2"]')?.hasAttribute("data-comment-line"),
-    ).toBe(true);
+    ).toBe(false);
     expect(h.view().selectedLines).toBeNull();
     h.unmount();
   });

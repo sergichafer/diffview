@@ -22,14 +22,13 @@ function commentLineHighlightCss(mix: string): string {
 
 [data-gutter-buffer][data-comment-line]:not([data-selected-line]),
 [data-column-number][data-comment-line]:not([data-selected-line]) {
-  --mix-comment-light: 75%;
-  --mix-comment-dark: 60%;
   color: ${mix};
 }
 `;
 }
 
-/** Layout-only Pierre diffs shadow DOM overrides; not part of the color palette. */
+/** Pierre diffs shadow DOM overrides, including comment-range color. Document
+ *  CSS variables do not reach this host, so mix the info color here. */
 export function buildDiffLayoutUnsafeCss(
   roles: Pick<ThemeRoles, "bg" | "fg" | "border" | "list" | "states">,
   fonts?: DiffFontStacks,

@@ -180,6 +180,47 @@ describe("paintCommentLines", () => {
     ).toBe(true);
   });
 
+  test("stamps by line-index even when gutter and content children are offset", () => {
+    const host = document.createElement("div");
+    host.innerHTML = `
+      <pre data-diff-type="unified">
+        <code data-code>
+          <div data-gutter>
+            <div data-spacer></div>
+            <div data-column-number="1" data-line-index="0,0"></div>
+            <div data-gutter-buffer></div>
+          </div>
+          <div data-content>
+            <div data-line="1" data-line-index="0,0"></div>
+            <div data-line-annotation></div>
+          </div>
+        </code>
+      </pre>
+    `;
+    paintCommentLines(host, () => [0, 0], [range(1, 1)]);
+    expect(
+      host.querySelector("[data-line]")?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(true);
+    expect(
+      host
+        .querySelector("[data-column-number]")
+        ?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(true);
+    expect(
+      host
+        .querySelector("[data-line-annotation]")
+        ?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(true);
+    expect(
+      host
+        .querySelector("[data-gutter-buffer]")
+        ?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(true);
+    expect(
+      host.querySelector("[data-spacer]")?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(false);
+  });
+
   test("reads through an open shadow root", () => {
     const host = document.createElement("div");
     const shadow = host.attachShadow({ mode: "open" });

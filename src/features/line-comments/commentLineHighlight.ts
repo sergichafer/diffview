@@ -7,6 +7,12 @@ export const COMMENT_LINE_ATTR = "data-comment-line";
 
 export type CommentColumn = "unified" | "additions" | "deletions";
 
+const COLUMN_SELECTOR: Record<CommentColumn, string> = {
+  unified: "[data-code]:not([data-deletions]):not([data-additions])",
+  additions: "[data-additions]",
+  deletions: "[data-deletions]",
+};
+
 function addRowRange(
   occupied: Map<CommentColumn, Set<number>>,
   column: CommentColumn,
@@ -75,26 +81,12 @@ function markCommentLine(element: Element): void {
   element.setAttribute(COMMENT_LINE_ATTR, "");
 }
 
-function paintAnnotationSlot(
-  contentElement: HTMLElement,
-  gutterElement: HTMLElement,
-): void {
-  const contentNext = contentElement.nextElementSibling;
-  const gutterNext = gutterElement.nextElementSibling;
-  if (
-    !(contentNext instanceof HTMLElement) ||
-    !(gutterNext instanceof HTMLElement)
-  ) {
-    return;
-  }
-  if (
-    !contentNext.hasAttribute("data-line-annotation") &&
-    !contentNext.hasAttribute("data-merge-conflict-actions")
-  ) {
-    return;
-  }
-  markCommentLine(contentNext);
-  markCommentLine(gutterNext);
+function isPairedSlot(element: Element): boolean {
+  return (
+    element.hasAttribute("data-line-annotation") ||
+    element.hasAttribute("data-merge-conflict-actions") ||
+    element.hasAttribute("data-gutter-buffer")
+  );
 }
 
 /**
@@ -113,36 +105,16 @@ export function paintCommentLines(
   if (!(pre instanceof HTMLElement)) return;
   const split = pre.getAttribute("data-diff-type") === "split";
   const occupied = occupyCommentRows(ranges, split, getLineIndex);
-  if (occupied.size === 0) return;
 
-  for (const code of pre.children) {
-    if (!(code instanceof HTMLElement)) continue;
-    const [gutter, content] = code.children;
-    if (!(gutter instanceof HTMLElement) || !(content instanceof HTMLElement)) {
-      continue;
-    }
-    const column: CommentColumn = code.hasAttribute("data-deletions")
-      ? "deletions"
-      : code.hasAttribute("data-additions")
-        ? "additions"
-        : "unified";
-    const rows = occupied.get(column);
-    if (rows == null || rows.size === 0) continue;
-    const len = content.children.length;
-    for (let i = 0; i < len; i++) {
-      const contentElement = content.children[i];
-      const gutterElement = gutter.children[i];
-      if (
-        !(contentElement instanceof HTMLElement) ||
-        !(gutterElement instanceof HTMLElement)
-      ) {
-        continue;
-      }
-      const lineIndex = parseLineIndex(contentElement, split);
+  for (const [column, rows] of occupied) {
+    const code = pre.querySelector(COLUMN_SELECTOR[column]);
+    if (code == null) continue;
+    for (const element of code.querySelectorAll("[data-line-index]")) {
+      const lineIndex = parseLineIndex(element, split);
       if (lineIndex == null || !rows.has(lineIndex)) continue;
-      markCommentLine(gutterElement);
-      markCommentLine(contentElement);
-      paintAnnotationSlot(contentElement, gutterElement);
+      markCommentLine(element);
+      const next = element.nextElementSibling;
+      if (next != null && isPairedSlot(next)) markCommentLine(next);
     }
   }
 }

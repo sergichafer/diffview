@@ -77,7 +77,7 @@ export function CommentCard({
   }
 
   return (
-    <div className="comment-card is-saved">
+    <div className="comment-card">
       <p className="comment-card-body">{savedMessage}</p>
       <div className="comment-card-actions">
         <button type="button" onClick={onEdit}>
