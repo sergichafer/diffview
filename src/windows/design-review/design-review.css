@@ -5,6 +5,8 @@
     left: 20px;
     bottom: 20px;
     width: min(252px, calc(100% - 40px));
+    max-height: min(72vh, 640px);
+    overflow: auto;
     padding: 12px;
     border: 1px solid var(--border-default);
     border-top-color: var(--border-highlight);
@@ -42,6 +44,10 @@
 
   .review-hud fieldset:last-child {
     margin-bottom: 0;
+  }
+
+  .review-hud-copy .review-option {
+    width: 100%;
   }
 
   .review-hud legend {
@@ -264,7 +270,6 @@
   }
 
   .review-export-chip .review-export-surface {
-    min-width: 12.5rem;
     justify-items: start;
   }
 

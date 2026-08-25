@@ -31,14 +31,14 @@ import { ReviewFileTree } from "./ReviewFileTree";
 import { ReviewHud } from "./ReviewHud";
 import { ReviewTopBar } from "./ReviewTopBar";
 import { ReviewWorkspaces } from "./ReviewWorkspaces";
-import type { RestingCopy } from "./restingLabel";
+import { DEFAULT_RESTING_COPY, type RestingCopy } from "./restingLabel";
 import "@/windows/main/App.css";
 import "./design-review.css";
 
 export function DesignReview() {
   const [themeMode, setThemeMode] = useState<"light" | "dark">("dark");
   const [shape, setShape] = useState<ExportShape>("chip");
-  const [copy, setCopy] = useState<RestingCopy>("review");
+  const [copy, setCopy] = useState<RestingCopy>(DEFAULT_RESTING_COPY);
   const [card, setCard] = useState<"saved" | "draft">("saved");
   const [diffStyle, setDiffStyle] = useState<DiffStyle>(
     DEFAULT_SETTINGS.diffStyle,

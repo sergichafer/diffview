@@ -1,5 +1,5 @@
 import type { ExportShape } from "./ExportControl";
-import type { RestingCopy } from "./restingLabel";
+import { RESTING_COPY_OPTIONS, type RestingCopy } from "./restingLabel";
 
 interface ReviewHudProps {
   themeMode: "light" | "dark";
@@ -26,8 +26,8 @@ export function ReviewHud({
     <aside className="review-hud" aria-label="Review options">
       <p className="review-hud-kicker">Review options</p>
       <p className="review-hud-lead">
-        Real Diffview chrome and Pierre CodeView. Hover a gutter for +, then
-        copy from the control at the bottom right of the diff.
+        Copy for AI is the current pick. Try the others on the chip at the
+        bottom right of the diff.
       </p>
       <fieldset>
         <legend>Theme</legend>
@@ -70,29 +70,18 @@ export function ReviewHud({
           label="C. FAB"
         />
       </fieldset>
-      <fieldset>
+      <fieldset className="review-hud-copy">
         <legend>Resting copy</legend>
-        <Option
-          name="copy"
-          value="review"
-          checked={copy === "review"}
-          onChange={() => onCopy("review")}
-          label="Copy review"
-        />
-        <Option
-          name="copy"
-          value="count"
-          checked={copy === "count"}
-          onChange={() => onCopy("count")}
-          label="Copy N comments"
-        />
-        <Option
-          name="copy"
-          value="ai"
-          checked={copy === "ai"}
-          onChange={() => onCopy("ai")}
-          label="Copy for AI"
-        />
+        {RESTING_COPY_OPTIONS.map((option) => (
+          <Option
+            key={option.id}
+            name="copy"
+            value={option.id}
+            checked={copy === option.id}
+            onChange={() => onCopy(option.id)}
+            label={option.hud}
+          />
+        ))}
       </fieldset>
       <fieldset>
         <legend>Sample note</legend>
