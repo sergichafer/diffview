@@ -44,7 +44,6 @@
   padding: 0;
   border: 0;
   outline: none;
-  box-shadow: none;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -54,12 +53,6 @@
   resize: none;
   field-sizing: content;
   min-height: 2.4em;
-}
-
-.comment-card-composer:focus,
-.comment-card-composer:focus-visible {
-  outline: none;
-  box-shadow: none;
 }
 
 .comment-card-composer::placeholder {

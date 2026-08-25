@@ -4,7 +4,7 @@ import type { CodeViewDiffItem } from "@pierre/diffs/react";
 import type { CommentMeta } from "./commentMeta";
 import { COPY_PROMPT_PANEL_PADDING } from "./useCommentCodeView";
 
-const { act, isValidElement, useEffect, useState } = await import("react");
+const { act, useEffect, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { useLineCommentsState } = await import("./LineCommentsProvider");
 const { useCommentCodeView } = await import("./useCommentCodeView");
@@ -50,15 +50,22 @@ function item(path: string): CodeViewDiffItem<CommentMeta> {
   return { id: path, type: "diff", fileDiff };
 }
 
-type CardHandlers = {
-  onSave: (message: string) => void;
-  onDiscard: () => void;
-  onSelectRange: () => void;
-};
-
-function cardHandlers(node: ReturnType<ViewApi["renderAnnotation"]>): CardHandlers {
-  if (!isValidElement(node)) throw new Error("expected comment card");
-  return node.props as CardHandlers;
+function clickRange(node: ReturnType<ViewApi["renderAnnotation"]>) {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  act(() => {
+    root.render(node);
+  });
+  const button = host.querySelector(".comment-card-range");
+  if (!(button instanceof HTMLButtonElement)) {
+    throw new Error("missing range button");
+  }
+  act(() => {
+    button.click();
+  });
+  act(() => root.unmount());
+  host.remove();
 }
 
 function mountView(args: {
@@ -187,7 +194,6 @@ describe("useCommentCodeView", () => {
     const items = [item("a.ts")];
     const h = mountView({ items });
     const range = { start: 1, end: 2, side: "additions" as const };
-    expect(h.view().enableLineSelection).toBe(true);
 
     act(() => {
       h.view().onSelectedLinesChange({ id: "a.ts", range });
@@ -199,22 +205,23 @@ describe("useCommentCodeView", () => {
     expect(h.view().selectedLines).toBeNull();
 
     act(() => {
-      h.view().onSelectedLinesChange({ id: "a.ts", range });
       h.view().onGutterUtilityClick(range, { item: items[0]! });
     });
     expect(h.view().selectedLines).toEqual({ id: "a.ts", range });
-    expect(h.view().enableLineSelection).toBe(false);
 
     const draft = h.comments().pathComments["a.ts"]?.[0];
     if (draft == null) throw new Error("expected draft");
     act(() => {
-      cardHandlers(h.view().renderAnnotation(draft, items[0]!)).onSave(
+      h.comments().saveComment(
+        "a.ts",
+        draft.metadata.key,
         "keep the range",
+        "const x = 1\nconst y = 2",
+        "ts",
       );
     });
     expect(h.comments().pathComments["a.ts"]?.[0]?.metadata.kind).toBe("saved");
     expect(h.view().selectedLines).toEqual({ id: "a.ts", range });
-    expect(h.view().enableLineSelection).toBe(false);
 
     act(() => {
       h.view().onSelectedLinesChange(null);
@@ -225,13 +232,10 @@ describe("useCommentCodeView", () => {
     });
     expect(h.view().selectedLines).toEqual({ id: "a.ts", range });
 
-    const saved = h.comments().pathComments["a.ts"]?.[0];
-    if (saved == null) throw new Error("expected saved comment");
     act(() => {
-      cardHandlers(h.view().renderAnnotation(saved, items[0]!)).onDiscard();
+      h.comments().deleteComment("a.ts", draft.metadata.key);
     });
     expect(h.view().selectedLines).toBeNull();
-    expect(h.view().enableLineSelection).toBe(true);
     h.unmount();
   });
 
@@ -240,20 +244,18 @@ describe("useCommentCodeView", () => {
     const h = mountView({ items });
     const range = { start: 1, end: 1, side: "additions" as const };
     act(() => {
-      h.view().onSelectedLinesChange({ id: "a.ts", range });
       h.view().onGutterUtilityClick(range, { item: items[0]! });
     });
     const draft = h.comments().pathComments["a.ts"]?.[0];
     if (draft == null) throw new Error("expected draft");
     act(() => {
-      cardHandlers(h.view().renderAnnotation(draft, items[0]!)).onDiscard();
+      h.comments().deleteComment("a.ts", draft.metadata.key);
     });
     expect(h.view().selectedLines).toBeNull();
-    expect(h.view().enableLineSelection).toBe(true);
     h.unmount();
   });
 
-  test("clicking a saved comment pins that comment's range", () => {
+  test("clicking a saved comment focuses that comment's range", () => {
     const items = [item("a.ts"), item("b.ts")];
     const h = mountView({ items });
     const rangeA = { start: 1, end: 1, side: "additions" as const };
@@ -264,7 +266,7 @@ describe("useCommentCodeView", () => {
     const draftA = h.comments().pathComments["a.ts"]?.[0];
     if (draftA == null) throw new Error("expected draft a");
     act(() => {
-      cardHandlers(h.view().renderAnnotation(draftA, items[0]!)).onSave("a");
+      h.comments().saveComment("a.ts", draftA.metadata.key, "a", "x", "ts");
     });
     act(() => {
       h.view().onGutterUtilityClick(rangeB, { item: items[1]! });
@@ -272,20 +274,23 @@ describe("useCommentCodeView", () => {
     const draftB = h.comments().pathComments["b.ts"]?.[0];
     if (draftB == null) throw new Error("expected draft b");
     act(() => {
-      cardHandlers(h.view().renderAnnotation(draftB, items[1]!)).onSave("b");
+      h.comments().saveComment("b.ts", draftB.metadata.key, "b", "y", "ts");
     });
     expect(h.view().selectedLines).toEqual({ id: "b.ts", range: rangeB });
 
     const savedA = h.comments().pathComments["a.ts"]?.[0];
     if (savedA == null) throw new Error("expected saved a");
-    act(() => {
-      cardHandlers(h.view().renderAnnotation(savedA, items[0]!)).onSelectRange();
-    });
+    clickRange(h.view().renderAnnotation(savedA, items[0]!));
     expect(h.view().selectedLines).toEqual({ id: "a.ts", range: rangeA });
     act(() => {
       h.view().onSelectedLinesChange(null);
     });
     expect(h.view().selectedLines).toEqual({ id: "a.ts", range: rangeA });
+
+    act(() => {
+      h.comments().beginEdit("b.ts", draftB.metadata.key);
+    });
+    expect(h.view().selectedLines).toEqual({ id: "b.ts", range: rangeB });
     h.unmount();
   });
 

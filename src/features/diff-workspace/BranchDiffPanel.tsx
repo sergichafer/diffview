@@ -160,7 +160,7 @@ export function BranchDiffPanel({
       unsafeCSS,
       loadDiffFiles,
       enableGutterUtility: true,
-      enableLineSelection: commentView.enableLineSelection,
+      enableLineSelection: true,
       onGutterUtilityClick: commentView.onGutterUtilityClick,
     };
   }, [
@@ -170,7 +170,6 @@ export function BranchDiffPanel({
     unsafeCSS,
     loadDiffFiles,
     commentView.panelPaddingBottom,
-    commentView.enableLineSelection,
     commentView.onGutterUtilityClick,
   ]);
 

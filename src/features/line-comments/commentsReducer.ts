@@ -2,7 +2,6 @@ import type { DiffLineAnnotation, SelectedLineRange } from "@pierre/diffs";
 import type { ComparisonKey } from "@/features/branch-compare/comparisonKey";
 import {
   EMPTY_PATH_COMMENTS,
-  isCommentSlotOccupied,
   makeAnnotation,
   type CommentMeta,
   type CommentsMap,
@@ -82,6 +81,17 @@ function stripDrafts(paths: PathComments): PathComments {
   return changed ? next : paths;
 }
 
+function occupied(
+  annotations: readonly DiffLineAnnotation<CommentMeta>[],
+  side: "additions" | "deletions",
+  lineNumber: number,
+): boolean {
+  return annotations.some(
+    (annotation) =>
+      annotation.side === side && annotation.lineNumber === lineNumber,
+  );
+}
+
 function rowOf(store: CommentsStore, key: ComparisonKey): PathComments {
   return store.map[key] ?? EMPTY_PATH_COMMENTS;
 }
@@ -112,7 +122,7 @@ export function commentsReducer(
       if (draft == null) return store;
       const current = rowOf(store, action.key);
       const existing = current[action.path] ?? [];
-      if (isCommentSlotOccupied(existing, action.range)) return store;
+      if (occupied(existing, draft.side, draft.lineNumber)) return store;
       const stripped = stripDrafts(current);
       const nextAnns = [...(stripped[action.path] ?? []), draft];
       const nextRow = setPath(stripped, action.path, nextAnns);

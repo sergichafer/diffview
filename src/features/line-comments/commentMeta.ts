@@ -20,6 +20,10 @@ export type CommentMeta = {
 
 export type PathComments = Record<string, DiffLineAnnotation<CommentMeta>[]>;
 export type CommentsMap = Record<ComparisonKey, PathComments>;
+export type PathComment = {
+  path: string;
+  annotation: DiffLineAnnotation<CommentMeta>;
+};
 
 export const EMPTY_PATH_COMMENTS: PathComments = {};
 
@@ -29,19 +33,6 @@ export function annotationAnchor(
   const side = range.endSide ?? range.side;
   if (side == null) return null;
   return { side, lineNumber: range.end };
-}
-
-export function isCommentSlotOccupied(
-  annotations: readonly DiffLineAnnotation<CommentMeta>[],
-  range: SelectedLineRange,
-): boolean {
-  const anchor = annotationAnchor(range);
-  if (anchor == null) return true;
-  return annotations.some(
-    (annotation) =>
-      annotation.side === anchor.side &&
-      annotation.lineNumber === anchor.lineNumber,
-  );
 }
 
 export function rangeLabel(range: SelectedLineRange): string {
@@ -75,11 +66,8 @@ export function makeAnnotation(
 export function savedComments(
   itemOrder: readonly string[],
   pathComments: PathComments,
-): Array<{ path: string; annotation: DiffLineAnnotation<CommentMeta> }> {
-  const out: Array<{
-    path: string;
-    annotation: DiffLineAnnotation<CommentMeta>;
-  }> = [];
+): PathComment[] {
+  const out: PathComment[] = [];
   for (const path of itemOrder) {
     const annotations = pathComments[path];
     if (annotations == null) continue;
@@ -90,6 +78,30 @@ export function savedComments(
     }
   }
   return out;
+}
+
+export function findComment(
+  pathComments: PathComments,
+  commentKey: string | null,
+): PathComment | null {
+  if (commentKey == null) return null;
+  for (const [path, annotations] of Object.entries(pathComments)) {
+    const annotation = annotations.find(
+      (row) => row.metadata.key === commentKey,
+    );
+    if (annotation != null) return { path, annotation };
+  }
+  return null;
+}
+
+export function activeDraft(pathComments: PathComments): PathComment | null {
+  for (const [path, annotations] of Object.entries(pathComments)) {
+    const annotation = annotations.find(
+      (row) => row.metadata.kind === "draft",
+    );
+    if (annotation != null) return { path, annotation };
+  }
+  return null;
 }
 
 export function savedCommentCount(pathComments: PathComments): number {

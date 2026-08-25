@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { DiffLineAnnotation, SelectedLineRange } from "@pierre/diffs";
 import {
   PROMPT_INTRO,
+  activeDraft,
   annotationAnchor,
   buildExportPrompt,
-  isCommentSlotOccupied,
+  findComment,
   languageFromPath,
   makeAnnotation,
   rangeLabel,
@@ -42,18 +43,6 @@ function saved(
   if (annotation == null) throw new Error("expected annotation");
   return annotation;
 }
-
-describe("isCommentSlotOccupied", () => {
-  test("treats a missing side as occupied so a draft cannot park", () => {
-    expect(isCommentSlotOccupied([], { start: 1, end: 2 })).toBe(true);
-  });
-
-  test("matches an existing comment on the park line", () => {
-    const held = saved("a.ts", "c1", "note", range(1, 4), "code", "ts");
-    expect(isCommentSlotOccupied([held], range(2, 4))).toBe(true);
-    expect(isCommentSlotOccupied([held], range(5, 5))).toBe(false);
-  });
-});
 
 describe("annotationAnchor", () => {
   test("parks on endSide and range.end", () => {
@@ -93,6 +82,36 @@ describe("languageFromPath", () => {
     expect(languageFromPath("src/design/app.css")).toBe("css");
     expect(languageFromPath("src-tauri/src/lib.rs")).toBe("rust");
     expect(languageFromPath("README.md")).toBe("");
+  });
+});
+
+describe("findComment and activeDraft", () => {
+  test("findComment walks paths and ignores a null key", () => {
+    const pathComments: PathComments = {
+      "a.ts": [saved("a.ts", "s1", "one", range(1, 1), "x", "ts")],
+      "b.ts": [saved("b.ts", "s2", "two", range(2, 2), "y", "ts")],
+    };
+    expect(findComment(pathComments, null)).toBeNull();
+    expect(findComment(pathComments, "missing")).toBeNull();
+    expect(findComment(pathComments, "s2")?.path).toBe("b.ts");
+  });
+
+  test("activeDraft returns the sole draft", () => {
+    const draft = makeAnnotation({
+      kind: "draft",
+      key: "d1",
+      message: "",
+      range: range(4, 4),
+      snippet: "",
+      language: "ts",
+    });
+    if (draft == null) throw new Error("expected draft");
+    const pathComments: PathComments = {
+      "a.ts": [saved("a.ts", "s1", "one", range(1, 1), "x", "ts")],
+      "b.ts": [draft],
+    };
+    expect(activeDraft(pathComments)?.annotation.metadata.key).toBe("d1");
+    expect(activeDraft({ "a.ts": pathComments["a.ts"]! })).toBeNull();
   });
 });
 
