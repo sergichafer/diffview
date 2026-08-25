@@ -25,7 +25,7 @@ export type CommentCodeViewBindings = {
   ) => ReactNode;
   onGutterUtilityClick: (
     range: SelectedLineRange,
-    context: { item: { type: string; id: string } },
+    context: { item: CodeViewItem<CommentMeta> },
   ) => void;
   panelPaddingBottom: number;
   chip: ReactNode;
@@ -116,7 +116,7 @@ export function useCommentCodeView({
   );
 
   const onGutterUtilityClick = useCallback(
-    (range: SelectedLineRange, context: { item: { type: string; id: string } }) => {
+    (range: SelectedLineRange, context: { item: CodeViewItem<CommentMeta> }) => {
       if (context.item.type !== "diff") return;
       if (editingPaths.has(context.item.id)) return;
       startDraft(context.item.id, range);

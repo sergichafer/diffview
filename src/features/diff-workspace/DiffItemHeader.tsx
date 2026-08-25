@@ -3,9 +3,9 @@ import { useCallback, useSyncExternalStore } from "react";
 import type { FileSaveState } from "@/features/diff-edit/saveStatus";
 import { DiffHeaderActions } from "./DiffHeaderActions";
 
-interface DiffItemHeaderProps {
+interface DiffItemHeaderProps<T = undefined> {
   repoPath: string;
-  item: CodeViewItem<unknown>;
+  item: CodeViewItem<T>;
   viewedPaths: ReadonlySet<string>;
   expandedWhileViewed: ReadonlySet<string>;
   editablePaths: ReadonlySet<string>;
@@ -88,7 +88,7 @@ function DiffHeaderActionsSubscribed({
   );
 }
 
-export function useDiffItemHeader({
+export function useDiffItemHeader<T = undefined>({
   repoPath,
   viewedPaths,
   expandedWhileViewed,
@@ -104,9 +104,9 @@ export function useDiffItemHeader({
   onSaveEdit,
   onDiscardEdit,
   onRetrySave,
-}: Omit<DiffItemHeaderProps, "item">) {
+}: Omit<DiffItemHeaderProps<T>, "item">) {
   return useCallback(
-    (item: CodeViewItem<unknown>) => {
+    (item: CodeViewItem<T>) => {
       if (item.type !== "diff") return null;
       const viewed = viewedPaths.has(item.id);
       const flipped = expandedWhileViewed.has(item.id);

@@ -1,8 +1,13 @@
-import type { FileContents, FileDiffMetadata } from "@pierre/diffs";
+import type { FileContents, FileDiffMetadata, DiffsEditor } from "@pierre/diffs";
+import type { Editor } from "@pierre/diffs/edit";
 import type { CodeViewItem } from "@pierre/diffs/react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { api } from "@/shared/tauri/api";
-import { replaceEditorText } from "./replaceEditorText";
+import {
+  isReplaceableEditor,
+  replaceEditorText,
+  type ReplaceableEditor,
+} from "./replaceEditorText";
 import type { FileSaveState } from "./saveStatus";
 
 type SaveStateListener = () => void;
@@ -60,7 +65,7 @@ type UseDiffEditArgs = {
  * last hydrated/saved baseline. Discard restores the editor to that baseline
  * and skips the safety-net flush on session end.
  */
-export function useDiffEdit({
+export function useDiffEdit<T = undefined>({
   repoPath,
   baseBranch,
   headBranch,
@@ -354,7 +359,7 @@ export function useDiffEdit({
   );
 
   const onItemEditChange = useCallback(
-    (item: CodeViewItem<unknown>, file: FileContents) => {
+    (item: CodeViewItem<T>, file: FileContents) => {
       if (!isLive) return;
       if (restoring.current.has(item.id)) return;
       if (item.type === "diff" && needsHydration(item.fileDiff)) {
@@ -376,7 +381,7 @@ export function useDiffEdit({
   );
 
   const onItemEditComplete = useCallback(
-    (item: CodeViewItem<unknown>, file: FileContents) => {
+    (item: CodeViewItem<T>, file: FileContents) => {
       if (!isLive) return;
       if (skipFlushOnce.current.delete(item.id)) {
         pending.current.delete(item.id);
@@ -408,26 +413,14 @@ export function useDiffEdit({
   );
 
   const discardEdit = useCallback(
-    (path: string, editor?: unknown) => {
+    (path: string, editor?: Editor<T> | DiffsEditor<T> | ReplaceableEditor | null) => {
       skipFlushOnce.current.add(path);
       restoring.current.add(path);
       try {
         if (saveReady.current.has(path)) {
           const baseline = lastSaved.current.get(path) ?? "";
           replaceEditorText(
-            editor as {
-              getText?: () => string;
-              applyEdits?: (
-                edits: Array<{
-                  range: {
-                    start: { line: number; character: number };
-                    end: { line: number; character: number };
-                  };
-                  newText: string;
-                }>,
-                updateHistory?: boolean,
-              ) => void;
-            },
+            isReplaceableEditor(editor) ? editor : null,
             baseline,
           );
         }

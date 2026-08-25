@@ -96,7 +96,7 @@ export function BranchDiffPanel({
     retrySave,
     saveEdit,
     discardEdit,
-  } = useDiffEdit({
+  } = useDiffEdit<CommentMeta>({
     repoPath: repo?.path ?? null,
     baseBranch,
     headBranch,
@@ -124,7 +124,7 @@ export function BranchDiffPanel({
     [codeViewRef, discardEdit, onEndEdit],
   );
 
-  const renderHeaderMetadata = useDiffItemHeader({
+  const renderHeaderMetadata = useDiffItemHeader<CommentMeta>({
     repoPath: repo?.path ?? "",
     viewedPaths,
     expandedWhileViewed,

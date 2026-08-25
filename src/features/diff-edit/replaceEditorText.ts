@@ -1,25 +1,32 @@
+import type { Editor } from "@pierre/diffs/edit";
+
+/**
+ * `CodeViewHandle.getEditor` is typed as Pierre's `DiffsEditor`, which omits
+ * `getText` / `applyEdits`. The runtime object is an `Editor` and has both.
+ */
+export type ReplaceableEditor = Pick<Editor<undefined>, "getText" | "applyEdits">;
+
+export function isReplaceableEditor(
+  editor: object | null | undefined,
+): editor is ReplaceableEditor {
+  if (editor == null) return false;
+  return (
+    "getText" in editor &&
+    "applyEdits" in editor &&
+    typeof editor.getText === "function" &&
+    typeof editor.applyEdits === "function"
+  );
+}
+
 /**
  * Discard uses this to restore the in-memory buffer to the last hydrated/saved
  * baseline before the session ends (pairs with skipFlushOnce).
  */
 export function replaceEditorText(
-  editor: {
-    getText?: () => string;
-    applyEdits?: (
-      edits: Array<{
-        range: {
-          start: { line: number; character: number };
-          end: { line: number; character: number };
-        };
-        newText: string;
-      }>,
-      updateHistory?: boolean,
-    ) => void;
-  } | null | undefined,
+  editor: ReplaceableEditor | null | undefined,
   next: string,
 ): boolean {
-  if (editor == null || typeof editor.getText !== "function") return false;
-  if (typeof editor.applyEdits !== "function") return false;
+  if (editor == null) return false;
   const current = editor.getText();
   if (current === next) return true;
   const lines = current.split("\n");

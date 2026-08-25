@@ -120,20 +120,20 @@ describe("useCommentCodeView", () => {
     });
     const range = { start: 1, end: 1, side: "additions" as const };
     act(() => {
+      h.view().onGutterUtilityClick(range, { item: item("a.ts") });
       h.view().onGutterUtilityClick(range, {
-        item: { type: "diff", id: "a.ts" },
-      });
-      h.view().onGutterUtilityClick(range, {
-        item: { type: "file", id: "b.ts" },
+        item: {
+          id: "b.ts",
+          type: "file",
+          file: { name: "b.ts", contents: "" },
+        },
       });
     });
     expect(h.comments().pathComments["a.ts"]).toBeUndefined();
     expect(h.comments().pathComments["b.ts"]).toBeUndefined();
 
     act(() => {
-      h.view().onGutterUtilityClick(range, {
-        item: { type: "diff", id: "b.ts" },
-      });
+      h.view().onGutterUtilityClick(range, { item: item("b.ts") });
     });
     expect(h.comments().pathComments["b.ts"]?.length).toBe(1);
     h.unmount();
