@@ -85,9 +85,9 @@ describe("applyDisplayItems", () => {
       view({ expandedWhileViewed: new Set(["a.ts"]) }),
     );
     expect(result[0]?.collapsed).toBe(true);
-    expect(result[0]?.version).toBe(1);
+    expect(result[0]?.version).toBe(itemViewVersion(1, false));
     expect(result[1]?.collapsed).toBe(false);
-    expect(result[1]?.version).toBe(0);
+    expect(result[1]?.version).toBe(itemViewVersion(0, false));
   });
 
   test("preserves identity when presentation already matches", () => {

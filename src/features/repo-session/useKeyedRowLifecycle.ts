@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useState } from "react";
 import type { ComparisonKey } from "@/features/branch-compare/comparisonKey";
 import { useRepoSession } from "./context";
 
@@ -13,42 +13,36 @@ export function useOpenComparisonKeys(): ReadonlySet<ComparisonKey> {
 }
 
 /**
- * Reset the active comparison row when its merge-base stamp changes; evict
- * rows whose keys have left the open set. Review and line-comments both
- * key session state this way.
+ * Next reset/evict action for a ComparisonKey-keyed session store. Callers
+ * dispatch during render (at most one action per pass) so closed rows drain
+ * across frames.
  */
 export function useKeyedRowLifecycle(
   activeKey: ComparisonKey | null,
   mergeBaseOid: string,
   openKeys: ReadonlySet<ComparisonKey>,
   storedKeys: readonly string[],
-  dispatch: (action: KeyedRowAction) => void,
-): void {
-  const storedKeysRef = useRef(storedKeys);
-  storedKeysRef.current = storedKeys;
-  const prevStampRef = useRef<{ key: ComparisonKey | null; stamp: string }>({
-    key: null,
-    stamp: "",
-  });
+): KeyedRowAction | null {
+  const [seen, setSeen] = useState<{
+    key: ComparisonKey | null;
+    stamp: string;
+  }>({ key: null, stamp: "" });
 
-  useEffect(() => {
-    if (!activeKey || !mergeBaseOid) return;
-    const prev = prevStampRef.current;
-    if (
-      prev.key === activeKey &&
-      prev.stamp !== mergeBaseOid &&
-      prev.stamp !== ""
-    ) {
-      dispatch({ type: "reset-key", key: activeKey });
+  if (activeKey && mergeBaseOid) {
+    if (seen.key !== activeKey || seen.stamp !== mergeBaseOid) {
+      const reset =
+        seen.key === activeKey &&
+        seen.stamp !== mergeBaseOid &&
+        seen.stamp !== "";
+      setSeen({ key: activeKey, stamp: mergeBaseOid });
+      if (reset) return { type: "reset-key", key: activeKey };
     }
-    prevStampRef.current = { key: activeKey, stamp: mergeBaseOid };
-  }, [activeKey, mergeBaseOid, dispatch]);
+  }
 
-  useEffect(() => {
-    for (const key of storedKeysRef.current) {
-      if (!openKeys.has(key)) {
-        dispatch({ type: "evict-key", key });
-      }
+  for (const key of storedKeys) {
+    if (!openKeys.has(key)) {
+      return { type: "evict-key", key };
     }
-  }, [openKeys, dispatch]);
+  }
+  return null;
 }

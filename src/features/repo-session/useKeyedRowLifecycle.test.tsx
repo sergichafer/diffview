@@ -46,13 +46,13 @@ function mountLifecycle(args: Args): {
 
   function Harness({ props }: { props: Args }) {
     const [map, dispatch] = useReducer(reducer, {});
-    useKeyedRowLifecycle(
+    const keyedAction = useKeyedRowLifecycle(
       props.activeKey,
       props.mergeBaseOid,
       props.openKeys,
       Object.keys(map),
-      dispatch,
     );
+    if (keyedAction) dispatch(keyedAction);
     latest = map;
     useEffect(() => {
       setRow = (key: string) => dispatch({ type: "set", key });

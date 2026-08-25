@@ -38,13 +38,13 @@ export function useLineCommentsState({
 }: UseLineCommentsOptions) {
   const [store, dispatch] = useReducer(commentsReducer, emptyCommentsStore);
   const nextKeyRef = useRef(0);
-  useKeyedRowLifecycle(
+  const keyedAction = useKeyedRowLifecycle(
     activeKey,
     mergeBaseOid,
     openKeys,
     Object.keys(store.map),
-    dispatch,
   );
+  if (keyedAction) dispatch(keyedAction);
 
   const pathComments: PathComments =
     activeKey != null

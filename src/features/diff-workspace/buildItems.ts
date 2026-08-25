@@ -2,6 +2,7 @@ import { processFile } from "@pierre/diffs";
 import type { CodeViewDiffItem } from "@pierre/diffs/react";
 import { normalizeChangedFilePath } from "@/features/changed-files/identity";
 import { orderedPaths } from "@/features/changed-files/order";
+import type { CommentMeta } from "@/features/line-comments/commentMeta";
 import type { ChangedFile, FileDiffResult } from "@/shared/types/app";
 
 function hashString(value: string): string {
@@ -21,7 +22,7 @@ export function diffCacheKey(
   return `${path}:${mergeBase}:${headOid}:${hashString(patch)}`;
 }
 
-const itemCache = new Map<string, CodeViewDiffItem>();
+const itemCache = new Map<string, CodeViewDiffItem<CommentMeta>>();
 
 /** @internal Test-only cache reset. */
 export function clearItemCacheForTests(): void {
@@ -64,7 +65,7 @@ function buildItemFromResult(
   result: FileDiffResult,
   mergeBase: string,
   headOid: string,
-): { item: CodeViewDiffItem; editable: boolean } | null {
+): { item: CodeViewDiffItem<CommentMeta>; editable: boolean } | null {
   const path = normalizeChangedFilePath(result.path);
   const patch = patchForResult(result);
   if (!patch) return null;
@@ -94,7 +95,7 @@ function buildItemFromResult(
   const editable = isEditableResult(result, fileDiff);
   // Edit attaches lazily on user intent (`editEnabledPaths`); keep items read-only
   // until then so pure scrolling creates zero editors / loadDiffFiles calls.
-  const item: CodeViewDiffItem = {
+  const item: CodeViewDiffItem<CommentMeta> = {
     id: path,
     type: "diff",
     fileDiff,
@@ -104,7 +105,7 @@ function buildItemFromResult(
   return { item, editable };
 }
 
-function pruneItemCache(items: readonly CodeViewDiffItem[]): void {
+function pruneItemCache(items: readonly CodeViewDiffItem<CommentMeta>[]): void {
   const activeKeys = new Set<string>();
   for (const item of items) {
     if (item.type === "diff" && item.fileDiff.cacheKey != null) {
@@ -120,15 +121,15 @@ function pruneItemCache(items: readonly CodeViewDiffItem[]): void {
 
 function orderedItemsFromMap(
   files: ChangedFile[],
-  itemsById: Map<string, CodeViewDiffItem>,
-): CodeViewDiffItem[] {
+  itemsById: Map<string, CodeViewDiffItem<CommentMeta>>,
+): CodeViewDiffItem<CommentMeta>[] {
   return orderedPaths(files.map((f) => f.path))
     .map((path) => itemsById.get(normalizeChangedFilePath(path)))
-    .filter((item): item is CodeViewDiffItem => item != null);
+    .filter((item): item is CodeViewDiffItem<CommentMeta> => item != null);
 }
 
 export interface BuildCodeViewItemsResult {
-  items: CodeViewDiffItem[];
+  items: CodeViewDiffItem<CommentMeta>[];
   /** Paths that may enter edit mode (text diffs with a new side). */
   editablePaths: Set<string>;
 }
@@ -144,7 +145,7 @@ export function buildCodeViewItems(
     resultByPath.set(normalizeChangedFilePath(result.path), result);
   }
 
-  const items: CodeViewDiffItem[] = [];
+  const items: CodeViewDiffItem<CommentMeta>[] = [];
   const editablePaths = new Set<string>();
 
   for (const path of orderedPaths(files.map((f) => f.path))) {
@@ -162,15 +163,15 @@ export function buildCodeViewItems(
 }
 
 export function appendCodeViewItems(
-  existingItems: readonly CodeViewDiffItem[],
+  existingItems: readonly CodeViewDiffItem<CommentMeta>[],
   existingEditablePaths: ReadonlySet<string>,
   newResults: readonly FileDiffResult[],
   files: ChangedFile[],
   mergeBase = "",
   headOid = "",
 ): {
-  items: CodeViewDiffItem[];
-  added: CodeViewDiffItem[];
+  items: CodeViewDiffItem<CommentMeta>[];
+  added: CodeViewDiffItem<CommentMeta>[];
   editablePaths: Set<string>;
 } {
   const editablePaths = new Set(existingEditablePaths);
@@ -180,7 +181,7 @@ export function appendCodeViewItems(
   }
 
   const itemsById = new Map(existingItems.map((item) => [item.id, item]));
-  const added: CodeViewDiffItem[] = [];
+  const added: CodeViewDiffItem<CommentMeta>[] = [];
 
   for (const result of newResults) {
     const path = normalizeChangedFilePath(result.path);

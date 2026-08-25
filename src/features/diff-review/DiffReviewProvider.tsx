@@ -31,13 +31,13 @@ export function useDiffReviewState({
   openKeys,
 }: UseDiffReviewOptions) {
   const [map, dispatch] = useReducer(reviewReducer, {} as DiffReviewMap);
-  useKeyedRowLifecycle(
+  const keyedAction = useKeyedRowLifecycle(
     activeKey,
     mergeBaseOid,
     openKeys,
     Object.keys(map),
-    dispatch,
   );
+  if (keyedAction) dispatch(keyedAction);
 
   const activeState =
     activeKey != null

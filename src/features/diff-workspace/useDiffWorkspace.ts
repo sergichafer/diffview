@@ -225,11 +225,11 @@ function useCodeViewItems(
   files: ChangedFile[],
   mergeBaseOid: string,
   headOid: string,
-): { items: CodeViewDiffItem[]; editablePaths: Set<string> } {
+): { items: CodeViewDiffItem<CommentMeta>[]; editablePaths: Set<string> } {
   const cacheRef = useRef<{
     filesKey: string;
     stampKey: string;
-    items: CodeViewDiffItem[];
+    items: CodeViewDiffItem<CommentMeta>[];
     editablePaths: Set<string>;
     diffCount: number;
   }>({

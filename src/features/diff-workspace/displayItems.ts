@@ -51,7 +51,7 @@ export type DisplayItemView = {
  * clearing the last comment on a file.
  */
 export function applyDisplayItems(
-  items: readonly CodeViewDiffItem[],
+  items: readonly CodeViewDiffItem<CommentMeta>[],
   view: DisplayItemView,
 ): CodeViewDiffItem<CommentMeta>[] {
   return items.map((item) => {
@@ -73,8 +73,7 @@ export function applyDisplayItems(
       item.version === version &&
       item.annotations === annotations
     ) {
-      // Unchanged rows have no overlay; they are valid CommentMeta items.
-      return item as CodeViewDiffItem<CommentMeta>;
+      return item;
     }
     return { ...item, collapsed, edit: editing, annotations, version };
   });
