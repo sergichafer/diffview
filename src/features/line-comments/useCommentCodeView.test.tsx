@@ -4,7 +4,7 @@ import type { CodeViewDiffItem } from "@pierre/diffs/react";
 import type { CommentMeta } from "./commentMeta";
 import { COPY_PROMPT_PANEL_PADDING } from "./useCommentCodeView";
 
-const { act, useEffect, useState } = await import("react");
+const { act, isValidElement, useEffect, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { useLineCommentsState } = await import("./LineCommentsProvider");
 const { useCommentCodeView } = await import("./useCommentCodeView");
@@ -169,6 +169,30 @@ describe("useCommentCodeView", () => {
     });
     expect(h.view().panelPaddingBottom).toBe(COPY_PROMPT_PANEL_PADDING);
     expect(h.view().chip).not.toBeNull();
+    h.unmount();
+  });
+
+  test("saving a comment keeps the authored line range selected", () => {
+    const items = [item("a.ts")];
+    const h = mountView({ items });
+    const range = { start: 1, end: 2, side: "additions" as const };
+    act(() => {
+      h.view().onSelectedLinesChange({ id: "a.ts", range });
+      h.comments().startDraft("a.ts", range);
+    });
+    expect(h.view().selectedLines).toEqual({ id: "a.ts", range });
+
+    const draft = h.comments().pathComments["a.ts"]?.[0];
+    if (draft == null) throw new Error("expected draft");
+    const card = h.view().renderAnnotation(draft, items[0]!);
+    if (!isValidElement(card)) throw new Error("expected comment card");
+    const onSave = (card.props as { onSave: (message: string) => void }).onSave;
+
+    act(() => {
+      onSave("keep the range");
+    });
+    expect(h.view().selectedLines).toEqual({ id: "a.ts", range });
+    expect(h.comments().pathComments["a.ts"]?.[0]?.metadata.kind).toBe("saved");
     h.unmount();
   });
 

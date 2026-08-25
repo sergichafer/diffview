@@ -84,7 +84,7 @@ export function useCommentCodeView({
         captured.snippet,
         captured.language,
       );
-      setSelectedLines(null);
+      setSelectedLines({ id: path, range: annotation.metadata.range });
     },
     [displayItems, saveComment, setSelectedLines],
   );
