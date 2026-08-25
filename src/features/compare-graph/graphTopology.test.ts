@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   graphTopology,
+  comparisonHasWip,
   comparisonIsLive,
   graphDetail,
   graphTitle,
@@ -39,6 +40,47 @@ describe("comparisonIsLive", () => {
   test("null overview treats empty head as live and a named head as committed", () => {
     expect(comparisonIsLive(null, "")).toBe(true);
     expect(comparisonIsLive(null, "feature")).toBe(false);
+  });
+});
+
+describe("comparisonHasWip", () => {
+  test("live comparison with unstaged files is WIP", () => {
+    expect(
+      comparisonHasWip(
+        {
+          isLive: true,
+          currentBranch: "feature",
+          files: [{ path: "a.ts", badges: ["unstaged"], isBinary: false }],
+        },
+        "feature",
+      ),
+    ).toBe(true);
+  });
+
+  test("live comparison with only committed files is not WIP", () => {
+    expect(
+      comparisonHasWip(
+        {
+          isLive: true,
+          currentBranch: "feature",
+          files: [{ path: "a.ts", badges: ["committed"], isBinary: false }],
+        },
+        "feature",
+      ),
+    ).toBe(false);
+  });
+
+  test("committed comparison with dirty badges is not WIP", () => {
+    expect(
+      comparisonHasWip(
+        {
+          isLive: true,
+          currentBranch: "feature",
+          files: [{ path: "a.ts", badges: ["unstaged"], isBinary: false }],
+        },
+        "release/1.4",
+      ),
+    ).toBe(false);
   });
 });
 

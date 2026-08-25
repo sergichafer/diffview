@@ -275,10 +275,15 @@ describe("CompareGraphPopover", () => {
     outside.remove();
   });
 
-  test("empty head legends WIP even if overview.isLive is still false", () => {
+  test("unstaged files on a live head legend WIP past HEAD", () => {
     renderPopover({
-      head: "",
-      overview: overview({ isLive: false, currentBranch: "feature" }),
+      head: "feature",
+      overview: overview({
+        isLive: true,
+        currentBranch: "feature",
+        files: [{ path: "a.ts", badges: ["unstaged"], isBinary: false }],
+      }),
+      metadata: [row("feature", 2, 0)],
     });
     act(() => {
       graphButton().click();
@@ -286,25 +291,43 @@ describe("CompareGraphPopover", () => {
     const legend = panel()?.querySelector(".compare-graph-legend")?.textContent;
     expect(legend).toContain(WIP_LABEL);
     expect(legend).not.toContain("Working tree");
+    const svg = panel()?.querySelector("svg");
+    const wip = svg?.querySelector('[data-graph-node="wip"]');
+    const head = svg?.querySelector('[data-graph-node="head"]');
+    expect(wip).toBeTruthy();
+    expect(head).toBeTruthy();
+    expect(Number(wip?.getAttribute("cy"))).toBeLessThan(
+      Number(head?.getAttribute("cy")),
+    );
   });
 
-  test("head matching currentBranch legends WIP", () => {
+  test("live comparison with only committed files does not legend WIP", () => {
     renderPopover({
       head: "feature",
-      overview: overview({ isLive: false, currentBranch: "feature" }),
+      overview: overview({
+        isLive: true,
+        currentBranch: "feature",
+        files: [{ path: "a.ts", badges: ["committed"], isBinary: false }],
+      }),
+      metadata: [row("feature", 2, 0)],
     });
     act(() => {
       graphButton().click();
     });
-    expect(panel()?.querySelector(".compare-graph-legend")?.textContent).toContain(
-      WIP_LABEL,
-    );
+    expect(
+      panel()?.querySelector(".compare-graph-legend")?.textContent,
+    ).not.toContain(WIP_LABEL);
+    expect(panel()?.querySelector('[data-graph-node="wip"]')).toBeNull();
   });
 
   test("a named head other than currentBranch does not legend WIP", () => {
     renderPopover({
       head: "release/1.4",
-      overview: overview({ isLive: true, currentBranch: "feature" }),
+      overview: overview({
+        isLive: true,
+        currentBranch: "feature",
+        files: [{ path: "a.ts", badges: ["unstaged"], isBinary: false }],
+      }),
       metadata: [row("release/1.4", 2, 0)],
     });
     act(() => {

@@ -14,10 +14,10 @@ import {
   useOverlayPresence,
 } from "@/design/useOverlayPresence";
 import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
-import { WIP_LABEL, WIP_TITLE } from "@/shared/wipCopy";
+import { GRAPH_WIP_TITLE, WIP_LABEL } from "@/shared/wipCopy";
 import { CompareGraphSvg } from "./CompareGraphSvg";
 import {
-  comparisonIsLive,
+  comparisonHasWip,
   graphDetail,
   graphTitle,
   graphTopology,
@@ -55,7 +55,7 @@ export function CompareGraphPopover({
     () => graphTopology({ head, base, overview, metadata }),
     [head, base, overview, metadata],
   );
-  const isLive = comparisonIsLive(overview, head);
+  const hasWip = comparisonHasWip(overview, head);
 
   const close = useCallback((restoreFocus: boolean) => {
     restoreFocusRef.current = restoreFocus;
@@ -139,7 +139,7 @@ export function CompareGraphPopover({
             onTransitionEnd={presence.onTransitionEnd}
           >
             <p className="compare-graph-head">Graph</p>
-            <CompareGraphSvg topology={topology} isLive={isLive} />
+            <CompareGraphSvg topology={topology} hasWip={hasWip} />
             <p id={captionId} className="compare-graph-caption">
               <strong>{graphTitle(topology)}.</strong> {graphDetail(topology)}
             </p>
@@ -165,8 +165,8 @@ export function CompareGraphPopover({
                 />
                 behind
               </span>
-              {isLive ? (
-                <span className="compare-graph-legend-item" title={WIP_TITLE}>
+              {hasWip ? (
+                <span className="compare-graph-legend-item" title={GRAPH_WIP_TITLE}>
                   <span
                     className="compare-graph-swatch compare-graph-swatch-live"
                     aria-hidden="true"

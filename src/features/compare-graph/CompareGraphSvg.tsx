@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { truncateLabel } from "@/shared/truncateLabel";
+import { WIP_LABEL } from "@/shared/wipCopy";
 import type { GraphTopology } from "./graphTopology";
 
 const VIEW_W = 248;
@@ -11,6 +12,7 @@ const X_BEHIND = VIEW_W * 0.64;
 const X_JOIN = (X_AHEAD + X_BEHIND) / 2;
 const GRAPH_LABEL_CHARS = 16;
 const MAX_INTERMEDIATE_DOTS = 8;
+const WIP_LIFT = 24;
 
 function intermediateDotCount(commitCount: number): number {
   if (commitCount <= 1) return 0;
@@ -111,25 +113,43 @@ function laneDots(
   return dots;
 }
 
-interface CompareGraphSvgProps {
-  topology: GraphTopology;
-  isLive: boolean;
+function WipTip({ cx, cy }: { cx: number; cy: number }) {
+  return (
+    <>
+      <Hollow cx={cx} cy={cy} />
+      <Label x={cx + 12} y={cy + 4} text={WIP_LABEL} anchor="start" />
+    </>
+  );
 }
 
-function graphBody(topology: GraphTopology, isLive: boolean): ReactNode {
+interface CompareGraphSvgProps {
+  topology: GraphTopology;
+  hasWip: boolean;
+}
+
+function graphBody(topology: GraphTopology, hasWip: boolean): ReactNode {
   const success = "var(--state-success)";
   const danger = "var(--state-danger)";
   const baseLabel = topology.baseLabel
     ? truncateLabel(topology.baseLabel, GRAPH_LABEL_CHARS)
     : "base";
+  const headY = hasWip ? Y0 + WIP_LIFT : Y0;
 
   switch (topology.kind) {
     case "unknown": {
       const y = (Y0 + Y1) / 2;
       return (
         <>
+          {hasWip ? (
+            <path
+              d={`M ${X_JOIN} ${y - WIP_LIFT} V ${y}`}
+              stroke={success}
+              strokeWidth={1.6}
+              fill="none"
+            />
+          ) : null}
           <Diamond cx={X_JOIN} cy={y} />
-          {isLive ? <Hollow cx={X_JOIN} cy={y} /> : null}
+          {hasWip ? <WipTip cx={X_JOIN} cy={y - WIP_LIFT} /> : null}
           <Label x={X_JOIN} y={y + 22} text="counts pending" anchor="middle" />
         </>
       );
@@ -138,8 +158,16 @@ function graphBody(topology: GraphTopology, isLive: boolean): ReactNode {
       const y = (Y0 + Y1) / 2;
       return (
         <>
+          {hasWip ? (
+            <path
+              d={`M ${X_JOIN} ${y - WIP_LIFT} V ${y}`}
+              stroke={success}
+              strokeWidth={1.6}
+              fill="none"
+            />
+          ) : null}
           <Diamond cx={X_JOIN} cy={y} />
-          {isLive ? <Hollow cx={X_JOIN} cy={y} /> : null}
+          {hasWip ? <WipTip cx={X_JOIN} cy={y - WIP_LIFT} /> : null}
           <Label x={X_JOIN + 12} y={y - 4} text="HEAD" anchor="start" />
           <Label x={X_JOIN + 12} y={y + 12} text="merge-base" anchor="start" />
         </>
@@ -155,11 +183,11 @@ function graphBody(topology: GraphTopology, isLive: boolean): ReactNode {
             fill="none"
           />
           <Diamond cx={X_AHEAD} cy={Y1} />
-          {laneDots(intermediateDotCount(topology.ahead), X_AHEAD, Y0, Y1, success)}
-          <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} role="head" />
-          {isLive ? <Hollow cx={X_AHEAD} cy={Y0} /> : null}
+          {laneDots(intermediateDotCount(topology.ahead), X_AHEAD, headY, Y1, success)}
+          <Node cx={X_AHEAD} cy={headY} fill={success} r={5} role="head" />
+          {hasWip ? <WipTip cx={X_AHEAD} cy={Y0} /> : null}
           <Label x={X_AHEAD + 12} y={Y1 + 4} text={baseLabel} anchor="start" />
-          <Label x={X_AHEAD + 12} y={Y0 + 4} text="HEAD" anchor="start" />
+          <Label x={X_AHEAD + 12} y={headY + 4} text="HEAD" anchor="start" />
         </>
       );
     case "behind":
@@ -171,6 +199,14 @@ function graphBody(topology: GraphTopology, isLive: boolean): ReactNode {
             strokeWidth={1.6}
             fill="none"
           />
+          {hasWip ? (
+            <path
+              d={`M ${X_AHEAD} ${Y1 - WIP_LIFT} V ${Y1}`}
+              stroke={success}
+              strokeWidth={1.6}
+              fill="none"
+            />
+          ) : null}
           <Diamond cx={X_AHEAD} cy={Y1} />
           {laneDots(
             intermediateDotCount(topology.behind),
@@ -180,7 +216,7 @@ function graphBody(topology: GraphTopology, isLive: boolean): ReactNode {
             danger,
           )}
           <Node cx={X_BEHIND} cy={Y0} fill={danger} r={5} role="head" />
-          {isLive ? <Hollow cx={X_AHEAD} cy={Y1} /> : null}
+          {hasWip ? <WipTip cx={X_AHEAD} cy={Y1 - WIP_LIFT} /> : null}
           <Label x={8} y={Y1 + 4} text="HEAD" anchor="start" />
           <Label x={X_BEHIND + 10} y={Y0 + 4} text={baseLabel} anchor="start" />
         </>
@@ -204,7 +240,7 @@ function graphBody(topology: GraphTopology, isLive: boolean): ReactNode {
           {laneDots(
             intermediateDotCount(topology.ahead),
             X_AHEAD,
-            Y0,
+            headY,
             Y1 - 64,
             success,
           )}
@@ -216,17 +252,17 @@ function graphBody(topology: GraphTopology, isLive: boolean): ReactNode {
             danger,
           )}
           <Node cx={X_BEHIND} cy={Y0 + 8} fill={danger} r={5} role="head" />
-          <Node cx={X_AHEAD} cy={Y0} fill={success} r={5} role="head" />
-          {isLive ? <Hollow cx={X_AHEAD} cy={Y0} /> : null}
+          <Node cx={X_AHEAD} cy={headY} fill={success} r={5} role="head" />
+          {hasWip ? <WipTip cx={X_AHEAD} cy={Y0} /> : null}
           <Label x={8} y={Y1 + 12} text="merge-base" anchor="start" />
-          <Label x={X_AHEAD - 6} y={Y0 - 8} text="HEAD" anchor="end" />
+          <Label x={X_AHEAD - 6} y={headY - 8} text="HEAD" anchor="end" />
           <Label x={X_BEHIND + 10} y={Y0 + 12} text={baseLabel} anchor="start" />
         </>
       );
   }
 }
 
-export function CompareGraphSvg({ topology, isLive }: CompareGraphSvgProps) {
+export function CompareGraphSvg({ topology, hasWip }: CompareGraphSvgProps) {
   return (
     <svg
       className="compare-graph-svg"
@@ -234,7 +270,7 @@ export function CompareGraphSvg({ topology, isLive }: CompareGraphSvgProps) {
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
     >
-      {graphBody(topology, isLive)}
+      {graphBody(topology, hasWip)}
     </svg>
   );
 }

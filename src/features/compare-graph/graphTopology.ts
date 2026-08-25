@@ -1,4 +1,9 @@
-import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
+import type {
+  BranchMetadata,
+  BranchOverview,
+  ChangedFile,
+  FileBadge,
+} from "@/shared/types/app";
 
 export type GraphOverviewSlice = Pick<
   BranchOverview,
@@ -41,6 +46,25 @@ export function comparisonIsLive(
   if (current && trimmed === current) return true;
   if (current && trimmed !== current) return false;
   return overview?.isLive ?? false;
+}
+
+const WIP_FILE_BADGES: ReadonlySet<FileBadge> = new Set([
+  "staged",
+  "unstaged",
+  "untracked",
+]);
+
+function fileHasWipBadge(file: ChangedFile): boolean {
+  return file.badges.some((badge) => WIP_FILE_BADGES.has(badge));
+}
+
+/** Uncommitted staged, unstaged, or untracked changes on a live comparison. */
+export function comparisonHasWip(
+  overview: Pick<BranchOverview, "isLive" | "currentBranch" | "files"> | null,
+  head: string,
+): boolean {
+  if (!comparisonIsLive(overview, head)) return false;
+  return overview?.files.some(fileHasWipBadge) ?? false;
 }
 
 export function graphTitle(topology: GraphTopology): string {
