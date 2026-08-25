@@ -9,5 +9,6 @@ describe("buildDiffLayoutUnsafeCss", () => {
     expect(css).toContain("[data-comment-line]");
     expect(css).toContain(roles.states.info);
     expect(css).toContain(":not([data-selected-line])");
+    expect(css).not.toContain("--diffs-selection-number-fg");
   });
 });

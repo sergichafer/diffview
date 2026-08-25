@@ -236,7 +236,7 @@ describe("useCommentCodeView", () => {
     h.unmount();
   });
 
-  test("saving from the card clears the ephemeral selection", () => {
+  test("saving from the card clears selection only when it still covers that range", () => {
     const items = [item("a.ts")];
     const h = mountView({ items });
     const range = { start: 1, end: 1, side: "additions" as const };
@@ -265,6 +265,39 @@ describe("useCommentCodeView", () => {
     });
     expect(h.comments().pathComments["a.ts"]?.[0]?.metadata.kind).toBe("saved");
     expect(h.view().selectedLines).toBeNull();
+    h.unmount();
+  });
+
+  test("saving leaves a selection that is not on that comment", () => {
+    const items = [item("a.ts"), item("b.ts")];
+    const h = mountView({ items });
+    const rangeA = { start: 1, end: 1, side: "additions" as const };
+    const rangeB = { start: 2, end: 2, side: "additions" as const };
+    act(() => {
+      h.view().onGutterUtilityClick(rangeA, { item: items[0]! });
+      h.view().onSelectedLinesChange({ id: "b.ts", range: rangeB });
+    });
+    const textarea = h.host.querySelector("textarea");
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error("missing composer");
+    }
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(textarea, "keep");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const save = [...h.host.querySelectorAll("button")].find(
+      (btn) => btn.textContent === "Save",
+    );
+    if (!(save instanceof HTMLButtonElement)) throw new Error("missing save");
+    act(() => {
+      save.click();
+    });
+    expect(h.comments().pathComments["a.ts"]?.[0]?.metadata.kind).toBe("saved");
+    expect(h.view().selectedLines).toEqual({ id: "b.ts", range: rangeB });
     h.unmount();
   });
 
@@ -311,6 +344,32 @@ describe("useCommentCodeView", () => {
     h.unmount();
   });
 
+  test("deleting a saved comment leaves a selection on another file", () => {
+    const items = [item("a.ts"), item("b.ts")];
+    const h = mountView({ items });
+    const rangeA = { start: 1, end: 1, side: "additions" as const };
+    const rangeB = { start: 2, end: 2, side: "additions" as const };
+    act(() => {
+      h.view().onGutterUtilityClick(rangeA, { item: items[0]! });
+    });
+    const draftA = h.comments().pathComments["a.ts"]?.[0];
+    if (draftA == null) throw new Error("expected draft a");
+    act(() => {
+      h.comments().saveComment("a.ts", draftA.metadata.key, "a", "x", "ts");
+      h.view().onSelectedLinesChange({ id: "b.ts", range: rangeB });
+    });
+    const remove = [...h.host.querySelectorAll("button")].find(
+      (btn) => btn.textContent === "Delete",
+    );
+    if (!(remove instanceof HTMLButtonElement)) throw new Error("missing delete");
+    act(() => {
+      remove.click();
+    });
+    expect(h.comments().pathComments["a.ts"]).toBeUndefined();
+    expect(h.view().selectedLines).toEqual({ id: "b.ts", range: rangeB });
+    h.unmount();
+  });
+
   test("onPostRender paints comment ranges without touching selectedLines", () => {
     const items = [item("a.ts")];
     const h = mountView({ items });
@@ -318,6 +377,8 @@ describe("useCommentCodeView", () => {
     act(() => {
       h.view().onGutterUtilityClick(range, { item: items[0]! });
     });
+    const draft = h.comments().pathComments["a.ts"]?.[0];
+    if (draft == null) throw new Error("expected draft");
     const host = document.createElement("div");
     host.innerHTML = `
       <pre data-diff-type="unified">
@@ -343,15 +404,15 @@ describe("useCommentCodeView", () => {
           ],
         },
         "update",
-        { item: items[0]! },
+        { item: { ...items[0]!, annotations: [draft] } },
       );
     });
-    expect(host.querySelector('[data-line="1"]')?.getAttribute("data-comment-line")).toBe(
-      "first",
-    );
-    expect(host.querySelector('[data-line="2"]')?.getAttribute("data-comment-line")).toBe(
-      "last",
-    );
+    expect(
+      host.querySelector('[data-line="1"]')?.hasAttribute("data-comment-line"),
+    ).toBe(true);
+    expect(
+      host.querySelector('[data-line="2"]')?.hasAttribute("data-comment-line"),
+    ).toBe(true);
     expect(h.view().selectedLines).toBeNull();
     h.unmount();
   });

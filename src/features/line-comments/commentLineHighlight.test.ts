@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { DiffLineAnnotation, SelectedLineRange } from "@pierre/diffs";
-import type { CommentMeta } from "./commentMeta";
+import type { SelectedLineRange } from "@pierre/diffs";
 import {
   COMMENT_LINE_ATTR,
-  commentLineKind,
   occupyCommentRows,
   paintCommentLines,
 } from "./commentLineHighlight";
@@ -24,37 +22,12 @@ function range(
   return endSide != null ? { start, end, side, endSide } : { start, end, side };
 }
 
-function annotation(lineRange: SelectedLineRange): DiffLineAnnotation<CommentMeta> {
-  return {
-    side: lineRange.endSide ?? lineRange.side ?? "additions",
-    lineNumber: lineRange.end,
-    metadata: {
-      kind: "saved",
-      key: "c1",
-      message: "note",
-      range: lineRange,
-      snippet: "x",
-      language: "ts",
-    },
-  };
-}
-
 function rowsOf(
   occupied: ReturnType<typeof occupyCommentRows>,
   column: "unified" | "additions" | "deletions",
 ): number[] {
   return [...(occupied.get(column) ?? [])].sort((a, b) => a - b);
 }
-
-describe("commentLineKind", () => {
-  test("marks single, first, middle, and last from occupancy", () => {
-    const occupied = new Set([2, 3, 4]);
-    expect(commentLineKind(2, occupied)).toBe("first");
-    expect(commentLineKind(3, occupied)).toBe("");
-    expect(commentLineKind(4, occupied)).toBe("last");
-    expect(commentLineKind(5, new Set([5]))).toBe("single");
-  });
-});
 
 describe("occupyCommentRows", () => {
   test("skips ranges with no side", () => {
@@ -112,24 +85,21 @@ function mockUnifiedHost(): HTMLElement {
   return host;
 }
 
+function paintedKeys(host: ParentNode): string[] {
+  return [...host.querySelectorAll(`[${COMMENT_LINE_ATTR}]`)].map(
+    (el) =>
+      el.getAttribute("data-line") ??
+      el.getAttribute("data-column-number") ??
+      el.getAttribute("data-gutter-buffer") ??
+      el.tagName,
+  );
+}
+
 describe("paintCommentLines", () => {
   test("paints the comment span and leaves other rows alone", () => {
     const host = mockUnifiedHost();
-    paintCommentLines(host, { getLineIndex: identityIndex }, [
-      annotation(range(1, 2)),
-    ]);
-    const painted = [...host.querySelectorAll(`[${COMMENT_LINE_ATTR}]`)].map(
-      (el) => [
-        el.getAttribute("data-line") ?? el.getAttribute("data-column-number"),
-        el.getAttribute(COMMENT_LINE_ATTR),
-      ],
-    );
-    expect(painted).toEqual([
-      ["1", "first"],
-      ["2", "last"],
-      ["1", "first"],
-      ["2", "last"],
-    ]);
+    paintCommentLines(host, identityIndex, [range(1, 2)]);
+    expect(paintedKeys(host)).toEqual(["1", "2", "1", "2"]);
     expect(
       host.querySelector('[data-line="3"]')?.hasAttribute(COMMENT_LINE_ATTR),
     ).toBe(false);
@@ -137,11 +107,9 @@ describe("paintCommentLines", () => {
 
   test("clears stale marks when comments are gone", () => {
     const host = mockUnifiedHost();
-    paintCommentLines(host, { getLineIndex: identityIndex }, [
-      annotation(range(1, 1)),
-    ]);
+    paintCommentLines(host, identityIndex, [range(1, 1)]);
     expect(host.querySelectorAll(`[${COMMENT_LINE_ATTR}]`).length).toBe(2);
-    paintCommentLines(host, { getLineIndex: identityIndex }, []);
+    paintCommentLines(host, identityIndex, []);
     expect(host.querySelectorAll(`[${COMMENT_LINE_ATTR}]`).length).toBe(0);
   });
 
@@ -167,14 +135,12 @@ describe("paintCommentLines", () => {
         </code>
       </pre>
     `;
-    paintCommentLines(host, { getLineIndex: identityIndex }, [
-      annotation(range(1, 1, "additions")),
-    ]);
+    paintCommentLines(host, identityIndex, [range(1, 1, "additions")]);
     expect(
       host
         .querySelector("[data-additions] [data-line]")
-        ?.getAttribute(COMMENT_LINE_ATTR),
-    ).toBe("single");
+        ?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(true);
     expect(
       host
         .querySelector("[data-deletions] [data-line]")
@@ -182,7 +148,7 @@ describe("paintCommentLines", () => {
     ).toBe(false);
   });
 
-  test("extends first/last onto an annotation slot like Pierre selection", () => {
+  test("marks the annotation slot on the occupied row", () => {
     const host = document.createElement("div");
     host.innerHTML = `
       <pre data-diff-type="unified">
@@ -198,24 +164,20 @@ describe("paintCommentLines", () => {
         </code>
       </pre>
     `;
-    paintCommentLines(
-      host,
-      { getLineIndex: () => [0, 0] },
-      [annotation(range(4, 4))],
-    );
+    paintCommentLines(host, () => [0, 0], [range(4, 4)]);
     expect(
-      host.querySelector("[data-line]")?.getAttribute(COMMENT_LINE_ATTR),
-    ).toBe("first");
+      host.querySelector("[data-line]")?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(true);
     expect(
       host
         .querySelector("[data-line-annotation]")
-        ?.getAttribute(COMMENT_LINE_ATTR),
-    ).toBe("last");
+        ?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(true);
     expect(
       host
         .querySelector("[data-gutter-buffer]")
-        ?.getAttribute(COMMENT_LINE_ATTR),
-    ).toBe("last");
+        ?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(true);
   });
 
   test("reads through an open shadow root", () => {
@@ -223,11 +185,9 @@ describe("paintCommentLines", () => {
     const shadow = host.attachShadow({ mode: "open" });
     const inner = mockUnifiedHost();
     shadow.append(...inner.childNodes);
-    paintCommentLines(host, { getLineIndex: identityIndex }, [
-      annotation(range(3, 3)),
-    ]);
+    paintCommentLines(host, identityIndex, [range(3, 3)]);
     expect(
-      shadow.querySelector('[data-line="3"]')?.getAttribute(COMMENT_LINE_ATTR),
-    ).toBe("single");
+      shadow.querySelector('[data-line="3"]')?.hasAttribute(COMMENT_LINE_ATTR),
+    ).toBe(true);
   });
 });

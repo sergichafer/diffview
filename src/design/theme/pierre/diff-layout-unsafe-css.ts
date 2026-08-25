@@ -10,13 +10,7 @@ export interface DiffFontStacks {
 function commentLineHighlightCss(mix: string): string {
   return `
 /* Comment ranges reuse Pierre's line and gutter slots, mixed with states.info. */
-[data-line][data-comment-line]:not([data-selected-line]),
-[data-line-annotation][data-comment-line]:not([data-selected-line]),
-[data-merge-conflict][data-comment-line]:not([data-selected-line]),
-[data-merge-conflict-actions][data-comment-line]:not([data-selected-line]),
-[data-no-newline][data-comment-line]:not([data-selected-line]),
-[data-gutter-buffer][data-comment-line]:not([data-selected-line]),
-[data-column-number][data-comment-line]:not([data-selected-line]) {
+[data-comment-line]:not([data-selected-line]) {
   --mix-comment-light: 82%;
   --mix-comment-dark: 75%;
   --diffs-comment-mix-target: ${mix};
@@ -30,7 +24,7 @@ function commentLineHighlightCss(mix: string): string {
 [data-column-number][data-comment-line]:not([data-selected-line]) {
   --mix-comment-light: 75%;
   --mix-comment-dark: 60%;
-  color: var(--diffs-selection-number-fg);
+  color: ${mix};
 }
 `;
 }

@@ -2,6 +2,7 @@ import {
   isDiffAnnotation,
   type CodeViewLineSelection,
   type DiffLineAnnotation,
+  type GetLineIndexUtility,
   type LineAnnotation,
   type SelectedLineRange,
 } from "@pierre/diffs";
@@ -42,6 +43,28 @@ export type CommentCodeViewBindings = {
   chip: ReactNode;
 };
 
+function selectionCoversRange(
+  lines: CodeViewLineSelection | null,
+  path: string,
+  range: SelectedLineRange,
+): boolean {
+  if (lines == null || lines.id !== path) return false;
+  const current = lines.range;
+  return (
+    current.start === range.start &&
+    current.end === range.end &&
+    current.side === range.side &&
+    current.endSide === range.endSide
+  );
+}
+
+function lineIndexFromHost(instance: object): GetLineIndexUtility | undefined {
+  if (!("getLineIndex" in instance)) return undefined;
+  const lookup = instance.getLineIndex;
+  if (typeof lookup !== "function") return undefined;
+  return lookup as GetLineIndexUtility;
+}
+
 export function useCommentCodeView({
   comments,
   displayItems,
@@ -80,6 +103,21 @@ export function useCommentCodeView({
     [activeKey],
   );
 
+  const releaseMatchingSelection = useCallback(
+    (path: string, range: SelectedLineRange) => {
+      setSelection((prev) => {
+        if (
+          prev.key !== activeKey ||
+          !selectionCoversRange(prev.lines, path, range)
+        ) {
+          return prev;
+        }
+        return { key: activeKey, lines: null };
+      });
+    },
+    [activeKey],
+  );
+
   const handleSave = useCallback(
     (
       path: string,
@@ -96,9 +134,9 @@ export function useCommentCodeView({
         captured.snippet,
         captured.language,
       );
-      setSelection({ key: activeKey, lines: null });
+      releaseMatchingSelection(path, annotation.metadata.range);
     },
-    [activeKey, displayItems, saveComment],
+    [displayItems, releaseMatchingSelection, saveComment],
   );
 
   const renderAnnotation = useCallback(
@@ -115,13 +153,13 @@ export function useCommentCodeView({
           onSave={(message) => handleSave(path, annotation, message)}
           onDiscard={() => {
             deleteComment(path, key);
-            setSelection({ key: activeKey, lines: null });
+            releaseMatchingSelection(path, annotation.metadata.range);
           }}
           onEdit={() => beginEdit(path, key)}
         />
       );
     },
-    [activeKey, beginEdit, deleteComment, handleSave],
+    [beginEdit, deleteComment, handleSave, releaseMatchingSelection],
   );
 
   const onGutterUtilityClick = useCallback(
@@ -135,14 +173,16 @@ export function useCommentCodeView({
 
   const onPostRender = useCallback<
     NonNullable<CodeViewReactOptions<CommentMeta>["onPostRender"]>
-  >(
-    (node, instance, phase, context) => {
-      if (phase === "unmount") return;
-      if (context.item.type !== "diff") return;
-      paintCommentLines(node, instance, pathComments[context.item.id] ?? []);
-    },
-    [pathComments],
-  );
+  >((node, instance, phase, context) => {
+    if (phase === "unmount") return;
+    if (context.item.type !== "diff") return;
+    const getLineIndex = lineIndexFromHost(instance);
+    if (getLineIndex == null) return;
+    const ranges = (context.item.annotations ?? []).map(
+      (row) => row.metadata.range,
+    );
+    paintCommentLines(node, getLineIndex, ranges);
+  }, []);
 
   const itemOrder = useMemo(
     () => displayItems.map((item) => item.id),

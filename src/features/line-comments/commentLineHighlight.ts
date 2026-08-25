@@ -1,30 +1,11 @@
 import type {
-  DiffLineAnnotation,
+  GetLineIndexUtility,
   SelectedLineRange,
 } from "@pierre/diffs";
-import type { CommentMeta } from "./commentMeta";
 
 export const COMMENT_LINE_ATTR = "data-comment-line";
 
 export type CommentColumn = "unified" | "additions" | "deletions";
-export type CommentLineKind = "single" | "first" | "last" | "";
-
-export type LineIndexLookup = (
-  lineNumber: number,
-  side?: "additions" | "deletions",
-) => [number, number] | undefined;
-
-export function commentLineKind(
-  index: number,
-  occupied: ReadonlySet<number>,
-): CommentLineKind {
-  const prev = occupied.has(index - 1);
-  const next = occupied.has(index + 1);
-  if (!prev && !next) return "single";
-  if (!prev) return "first";
-  if (!next) return "last";
-  return "";
-}
 
 function addRowRange(
   occupied: Map<CommentColumn, Set<number>>,
@@ -46,7 +27,7 @@ function addRowRange(
 export function occupyCommentRows(
   ranges: readonly SelectedLineRange[],
   split: boolean,
-  getLineIndex: LineIndexLookup,
+  getLineIndex: GetLineIndexUtility,
 ): Map<CommentColumn, Set<number>> {
   const occupied = new Map<CommentColumn, Set<number>>();
   for (const range of ranges) {
@@ -84,27 +65,19 @@ function highlightRoot(node: HTMLElement): ParentNode {
   return node.shadowRoot ?? node;
 }
 
-function lineIndexLookup(instance: object): LineIndexLookup | undefined {
-  if (!("getLineIndex" in instance)) return undefined;
-  const lookup = instance.getLineIndex;
-  if (typeof lookup !== "function") return undefined;
-  return lookup as LineIndexLookup;
-}
-
 function clearCommentLines(root: ParentNode): void {
   for (const element of root.querySelectorAll(`[${COMMENT_LINE_ATTR}]`)) {
     element.removeAttribute(COMMENT_LINE_ATTR);
   }
 }
 
-function markCommentLine(element: Element, kind: CommentLineKind): void {
-  element.setAttribute(COMMENT_LINE_ATTR, kind);
+function markCommentLine(element: Element): void {
+  element.setAttribute(COMMENT_LINE_ATTR, "");
 }
 
 function paintAnnotationSlot(
   contentElement: HTMLElement,
   gutterElement: HTMLElement,
-  kind: CommentLineKind,
 ): void {
   const contentNext = contentElement.nextElementSibling;
   const gutterNext = gutterElement.nextElementSibling;
@@ -120,42 +93,26 @@ function paintAnnotationSlot(
   ) {
     return;
   }
-  let contentKind = kind;
-  let slotKind = kind;
-  if (kind === "single") {
-    contentKind = "first";
-    slotKind = "last";
-  } else if (kind === "first") {
-    slotKind = "";
-  } else if (kind === "last") {
-    contentKind = "";
-  }
-  markCommentLine(contentElement, contentKind);
-  markCommentLine(contentNext, slotKind);
-  markCommentLine(gutterNext, slotKind);
+  markCommentLine(contentNext);
+  markCommentLine(gutterNext);
 }
 
 /**
- * Mirror Pierre's selected-line paint onto `data-comment-line` so comment
- * ranges sit in the same gutter and code slots without using `selectedLines`.
+ * Stamp occupied Pierre rows with `data-comment-line` so comment ranges sit in
+ * the same gutter and code slots without using `selectedLines`.
  */
 export function paintCommentLines(
   node: HTMLElement,
-  instance: object,
-  annotations: readonly DiffLineAnnotation<CommentMeta>[],
+  getLineIndex: GetLineIndexUtility,
+  ranges: readonly SelectedLineRange[],
 ): void {
   const root = highlightRoot(node);
   clearCommentLines(root);
-  const getLineIndex = lineIndexLookup(instance);
-  if (getLineIndex == null || annotations.length === 0) return;
+  if (ranges.length === 0) return;
   const pre = root.querySelector("pre");
   if (!(pre instanceof HTMLElement)) return;
   const split = pre.getAttribute("data-diff-type") === "split";
-  const occupied = occupyCommentRows(
-    annotations.map((annotation) => annotation.metadata.range),
-    split,
-    getLineIndex,
-  );
+  const occupied = occupyCommentRows(ranges, split, getLineIndex);
   if (occupied.size === 0) return;
 
   for (const code of pre.children) {
@@ -183,10 +140,9 @@ export function paintCommentLines(
       }
       const lineIndex = parseLineIndex(contentElement, split);
       if (lineIndex == null || !rows.has(lineIndex)) continue;
-      const kind = commentLineKind(lineIndex, rows);
-      markCommentLine(gutterElement, kind);
-      markCommentLine(contentElement, kind);
-      paintAnnotationSlot(contentElement, gutterElement, kind);
+      markCommentLine(gutterElement);
+      markCommentLine(contentElement);
+      paintAnnotationSlot(contentElement, gutterElement);
     }
   }
 }
