@@ -31,6 +31,19 @@ export function annotationAnchor(
   return { side, lineNumber: range.end };
 }
 
+export function isCommentSlotOccupied(
+  annotations: readonly DiffLineAnnotation<CommentMeta>[],
+  range: SelectedLineRange,
+): boolean {
+  const anchor = annotationAnchor(range);
+  if (anchor == null) return true;
+  return annotations.some(
+    (annotation) =>
+      annotation.side === anchor.side &&
+      annotation.lineNumber === anchor.lineNumber,
+  );
+}
+
 export function rangeLabel(range: SelectedLineRange): string {
   const start = Math.min(range.start, range.end);
   const end = Math.max(range.start, range.end);

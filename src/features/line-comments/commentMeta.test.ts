@@ -4,6 +4,7 @@ import {
   PROMPT_INTRO,
   annotationAnchor,
   buildExportPrompt,
+  isCommentSlotOccupied,
   languageFromPath,
   makeAnnotation,
   rangeLabel,
@@ -41,6 +42,18 @@ function saved(
   if (annotation == null) throw new Error("expected annotation");
   return annotation;
 }
+
+describe("isCommentSlotOccupied", () => {
+  test("treats a missing side as occupied so a draft cannot park", () => {
+    expect(isCommentSlotOccupied([], { start: 1, end: 2 })).toBe(true);
+  });
+
+  test("matches an existing comment on the park line", () => {
+    const held = saved("a.ts", "c1", "note", range(1, 4), "code", "ts");
+    expect(isCommentSlotOccupied([held], range(2, 4))).toBe(true);
+    expect(isCommentSlotOccupied([held], range(5, 5))).toBe(false);
+  });
+});
 
 describe("annotationAnchor", () => {
   test("parks on endSide and range.end", () => {

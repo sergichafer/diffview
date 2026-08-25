@@ -9,16 +9,35 @@ import type { CodeViewDiffItem, CodeViewItem } from "@pierre/diffs/react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { CommentCard } from "./CommentCard";
 import { CopyReviewPrompt } from "./CopyReviewPrompt";
-import { buildExportPrompt, type CommentMeta } from "./commentMeta";
+import {
+  annotationAnchor,
+  buildExportPrompt,
+  type CommentMeta,
+  type PathComments,
+} from "./commentMeta";
 import { captureCommentSnippet } from "./extractSnippet";
 import type { LineCommentsValue } from "./LineCommentsProvider";
 
 /** Room under the last file so the chip does not cover hunks. */
 export const COPY_PROMPT_PANEL_PADDING = 80;
 
+type CommentPin = {
+  path: string;
+  side: "additions" | "deletions";
+  lineNumber: number;
+};
+
+type SelectionState = {
+  key: string | null;
+  /** Slot whose range stays selected while that comment exists. */
+  pin: CommentPin | null;
+  lines: CodeViewLineSelection | null;
+};
+
 export type CommentCodeViewBindings = {
   selectedLines: CodeViewLineSelection | null;
   onSelectedLinesChange: (selection: CodeViewLineSelection | null) => void;
+  enableLineSelection: boolean;
   renderAnnotation: (
     annotation: LineAnnotation<CommentMeta> | DiffLineAnnotation<CommentMeta>,
     item: CodeViewItem<CommentMeta>,
@@ -30,6 +49,27 @@ export type CommentCodeViewBindings = {
   panelPaddingBottom: number;
   chip: ReactNode;
 };
+
+function pinFromRange(
+  path: string,
+  range: SelectedLineRange,
+): CommentPin | null {
+  const anchor = annotationAnchor(range);
+  if (anchor == null) return null;
+  return { path, side: anchor.side, lineNumber: anchor.lineNumber };
+}
+
+function selectionFromPin(
+  pin: CommentPin | null,
+  pathComments: PathComments,
+): CodeViewLineSelection | null {
+  if (pin == null) return null;
+  const annotation = pathComments[pin.path]?.find(
+    (row) => row.side === pin.side && row.lineNumber === pin.lineNumber,
+  );
+  if (annotation == null) return null;
+  return { id: pin.path, range: annotation.metadata.range };
+}
 
 export function useCommentCodeView({
   comments,
@@ -51,21 +91,36 @@ export function useCommentCodeView({
     savedCommentCount,
   } = comments;
 
-  const [selection, setSelection] = useState<{
-    key: string | null;
-    lines: CodeViewLineSelection | null;
-  }>({ key: activeKey, lines: null });
+  const [selection, setSelection] = useState<SelectionState>({
+    key: activeKey,
+    pin: null,
+    lines: null,
+  });
+  const pinnedLines = selectionFromPin(selection.pin, pathComments);
   if (selection.key !== activeKey) {
-    setSelection({ key: activeKey, lines: null });
+    setSelection({ key: activeKey, pin: null, lines: null });
+  } else if (selection.pin != null && pinnedLines == null) {
+    setSelection({ key: activeKey, pin: null, lines: null });
   }
-  const selectedLines =
-    selection.key === activeKey ? selection.lines : null;
 
-  const setSelectedLines = useCallback(
+  const selectedLines =
+    selection.key !== activeKey
+      ? null
+      : (pinnedLines ?? (selection.pin != null ? null : selection.lines));
+
+  const onSelectedLinesChange = useCallback(
     (lines: CodeViewLineSelection | null) => {
-      setSelection({ key: activeKey, lines });
+      setSelection((prev) => {
+        if (
+          prev.key === activeKey &&
+          selectionFromPin(prev.pin, pathComments) != null
+        ) {
+          return prev;
+        }
+        return { key: activeKey, pin: null, lines };
+      });
     },
-    [activeKey],
+    [activeKey, pathComments],
   );
 
   const handleSave = useCallback(
@@ -84,9 +139,17 @@ export function useCommentCodeView({
         captured.snippet,
         captured.language,
       );
-      setSelectedLines({ id: path, range: annotation.metadata.range });
     },
-    [displayItems, saveComment, setSelectedLines],
+    [displayItems, saveComment],
+  );
+
+  const pinComment = useCallback(
+    (path: string, range: SelectedLineRange) => {
+      const pin = pinFromRange(path, range);
+      if (pin == null) return;
+      setSelection({ key: activeKey, pin, lines: null });
+    },
+    [activeKey],
   );
 
   const renderAnnotation = useCallback(
@@ -103,16 +166,13 @@ export function useCommentCodeView({
           onSave={(message) => handleSave(path, annotation, message)}
           onDiscard={() => {
             deleteComment(path, key);
-            setSelectedLines(null);
           }}
           onEdit={() => beginEdit(path, key)}
-          onSelectRange={() =>
-            setSelectedLines({ id: path, range: annotation.metadata.range })
-          }
+          onSelectRange={() => pinComment(path, annotation.metadata.range)}
         />
       );
     },
-    [beginEdit, deleteComment, handleSave, setSelectedLines],
+    [beginEdit, deleteComment, handleSave, pinComment],
   );
 
   const onGutterUtilityClick = useCallback(
@@ -120,8 +180,9 @@ export function useCommentCodeView({
       if (context.item.type !== "diff") return;
       if (editingPaths.has(context.item.id)) return;
       startDraft(context.item.id, range);
+      pinComment(context.item.id, range);
     },
-    [editingPaths, startDraft],
+    [editingPaths, pinComment, startDraft],
   );
 
   const itemOrder = useMemo(
@@ -137,7 +198,8 @@ export function useCommentCodeView({
 
   return {
     selectedLines,
-    onSelectedLinesChange: setSelectedLines,
+    onSelectedLinesChange,
+    enableLineSelection: pinnedLines == null,
     renderAnnotation,
     onGutterUtilityClick,
     panelPaddingBottom: hasSaved ? COPY_PROMPT_PANEL_PADDING : 0,
