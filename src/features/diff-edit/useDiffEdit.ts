@@ -1,13 +1,8 @@
 import type { FileContents, FileDiffMetadata, DiffsEditor } from "@pierre/diffs";
-import type { Editor } from "@pierre/diffs/edit";
 import type { CodeViewItem } from "@pierre/diffs/react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { api } from "@/shared/tauri/api";
-import {
-  isReplaceableEditor,
-  replaceEditorText,
-  type ReplaceableEditor,
-} from "./replaceEditorText";
+import { isReplaceableEditor, replaceEditorText } from "./replaceEditorText";
 import type { FileSaveState } from "./saveStatus";
 
 type SaveStateListener = () => void;
@@ -413,7 +408,7 @@ export function useDiffEdit<T = undefined>({
   );
 
   const discardEdit = useCallback(
-    (path: string, editor?: Editor<T> | DiffsEditor<T> | ReplaceableEditor | null) => {
+    (path: string, editor?: DiffsEditor<T> | null) => {
       skipFlushOnce.current.add(path);
       restoring.current.add(path);
       try {

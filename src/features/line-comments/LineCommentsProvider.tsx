@@ -2,9 +2,6 @@ import {
   createContext,
   use,
   useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
   useReducer,
   useRef,
   type ReactNode,
@@ -12,6 +9,10 @@ import {
 import type { SelectedLineRange } from "@pierre/diffs";
 import type { ComparisonKey } from "@/features/branch-compare/comparisonKey";
 import { useRepoSession } from "@/features/repo-session/context";
+import {
+  useKeyedRowLifecycle,
+  useOpenComparisonKeys,
+} from "@/features/repo-session/useKeyedRowLifecycle";
 import {
   EMPTY_PATH_COMMENTS,
   savedCommentCount,
@@ -36,36 +37,14 @@ export function useLineCommentsState({
   openKeys,
 }: UseLineCommentsOptions) {
   const [store, dispatch] = useReducer(commentsReducer, emptyCommentsStore);
-  const storeRef = useRef(store);
-  useLayoutEffect(() => {
-    storeRef.current = store;
-  });
-  const prevStampRef = useRef<{ key: ComparisonKey | null; stamp: string }>({
-    key: null,
-    stamp: "",
-  });
   const nextKeyRef = useRef(0);
-
-  useEffect(() => {
-    if (!activeKey || !mergeBaseOid) return;
-    const prev = prevStampRef.current;
-    if (
-      prev.key === activeKey &&
-      prev.stamp !== mergeBaseOid &&
-      prev.stamp !== ""
-    ) {
-      dispatch({ type: "reset-key", key: activeKey });
-    }
-    prevStampRef.current = { key: activeKey, stamp: mergeBaseOid };
-  }, [activeKey, mergeBaseOid]);
-
-  useEffect(() => {
-    for (const key of Object.keys(storeRef.current.map)) {
-      if (!openKeys.has(key)) {
-        dispatch({ type: "evict-key", key });
-      }
-    }
-  }, [openKeys]);
+  useKeyedRowLifecycle(
+    activeKey,
+    mergeBaseOid,
+    openKeys,
+    Object.keys(store.map),
+    dispatch,
+  );
 
   const pathComments: PathComments =
     activeKey != null
@@ -156,11 +135,8 @@ interface LineCommentsProviderProps {
  * when its merge-base stamp changes; evicts closed comparisons.
  */
 export function LineCommentsProvider({ children }: LineCommentsProviderProps) {
-  const { activeKey, comparisons, activeMergeBase } = useRepoSession();
-  const openKeys = useMemo(
-    () => new Set(Object.keys(comparisons)),
-    [comparisons],
-  );
+  const { activeKey, activeMergeBase } = useRepoSession();
+  const openKeys = useOpenComparisonKeys();
   const comments = useLineCommentsState({
     activeKey,
     mergeBaseOid: activeMergeBase,

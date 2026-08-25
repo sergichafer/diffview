@@ -1,10 +1,9 @@
-import type { DiffsEditor } from "@pierre/diffs";
 import type { Editor } from "@pierre/diffs/edit";
 
 export type ReplaceableEditor = Pick<Editor<undefined>, "getText" | "applyEdits">;
 
-export function isReplaceableEditor<T>(
-  editor: ReplaceableEditor | Editor<T> | DiffsEditor<T> | null | undefined,
+export function isReplaceableEditor(
+  editor: object | null | undefined,
 ): editor is ReplaceableEditor {
   if (editor == null) return false;
   return (

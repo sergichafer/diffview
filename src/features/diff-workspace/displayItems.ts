@@ -1,12 +1,19 @@
 import type { DiffLineAnnotation } from "@pierre/diffs";
 import type { CodeViewDiffItem } from "@pierre/diffs/react";
+import type { CommentMeta } from "@/features/line-comments/commentMeta";
 
 /**
- * Collapse versions occupy 0..2. Edit folds that into 0..5
- * (`collapse * 2 + editBit`). `syncPierreItems` keys off `version`, so
- * annotation overlays shift by this stride (greater than the 0..5 range).
+ * Packed item identity for `syncPierreItems`. Low field is collapse (0..2)
+ * plus edit; annotation stamp occupies the rest. Files with no comments use
+ * stamp 0 so a comment on another file does not rewrite every row.
  */
-export const ANNOTATION_VERSION_STRIDE = 8;
+export function itemViewVersion(
+  collapseVersion: number,
+  editing: boolean,
+  annotationStamp = 0,
+): number {
+  return annotationStamp * 8 + collapseVersion * 2 + (editing ? 1 : 0);
+}
 
 /**
  * Collapse is the viewed default, flipped by `expandedWhileViewed`:
@@ -29,73 +36,24 @@ export function collapseItemVersion(
   return 1;
 }
 
-export function itemViewVersion(
-  collapseVersion: number,
-  editing: boolean,
-  annotationsRev = 0,
-): number {
-  return (
-    annotationsRev * ANNOTATION_VERSION_STRIDE +
-    collapseVersion * 2 +
-    (editing ? 1 : 0)
-  );
-}
-
-export function applyViewedCollapse(
-  items: readonly CodeViewDiffItem[],
-  viewedPaths: ReadonlySet<string>,
-  expandedWhileViewed: ReadonlySet<string>,
-): CodeViewDiffItem[] {
-  return items.map((item) => {
-    const version = collapseItemVersion(
-      item.id,
-      viewedPaths,
-      expandedWhileViewed,
-    );
-    const collapsed = version === 1;
-    if (item.collapsed === collapsed && item.version === version) return item;
-    return { ...item, collapsed, version };
-  });
-}
-
-/**
- * Fold edit into `version` so `syncPierreItems` picks up the change.
- * Inputs are collapse-versioned (0/1/2).
- */
-export function applyEditSession(
-  items: readonly CodeViewDiffItem[],
-  editablePaths: ReadonlySet<string>,
-  editEnabledPaths: ReadonlySet<string>,
-): CodeViewDiffItem[] {
-  return items.map((item) => {
-    const edit =
-      editablePaths.has(item.id) && editEnabledPaths.has(item.id);
-    const version = itemViewVersion(item.version ?? 0, edit);
-    if (item.edit === edit && item.version === version) return item;
-    return { ...item, edit, version };
-  });
-}
-
-export type DisplayItemView<T = undefined> = {
+export type DisplayItemView = {
   viewedPaths: ReadonlySet<string>;
   expandedWhileViewed: ReadonlySet<string>;
   editablePaths: ReadonlySet<string>;
   editEnabledPaths: ReadonlySet<string>;
-  annotationsById?: Readonly<Record<string, DiffLineAnnotation<T>[]>>;
-  annotationsRev?: number;
+  annotationsById: Readonly<Record<string, DiffLineAnnotation<CommentMeta>[]>>;
+  annotationsRev: number;
 };
 
 /**
  * Collapse, edit, and line annotations in one pass. `version` is
- * `itemViewVersion` so `syncPierreItems` sees annotation edits, including
+ * `itemViewVersion` so `syncPierreItems` sees overlay edits, including
  * clearing the last comment on a file.
  */
-export function applyDisplayItems<T = undefined>(
+export function applyDisplayItems(
   items: readonly CodeViewDiffItem[],
-  view: DisplayItemView<T>,
-): CodeViewDiffItem<T>[] {
-  const annotationsRev = view.annotationsRev ?? 0;
-  const annotationsById = view.annotationsById;
+  view: DisplayItemView,
+): CodeViewDiffItem<CommentMeta>[] {
   return items.map((item) => {
     const collapseVersion = collapseItemVersion(
       item.id,
@@ -104,17 +62,19 @@ export function applyDisplayItems<T = undefined>(
     );
     const editing =
       view.editablePaths.has(item.id) && view.editEnabledPaths.has(item.id);
-    const list = annotationsById?.[item.id];
+    const list = view.annotationsById[item.id];
     const annotations = list != null && list.length > 0 ? list : undefined;
     const collapsed = collapseVersion === 1;
-    const version = itemViewVersion(collapseVersion, editing, annotationsRev);
+    const annotationStamp = annotations == null ? 0 : view.annotationsRev;
+    const version = itemViewVersion(collapseVersion, editing, annotationStamp);
     if (
       item.collapsed === collapsed &&
       item.edit === editing &&
       item.version === version &&
       item.annotations === annotations
     ) {
-      return item as CodeViewDiffItem<T>;
+      // Unchanged rows have no overlay; they are valid CommentMeta items.
+      return item as CodeViewDiffItem<CommentMeta>;
     }
     return { ...item, collapsed, edit: editing, annotations, version };
   });

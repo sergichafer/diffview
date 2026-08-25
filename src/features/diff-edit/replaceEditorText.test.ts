@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { replaceEditorText } from "./replaceEditorText";
+import { isReplaceableEditor, replaceEditorText } from "./replaceEditorText";
 
 describe("replaceEditorText", () => {
   test("replaces the full buffer when it differs from baseline", () => {
@@ -33,5 +33,14 @@ describe("replaceEditorText", () => {
 
   test("returns false when the editor is missing", () => {
     expect(replaceEditorText(null, "x")).toBe(false);
+  });
+
+  test("narrows only objects that expose getText and applyEdits", () => {
+    expect(isReplaceableEditor(null)).toBe(false);
+    expect(isReplaceableEditor({})).toBe(false);
+    expect(isReplaceableEditor({ getText: () => "" })).toBe(false);
+    expect(
+      isReplaceableEditor({ getText: () => "", applyEdits: () => {} }),
+    ).toBe(true);
   });
 });

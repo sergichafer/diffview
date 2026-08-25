@@ -1,4 +1,3 @@
-import type { DiffLineAnnotation } from "@pierre/diffs";
 import type { CodeViewHandle, CodeViewDiffItem } from "@pierre/diffs/react";
 import type { WorkerPoolManager } from "@pierre/diffs/worker";
 import {
@@ -13,6 +12,11 @@ import {
   fileListKey,
   normalizeChangedFilePath,
 } from "@/features/changed-files/identity";
+import {
+  EMPTY_PATH_COMMENTS,
+  type CommentMeta,
+  type PathComments,
+} from "@/features/line-comments/commentMeta";
 import type { ChangedFile, FileDiffResult } from "@/shared/types/app";
 import { resolveActiveDiffPathFromScroll } from "./activePath";
 import { appendCodeViewItems, buildCodeViewItems } from "./buildItems";
@@ -121,8 +125,8 @@ export function syncPierreItems<T = undefined>(
  * Retries on ids change, post-sync, panel mount, or one deferred rAF; not a
  * multi-attempt rAF busy loop.
  */
-function scrollToDiffPath<T = undefined>(
-  viewer: CodeViewHandle<T> | null,
+function scrollToDiffPath(
+  viewer: CodeViewHandle<CommentMeta> | null,
   path: string,
   behavior: "instant" | "smooth" = "instant",
 ): boolean {
@@ -155,7 +159,7 @@ function scrollToDiffPath<T = undefined>(
  * - Collapse application is pure over items; Pierre mutation happens only
  *   through `syncPierreItems` / `updateItem`.
  */
-export interface DiffWorkspaceInputs<T = undefined> {
+export interface DiffWorkspaceInputs {
   fileDiffs: FileDiffResult[];
   files: ChangedFile[];
   /** Comparison stamp. Included in item cache keys so identical patches rebuild. */
@@ -167,7 +171,7 @@ export interface DiffWorkspaceInputs<T = undefined> {
   /** Read for restore arming; never drives continuous scrollTo. */
   selectedPath: string | null;
   setSelectedPath: (path: string | null) => void;
-  codeViewRef: RefObject<CodeViewHandle<T> | null>;
+  codeViewRef: RefObject<CodeViewHandle<CommentMeta> | null>;
   workerPool: WorkerPoolManager | null | undefined;
   /**
    * Optional viewport→path callback for Active-file. When omitted, the scroll
@@ -180,19 +184,19 @@ export interface DiffWorkspaceInputs<T = undefined> {
    */
   comparisonKey?: string | null;
   /** Line annotations keyed by item id. */
-  itemAnnotations?: Readonly<Record<string, DiffLineAnnotation<T>[]>>;
+  itemAnnotations?: PathComments;
   /** Bump when annotations change so `syncPierreItems` sees a new `version`. */
   annotationsRev?: number;
 }
 
-export interface DiffWorkspacePanelBindings<T = undefined> {
-  displayItems: CodeViewDiffItem<T>[];
+export interface DiffWorkspacePanelBindings {
+  displayItems: CodeViewDiffItem<CommentMeta>[];
   /** Pre-collapse build count (`codeViewItems.length`). */
   itemCount: number;
   setPanelRef: (node: HTMLElement | null) => void;
   handleScroll: (
     scrollTop: number,
-    viewer: NonNullable<ReturnType<CodeViewHandle<T>["getInstance"]>>,
+    viewer: NonNullable<ReturnType<CodeViewHandle<CommentMeta>["getInstance"]>>,
   ) => void;
 }
 
@@ -212,7 +216,7 @@ export interface DiffWorkspaceEditSeam {
   endEdit: (path: string) => void;
 }
 
-export type DiffWorkspaceResult<T = undefined> = DiffWorkspacePanelBindings<T> &
+export type DiffWorkspaceResult = DiffWorkspacePanelBindings &
   DiffWorkspaceNavigationSeam &
   DiffWorkspaceEditSeam;
 
@@ -307,7 +311,7 @@ function useCodeViewItems(
  * panel mount, or one deferred frame). Panel remount re-arms even when the
  * overview file set is unchanged.
  */
-export function useDiffWorkspace<T = undefined>({
+export function useDiffWorkspace({
   fileDiffs,
   files,
   mergeBaseOid = "",
@@ -320,9 +324,9 @@ export function useDiffWorkspace<T = undefined>({
   workerPool,
   onViewportPath,
   comparisonKey = null,
-  itemAnnotations,
+  itemAnnotations = EMPTY_PATH_COMMENTS,
   annotationsRev = 0,
-}: DiffWorkspaceInputs<T>): DiffWorkspaceResult<T> {
+}: DiffWorkspaceInputs): DiffWorkspaceResult {
   const { items, editablePaths } = useCodeViewItems(
     fileDiffs,
     files,
@@ -538,7 +542,7 @@ export function useDiffWorkspace<T = undefined>({
   const handleScroll = useCallback(
     (
       _scrollTop: number,
-      viewer: NonNullable<ReturnType<CodeViewHandle<T>["getInstance"]>>,
+      viewer: NonNullable<ReturnType<CodeViewHandle<CommentMeta>["getInstance"]>>,
     ) => {
       if (scrollSyncRaf.current != null) {
         cancelAnimationFrame(scrollSyncRaf.current);
