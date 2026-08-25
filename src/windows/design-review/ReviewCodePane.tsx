@@ -259,7 +259,7 @@ export function ReviewCodePane({
       themeType: themeMode,
       diffStyle,
       stickyHeaders: true,
-      layout: { paddingTop: 0, paddingBottom: 0, gap: 0 },
+      layout: { paddingTop: 0, paddingBottom: 80, gap: 0 },
       itemMetrics: { paddingBottom: 0 },
       unsafeCSS,
       enableGutterUtility: true,
