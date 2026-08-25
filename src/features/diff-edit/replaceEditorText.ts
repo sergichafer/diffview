@@ -1,13 +1,10 @@
+import type { DiffsEditor } from "@pierre/diffs";
 import type { Editor } from "@pierre/diffs/edit";
 
-/**
- * `CodeViewHandle.getEditor` is typed as Pierre's `DiffsEditor`, which omits
- * `getText` / `applyEdits`. The runtime object is an `Editor` and has both.
- */
 export type ReplaceableEditor = Pick<Editor<undefined>, "getText" | "applyEdits">;
 
-export function isReplaceableEditor(
-  editor: object | null | undefined,
+export function isReplaceableEditor<T>(
+  editor: ReplaceableEditor | Editor<T> | DiffsEditor<T> | null | undefined,
 ): editor is ReplaceableEditor {
   if (editor == null) return false;
   return (
@@ -19,8 +16,8 @@ export function isReplaceableEditor(
 }
 
 /**
- * Discard uses this to restore the in-memory buffer to the last hydrated/saved
- * baseline before the session ends (pairs with skipFlushOnce).
+ * Restore the in-memory buffer to the last hydrated/saved baseline before
+ * the session ends (pairs with skipFlushOnce).
  */
 export function replaceEditorText(
   editor: ReplaceableEditor | null | undefined,

@@ -3,7 +3,7 @@ import type { CodeViewDiffItem } from "@pierre/diffs/react";
 
 /**
  * Collapse versions occupy 0..2. Edit folds that into 0..5
- * (`collapse * 2 + editBit`). Pierre `updateItem` keys off `version`, so
+ * (`collapse * 2 + editBit`). `syncPierreItems` keys off `version`, so
  * annotation overlays shift by this stride (greater than the 0..5 range).
  */
 export const ANNOTATION_VERSION_STRIDE = 8;
@@ -14,7 +14,7 @@ export const ANNOTATION_VERSION_STRIDE = 8;
  * in the set inverts that so expand/collapse works without marking viewed.
  *
  * Version 0 = default expanded. Version 1 = collapsed. Version 2 = viewed
- * and expanded (`collapsed: false` so Pierre unfolds after a prior collapse).
+ * and expanded (`collapsed: false` so a prior collapse unfolds).
  * Unviewed expand also uses version 0 with `collapsed: false`.
  */
 export function collapseItemVersion(
@@ -59,7 +59,7 @@ export function applyViewedCollapse(
 }
 
 /**
- * Fold edit into `version` so Pierre's `updateItem` picks up the change.
+ * Fold edit into `version` so `syncPierreItems` picks up the change.
  * Inputs are collapse-versioned (0/1/2).
  */
 export function applyEditSession(
@@ -86,7 +86,7 @@ export type DisplayItemView<T = undefined> = {
 };
 
 /**
- * Collapse, edit, and Pierre line annotations in one pass. `version` is
+ * Collapse, edit, and line annotations in one pass. `version` is
  * `itemViewVersion` so `syncPierreItems` sees annotation edits, including
  * clearing the last comment on a file.
  */

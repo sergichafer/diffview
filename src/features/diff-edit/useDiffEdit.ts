@@ -18,9 +18,9 @@ type HydrationSides = {
 };
 
 /**
- * Mirror Pierre's `canHydrateDiff`: only change/rename partials get
- * `loadDiffFiles`. `new`/`deleted` stay `isPartial: true` from the parser but
- * are not hydrated that way; new files use `seedNewFileBaseline` instead.
+ * Only change/rename partials go through `loadDiffFiles`. `new`/`deleted`
+ * stay `isPartial: true` from the parser but are not hydrated that way;
+ * new files use `seedNewFileBaseline` instead.
  */
 function needsHydration(fileDiff: Pick<FileDiffMetadata, "type" | "isPartial">): boolean {
   const t = fileDiff.type;

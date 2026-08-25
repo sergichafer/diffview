@@ -179,9 +179,9 @@ export interface DiffWorkspaceInputs<T = undefined> {
    * remounting CodeView (Phase 3 setItems swap).
    */
   comparisonKey?: string | null;
-  /** Pierre line annotations keyed by item id. Feature-owned. */
+  /** Line annotations keyed by item id. */
   itemAnnotations?: Readonly<Record<string, DiffLineAnnotation<T>[]>>;
-  /** Bump when annotations change so Pierre `updateItem` sees a new version. */
+  /** Bump when annotations change so `syncPierreItems` sees a new `version`. */
   annotationsRev?: number;
 }
 

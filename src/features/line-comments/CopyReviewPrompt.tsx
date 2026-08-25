@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-const HOLD_COPIED_MS = 1400;
-
 interface CopyReviewPromptProps {
   prompt: string;
 }
@@ -21,6 +19,8 @@ function CheckGlyph() {
     </svg>
   );
 }
+
+export const HOLD_COPIED_MS = 1400;
 
 export function CopyReviewPrompt({ prompt }: CopyReviewPromptProps) {
   const [copied, setCopied] = useState(false);
