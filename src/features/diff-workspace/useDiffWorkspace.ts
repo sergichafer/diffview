@@ -12,9 +12,15 @@ import {
   fileListKey,
   normalizeChangedFilePath,
 } from "@/features/changed-files/identity";
+import {
+  EMPTY_PATH_COMMENTS,
+  type CommentMeta,
+  type PathComments,
+} from "@/features/line-comments/commentMeta";
 import type { ChangedFile, FileDiffResult } from "@/shared/types/app";
 import { resolveActiveDiffPathFromScroll } from "./activePath";
 import { appendCodeViewItems, buildCodeViewItems } from "./buildItems";
+import { applyDisplayItems } from "./displayItems";
 import {
   armRestore,
   cancelRestore as cancelRestoreState,
@@ -70,18 +76,18 @@ function primeDiffHighlights<T = undefined>(
   runBatch();
 }
 
-export interface PierreItemViewer {
+export interface PierreItemViewer<T = undefined> {
   getItem(id: string): { collapsed?: boolean; version?: number } | null | undefined;
-  updateItem(item: CodeViewDiffItem): void;
+  updateItem(item: CodeViewDiffItem<T>): void;
 }
 
 /**
  * `updateItem` only when collapse/version changed. Prime highlight cache once
  * per item id. Mutates `primedIds` (prune + add).
  */
-export function syncPierreItems(
-  viewer: PierreItemViewer,
-  displayItems: readonly CodeViewDiffItem[],
+export function syncPierreItems<T = undefined>(
+  viewer: PierreItemViewer<T>,
+  displayItems: readonly CodeViewDiffItem<T>[],
   primedIds: Set<string>,
   workerPool: WorkerPoolManager | null | undefined,
 ): void {
@@ -114,70 +120,13 @@ export function syncPierreItems(
 }
 
 /**
- * Collapse is the viewed default, flipped by `expandedWhileViewed`:
- * viewed files start collapsed; unviewed files start expanded. Membership
- * in the set inverts that so expand/collapse works without marking viewed.
- *
- * Version 0 = default expanded. Version 1 = collapsed. Version 2 = viewed
- * and expanded (`collapsed: false` so Pierre unfolds after a prior collapse).
- * Unviewed expand also uses version 0 with `collapsed: false`.
- */
-export function collapseItemVersion(
-  path: string,
-  viewedPaths: ReadonlySet<string>,
-  expandedWhileViewed: ReadonlySet<string>,
-): number {
-  const viewed = viewedPaths.has(path);
-  const flipped = expandedWhileViewed.has(path);
-  if (!viewed && !flipped) return 0;
-  if (viewed && flipped) return 2;
-  return 1;
-}
-
-export function applyViewedCollapse(
-  items: readonly CodeViewDiffItem[],
-  viewedPaths: ReadonlySet<string>,
-  expandedWhileViewed: ReadonlySet<string>,
-): CodeViewDiffItem[] {
-  return items.map((item) => {
-    const version = collapseItemVersion(
-      item.id,
-      viewedPaths,
-      expandedWhileViewed,
-    );
-    const collapsed = version === 1;
-    if (item.collapsed === collapsed && item.version === version) return item;
-    return { ...item, collapsed, version };
-  });
-}
-
-/**
- * Fold edit into `version` so Pierre's `updateItem` picks up the change:
- * `version = collapseVersion * 2 + (editEnabled ? 1 : 0)`.
- */
-export function applyEditSession(
-  items: readonly CodeViewDiffItem[],
-  editablePaths: ReadonlySet<string>,
-  editEnabledPaths: ReadonlySet<string>,
-): CodeViewDiffItem[] {
-  return items.map((item) => {
-    const edit =
-      editablePaths.has(item.id) && editEnabledPaths.has(item.id);
-    const collapseVersion = item.version ?? 0;
-    const version = collapseVersion * 2 + (edit ? 1 : 0);
-    if (item.edit === edit && item.version === version) return item;
-    return { ...item, edit, version };
-  });
-}
-
-/**
  * True only when Pierre has laid out the item (`getTopForItem` defined) and
  * the scroll command was issued. False leaves one-shot restore pending.
  * Retries on ids change, post-sync, panel mount, or one deferred rAF; not a
  * multi-attempt rAF busy loop.
  */
 function scrollToDiffPath(
-  viewer: CodeViewHandle<undefined> | null,
+  viewer: CodeViewHandle<CommentMeta> | null,
   path: string,
   behavior: "instant" | "smooth" = "instant",
 ): boolean {
@@ -222,7 +171,7 @@ export interface DiffWorkspaceInputs {
   /** Read for restore arming; never drives continuous scrollTo. */
   selectedPath: string | null;
   setSelectedPath: (path: string | null) => void;
-  codeViewRef: RefObject<CodeViewHandle<undefined> | null>;
+  codeViewRef: RefObject<CodeViewHandle<CommentMeta> | null>;
   workerPool: WorkerPoolManager | null | undefined;
   /**
    * Optional viewport→path callback for Active-file. When omitted, the scroll
@@ -234,16 +183,20 @@ export interface DiffWorkspaceInputs {
    * remounting CodeView (Phase 3 setItems swap).
    */
   comparisonKey?: string | null;
+  /** Line annotations keyed by item id. */
+  itemAnnotations?: PathComments;
+  /** Bump when annotations change so `syncPierreItems` sees a new `version`. */
+  annotationsRev?: number;
 }
 
 export interface DiffWorkspacePanelBindings {
-  displayItems: CodeViewDiffItem[];
+  displayItems: CodeViewDiffItem<CommentMeta>[];
   /** Pre-collapse build count (`codeViewItems.length`). */
   itemCount: number;
   setPanelRef: (node: HTMLElement | null) => void;
   handleScroll: (
     scrollTop: number,
-    viewer: NonNullable<ReturnType<CodeViewHandle<undefined>["getInstance"]>>,
+    viewer: NonNullable<ReturnType<CodeViewHandle<CommentMeta>["getInstance"]>>,
   ) => void;
 }
 
@@ -272,11 +225,11 @@ function useCodeViewItems(
   files: ChangedFile[],
   mergeBaseOid: string,
   headOid: string,
-): { items: CodeViewDiffItem[]; editablePaths: Set<string> } {
+): { items: CodeViewDiffItem<CommentMeta>[]; editablePaths: Set<string> } {
   const cacheRef = useRef<{
     filesKey: string;
     stampKey: string;
-    items: CodeViewDiffItem[];
+    items: CodeViewDiffItem<CommentMeta>[];
     editablePaths: Set<string>;
     diffCount: number;
   }>({
@@ -342,7 +295,8 @@ function useCodeViewItems(
 
 /**
  * Callers must not import internals (`buildItems`, `activePath`,
- * `restoreActivePath`) for app wiring; tests may import those modules directly.
+ * `restoreActivePath`, `displayItems`) for app wiring; tests may import those
+ * modules directly.
  *
  * Scroll and view-switch contract (also on `DiffWorkspaceInputs`):
  * `selectedPath` never drives `CodeView.scrollTo`. Manual scroll cancels
@@ -370,6 +324,8 @@ export function useDiffWorkspace({
   workerPool,
   onViewportPath,
   comparisonKey = null,
+  itemAnnotations = EMPTY_PATH_COMMENTS,
+  annotationsRev = 0,
 }: DiffWorkspaceInputs): DiffWorkspaceResult {
   const { items, editablePaths } = useCodeViewItems(
     fileDiffs,
@@ -392,14 +348,26 @@ export function useDiffWorkspace({
     setEditEnabledPaths((prev) => removePath(prev, id));
   }, []);
 
-  const displayItems = useMemo(() => {
-    const collapsed = applyViewedCollapse(
+  const displayItems = useMemo(
+    () =>
+      applyDisplayItems(items, {
+        viewedPaths,
+        expandedWhileViewed,
+        editablePaths,
+        editEnabledPaths,
+        annotationsById: itemAnnotations,
+        annotationsRev,
+      }),
+    [
       items,
       viewedPaths,
       expandedWhileViewed,
-    );
-    return applyEditSession(collapsed, editablePaths, editEnabledPaths);
-  }, [items, viewedPaths, expandedWhileViewed, editablePaths, editEnabledPaths]);
+      editablePaths,
+      editEnabledPaths,
+      itemAnnotations,
+      annotationsRev,
+    ],
+  );
 
   const displayItemIds = useMemo(
     () => displayItems.map((item) => item.id),
@@ -574,7 +542,7 @@ export function useDiffWorkspace({
   const handleScroll = useCallback(
     (
       _scrollTop: number,
-      viewer: NonNullable<ReturnType<CodeViewHandle<undefined>["getInstance"]>>,
+      viewer: NonNullable<ReturnType<CodeViewHandle<CommentMeta>["getInstance"]>>,
     ) => {
       if (scrollSyncRaf.current != null) {
         cancelAnimationFrame(scrollSyncRaf.current);

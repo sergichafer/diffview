@@ -5,11 +5,6 @@ import {
   laidOutDiffItemIds,
   resolveActiveDiffPathFromScroll,
 } from "./activePath";
-import {
-  applyEditSession,
-  applyViewedCollapse,
-  collapseItemVersion,
-} from "./useDiffWorkspace";
 
 describe("resolveActiveDiffPathFromScroll", () => {
   test("returns the item whose band contains the headline line", () => {
@@ -125,87 +120,5 @@ describe("resolveActiveDiffPathFromScroll", () => {
     expect(
       resolveActiveDiffPathFromScroll(viewer, ids, 10 * itemHeight + header),
     ).toBe("f10.ts");
-  });
-});
-
-describe("applyViewedCollapse", () => {
-  test("collapses viewed paths unless expanded", () => {
-    const items = [
-      { id: "a.ts", type: "diff" as const, fileDiff: {} as never },
-      { id: "b.ts", type: "diff" as const, fileDiff: {} as never },
-    ];
-    const viewed = new Set(["a.ts"]);
-    const expanded = new Set<string>();
-
-    const result = applyViewedCollapse(items, viewed, expanded);
-    expect(result[0]?.collapsed).toBe(true);
-    expect(result[0]?.version).toBe(1);
-    expect(result[1]?.collapsed).toBe(false);
-    expect(result[1]?.version).toBe(0);
-    expect(collapseItemVersion("a.ts", viewed, expanded)).toBe(1);
-    expect(collapseItemVersion("a.ts", viewed, new Set(["a.ts"]))).toBe(2);
-
-    const expandedResult = applyViewedCollapse(
-      items,
-      viewed,
-      new Set(["a.ts"]),
-    );
-    expect(expandedResult[0]?.collapsed).toBe(false);
-    expect(expandedResult[0]?.version).toBe(2);
-  });
-
-  test("collapses unviewed paths that were manually collapsed", () => {
-    const items = [
-      { id: "a.ts", type: "diff" as const, fileDiff: {} as never },
-      { id: "b.ts", type: "diff" as const, fileDiff: {} as never },
-    ];
-    const viewed = new Set<string>();
-    const flipped = new Set(["a.ts"]);
-
-    const result = applyViewedCollapse(items, viewed, flipped);
-    expect(result[0]?.collapsed).toBe(true);
-    expect(result[0]?.version).toBe(1);
-    expect(result[1]?.collapsed).toBe(false);
-    expect(result[1]?.version).toBe(0);
-    expect(collapseItemVersion("a.ts", viewed, flipped)).toBe(1);
-    expect(collapseItemVersion("b.ts", viewed, flipped)).toBe(0);
-  });
-});
-
-describe("applyEditSession", () => {
-  test("folds edit into collapse version and preserves identity when unchanged", () => {
-    // Inputs are collapse-versioned (0/1/2) from applyViewedCollapse, not
-    // previously edit-folded. applyEditSession is always applied on that layer.
-    const items = [
-      {
-        id: "a.ts",
-        type: "diff" as const,
-        fileDiff: {} as never,
-        edit: false,
-        version: 1,
-      },
-      {
-        id: "b.ts",
-        type: "diff" as const,
-        fileDiff: {} as never,
-        edit: false,
-        version: 0,
-      },
-    ];
-    const editable = new Set(["a.ts", "b.ts"]);
-    const enabled = new Set(["a.ts"]);
-
-    const result = applyEditSession(items, editable, enabled);
-    expect(result[0]?.edit).toBe(true);
-    expect(result[0]?.version).toBe(3); // collapse 1 * 2 + 1
-    expect(result[1]?.edit).toBe(false);
-    expect(result[1]?.version).toBe(0);
-    // Non-editing + collapse 0: folded version stays 0 → same reference.
-    expect(result[1]).toBe(items[1]);
-
-    // Same collapse-versioned inputs → same outputs (incl. identity).
-    const again = applyEditSession(items, editable, enabled);
-    expect(again[0]?.version).toBe(3);
-    expect(again[1]).toBe(items[1]);
   });
 });

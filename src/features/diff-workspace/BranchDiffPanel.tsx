@@ -11,18 +11,21 @@ import {
 } from "@/design/theme";
 import { useDiffEdit } from "@/features/diff-edit/useDiffEdit";
 import { useDiffReview } from "@/features/diff-review/DiffReviewProvider";
+import { useCommentCodeView } from "@/features/line-comments/useCommentCodeView";
+import { useLineComments } from "@/features/line-comments/LineCommentsProvider";
+import type { CommentMeta } from "@/features/line-comments/commentMeta";
 import type { CodeFontId, DiffStyle, ThemeId, UiFontId } from "@/shared/types/app";
 import { useRepoSession } from "@/features/repo-session/context";
 import { useDiffItemHeader } from "./DiffItemHeader";
 
 interface BranchDiffPanelProps {
-  codeViewRef: RefObject<CodeViewHandle<undefined> | null>;
-  displayItems: CodeViewDiffItem[];
+  codeViewRef: RefObject<CodeViewHandle<CommentMeta> | null>;
+  displayItems: CodeViewDiffItem<CommentMeta>[];
   itemCount: number;
   setPanelRef: (node: HTMLElement | null) => void;
   onScroll: (
     scrollTop: number,
-    viewer: NonNullable<ReturnType<CodeViewHandle<undefined>["getInstance"]>>,
+    viewer: NonNullable<ReturnType<CodeViewHandle<CommentMeta>["getInstance"]>>,
   ) => void;
   /** Live working tree only; ref-to-ref must not activate edit. */
   editAllowed: boolean;
@@ -64,6 +67,7 @@ export function BranchDiffPanel({
     baseBranch,
     headBranch,
     refreshOverviewMeta,
+    activeKey,
   } = useRepoSession();
   const {
     viewedPaths,
@@ -71,6 +75,13 @@ export function BranchDiffPanel({
     handleViewedChange,
     handleToggleDiffCollapsed,
   } = useDiffReview();
+  const comments = useLineComments();
+  const commentView = useCommentCodeView({
+    comments,
+    displayItems,
+    editingPaths,
+    activeKey,
+  });
 
   const onSavedLive = useCallback(() => {
     void refreshOverviewMeta();
@@ -85,7 +96,7 @@ export function BranchDiffPanel({
     retrySave,
     saveEdit,
     discardEdit,
-  } = useDiffEdit({
+  } = useDiffEdit<CommentMeta>({
     repoPath: repo?.path ?? null,
     baseBranch,
     headBranch,
@@ -113,7 +124,7 @@ export function BranchDiffPanel({
     [codeViewRef, discardEdit, onEndEdit],
   );
 
-  const renderHeaderMetadata = useDiffItemHeader({
+  const renderHeaderMetadata = useDiffItemHeader<CommentMeta>({
     repoPath: repo?.path ?? "",
     viewedPaths,
     expandedWhileViewed,
@@ -133,21 +144,34 @@ export function BranchDiffPanel({
 
   const unsafeCSS = diffLayoutUnsafeCss(themeMode, themeId, uiFont, codeFont);
 
-  const diffOptions = useMemo((): CodeViewReactOptions => {
-    // Shared option callbacks are file|diff overloaded; this panel only
-    // renders type:"diff".
+  const diffOptions = useMemo((): CodeViewReactOptions<CommentMeta> => {
     return {
       theme: getPierreThemePair(themeId),
       themeType: themeMode,
       diffStyle,
       stickyHeaders: true,
       /** Files sit flush; the 1px seam between them is the only separator. */
-      layout: { paddingTop: 0, paddingBottom: 0, gap: 0 },
+      layout: {
+        paddingTop: 0,
+        paddingBottom: commentView.panelPaddingBottom,
+        gap: 0,
+      },
       itemMetrics: { paddingBottom: 0 },
       unsafeCSS,
       loadDiffFiles,
+      enableGutterUtility: true,
+      enableLineSelection: true,
+      onGutterUtilityClick: commentView.onGutterUtilityClick,
     };
-  }, [themeMode, themeId, diffStyle, unsafeCSS, loadDiffFiles]);
+  }, [
+    themeMode,
+    themeId,
+    diffStyle,
+    unsafeCSS,
+    loadDiffFiles,
+    commentView.panelPaddingBottom,
+    commentView.onGutterUtilityClick,
+  ]);
 
   const skippedCount = files.length - itemCount;
 
@@ -189,16 +213,20 @@ export function BranchDiffPanel({
           Showing {itemCount} of {files.length} changed files.
         </p>
       )}
-      <CodeView
+      <CodeView<CommentMeta>
         ref={codeViewRef}
         items={displayItems}
         className="branch-code-view"
         options={diffOptions}
         onScroll={onScroll}
+        selectedLines={commentView.selectedLines}
+        onSelectedLinesChange={commentView.onSelectedLinesChange}
         renderHeaderMetadata={renderHeaderMetadata}
+        renderAnnotation={commentView.renderAnnotation}
         onItemEditChange={onItemEditChange}
         onItemEditComplete={onItemEditComplete}
       />
+      {commentView.chip}
     </section>
   );
 }

@@ -1,8 +1,8 @@
-import type { FileContents, FileDiffMetadata } from "@pierre/diffs";
+import type { FileContents, FileDiffMetadata, DiffsEditor } from "@pierre/diffs";
 import type { CodeViewItem } from "@pierre/diffs/react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { api } from "@/shared/tauri/api";
-import { replaceEditorText } from "./replaceEditorText";
+import { isReplaceableEditor, replaceEditorText } from "./replaceEditorText";
 import type { FileSaveState } from "./saveStatus";
 
 type SaveStateListener = () => void;
@@ -13,9 +13,9 @@ type HydrationSides = {
 };
 
 /**
- * Mirror Pierre's `canHydrateDiff`: only change/rename partials get
- * `loadDiffFiles`. `new`/`deleted` stay `isPartial: true` from the parser but
- * are not hydrated that way; new files use `seedNewFileBaseline` instead.
+ * Only change/rename partials go through `loadDiffFiles`. `new`/`deleted`
+ * stay `isPartial: true` from the parser but are not hydrated that way;
+ * new files use `seedNewFileBaseline` instead.
  */
 function needsHydration(fileDiff: Pick<FileDiffMetadata, "type" | "isPartial">): boolean {
   const t = fileDiff.type;
@@ -60,7 +60,7 @@ type UseDiffEditArgs = {
  * last hydrated/saved baseline. Discard restores the editor to that baseline
  * and skips the safety-net flush on session end.
  */
-export function useDiffEdit({
+export function useDiffEdit<T = undefined>({
   repoPath,
   baseBranch,
   headBranch,
@@ -354,7 +354,7 @@ export function useDiffEdit({
   );
 
   const onItemEditChange = useCallback(
-    (item: CodeViewItem, file: FileContents) => {
+    (item: CodeViewItem<T>, file: FileContents) => {
       if (!isLive) return;
       if (restoring.current.has(item.id)) return;
       if (item.type === "diff" && needsHydration(item.fileDiff)) {
@@ -376,7 +376,7 @@ export function useDiffEdit({
   );
 
   const onItemEditComplete = useCallback(
-    (item: CodeViewItem, file: FileContents) => {
+    (item: CodeViewItem<T>, file: FileContents) => {
       if (!isLive) return;
       if (skipFlushOnce.current.delete(item.id)) {
         pending.current.delete(item.id);
@@ -408,26 +408,14 @@ export function useDiffEdit({
   );
 
   const discardEdit = useCallback(
-    (path: string, editor?: unknown) => {
+    (path: string, editor?: DiffsEditor<T> | null) => {
       skipFlushOnce.current.add(path);
       restoring.current.add(path);
       try {
         if (saveReady.current.has(path)) {
           const baseline = lastSaved.current.get(path) ?? "";
           replaceEditorText(
-            editor as {
-              getText?: () => string;
-              applyEdits?: (
-                edits: Array<{
-                  range: {
-                    start: { line: number; character: number };
-                    end: { line: number; character: number };
-                  };
-                  newText: string;
-                }>,
-                updateHistory?: boolean,
-              ) => void;
-            },
+            isReplaceableEditor(editor) ? editor : null,
             baseline,
           );
         }

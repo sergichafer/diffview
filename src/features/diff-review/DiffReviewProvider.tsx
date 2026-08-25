@@ -2,15 +2,15 @@ import {
   createContext,
   use,
   useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
   useReducer,
-  useRef,
   type ReactNode,
 } from "react";
 import type { ComparisonKey } from "@/features/branch-compare/comparisonKey";
 import { useRepoSession } from "@/features/repo-session/context";
+import {
+  useKeyedRowLifecycle,
+  useOpenComparisonKeys,
+} from "@/features/repo-session/useKeyedRowLifecycle";
 import {
   emptyDiffReviewState,
   reviewReducer,
@@ -31,35 +31,13 @@ export function useDiffReviewState({
   openKeys,
 }: UseDiffReviewOptions) {
   const [map, dispatch] = useReducer(reviewReducer, {} as DiffReviewMap);
-  const mapRef = useRef(map);
-  useLayoutEffect(() => {
-    mapRef.current = map;
-  });
-  const prevStampRef = useRef<{ key: ComparisonKey | null; stamp: string }>({
-    key: null,
-    stamp: "",
-  });
-
-  useEffect(() => {
-    if (!activeKey || !mergeBaseOid) return;
-    const prev = prevStampRef.current;
-    if (
-      prev.key === activeKey &&
-      prev.stamp !== mergeBaseOid &&
-      prev.stamp !== ""
-    ) {
-      dispatch({ type: "reset-key", key: activeKey });
-    }
-    prevStampRef.current = { key: activeKey, stamp: mergeBaseOid };
-  }, [activeKey, mergeBaseOid]);
-
-  useEffect(() => {
-    for (const key of Object.keys(mapRef.current)) {
-      if (!openKeys.has(key)) {
-        dispatch({ type: "evict-key", key });
-      }
-    }
-  }, [openKeys]);
+  const keyedAction = useKeyedRowLifecycle(
+    activeKey,
+    mergeBaseOid,
+    openKeys,
+    Object.keys(map),
+  );
+  if (keyedAction) dispatch(keyedAction);
 
   const activeState =
     activeKey != null
@@ -111,11 +89,8 @@ interface DiffReviewProviderProps {
  * row when its merge-base stamp changes; evicts closed comparisons.
  */
 export function DiffReviewProvider({ children }: DiffReviewProviderProps) {
-  const { activeKey, comparisons, activeMergeBase } = useRepoSession();
-  const openKeys = useMemo(
-    () => new Set(Object.keys(comparisons)),
-    [comparisons],
-  );
+  const { activeKey, activeMergeBase } = useRepoSession();
+  const openKeys = useOpenComparisonKeys();
   const review = useDiffReviewState({
     activeKey,
     mergeBaseOid: activeMergeBase,

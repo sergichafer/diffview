@@ -1,0 +1,198 @@
+.comment-card {
+  background: var(--bg-inset);
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius, 12px);
+  box-shadow: inset 0 1px 0 var(--border-highlight);
+  color: var(--fg-base);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  white-space: normal;
+}
+
+.comment-card.is-saved {
+  cursor: default;
+}
+
+.comment-card-range {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0;
+  font: inherit;
+}
+
+.comment-card-body {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 13px;
+  letter-spacing: var(--type-track-body);
+  line-height: var(--type-lead-body);
+}
+
+.comment-card-composer {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: var(--type-track-body);
+  line-height: var(--type-lead-body);
+  resize: none;
+  field-sizing: content;
+  min-height: 2.4em;
+}
+
+.comment-card-composer::placeholder {
+  color: var(--fg-muted);
+}
+
+.comment-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.comment-card-actions button {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--control-radius-sm, 10px);
+  border: 1px solid var(--border-default);
+  background: var(--control-fill, var(--bg-elevated));
+  color: var(--fg-base);
+  font-size: 12px;
+  letter-spacing: var(--type-track-small);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 100ms ease-out;
+}
+
+.comment-card-actions button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background-color: var(--control-fill-hover);
+}
+
+.comment-card-actions button:active:not(:disabled) {
+  transform: scale(0.97);
+  background-color: var(--control-fill-press);
+  border-color: var(--border-strong);
+}
+
+.comment-card-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.diff-panel > .copy-review-prompt {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 4;
+}
+
+.copy-review-prompt {
+  --copy-review-ease: cubic-bezier(0.32, 0.72, 0, 1);
+
+  height: 40px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius, 12px);
+  background-color: var(--control-fill, var(--bg-elevated));
+  color: var(--accent-primary);
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: var(--type-track-small);
+  line-height: 1;
+  overflow: hidden;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.copy-review-prompt:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background-color: var(--control-fill-hover);
+  color: var(--fg-base);
+}
+
+.copy-review-prompt-surface {
+  display: grid;
+  align-items: center;
+  min-width: 0;
+}
+
+.copy-review-prompt-layer {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition:
+    transform 360ms var(--copy-review-ease),
+    opacity 360ms var(--copy-review-ease);
+}
+
+.copy-review-prompt-layer svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.copy-review-prompt-layer.is-rest {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.copy-review-prompt-layer.is-done {
+  transform: translateY(60%);
+  opacity: 0;
+}
+
+.copy-review-prompt.is-copied .copy-review-prompt-layer.is-rest {
+  transform: translateY(-60%);
+  opacity: 0;
+}
+
+.copy-review-prompt.is-copied .copy-review-prompt-layer.is-done {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.copy-review-prompt:active:not(:disabled) {
+  background-color: var(--control-fill-press);
+  border-color: var(--border-strong);
+}
+
+.copy-review-prompt:active:not(:disabled) .copy-review-prompt-surface {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-review-prompt-layer {
+    transform: none !important;
+    transition-property: opacity !important;
+  }
+
+  .copy-review-prompt:active:not(:disabled) .copy-review-prompt-surface,
+  .comment-card-actions button:active:not(:disabled) {
+    transform: none;
+  }
+}

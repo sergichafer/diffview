@@ -13,6 +13,8 @@ import { getActivePathForComparison } from "@/features/file-navigation/activePat
 import { useActiveFileNavigation } from "@/features/file-navigation/useActiveFileNavigation";
 import { usePersistActivePath } from "@/features/file-navigation/usePersistActivePath";
 import { useDiffReview } from "@/features/diff-review/DiffReviewProvider";
+import { useLineComments } from "@/features/line-comments/LineCommentsProvider";
+import type { CommentMeta } from "@/features/line-comments/commentMeta";
 import type { AppSettings } from "@/shared/types/app";
 import { WORKSPACES_RAIL_WIDTH } from "@/shared/split-layout/splitter";
 import { useDiffWorkspace } from "./useDiffWorkspace";
@@ -72,9 +74,10 @@ export function BranchWorkspace({
     activeMergeBase,
   } = useRepoSession();
   const { viewedPaths, expandedWhileViewed } = useDiffReview();
+  const { pathComments, commentsRev } = useLineComments();
   const [wsPanelFocused, setWsPanelFocused] = useState(false);
 
-  const codeViewRef = useRef<CodeViewHandle<undefined> | null>(null);
+  const codeViewRef = useRef<CodeViewHandle<CommentMeta> | null>(null);
   const workerPool = useWorkerPool();
   const files = overview?.files ?? [];
   const seedPath =
@@ -108,6 +111,8 @@ export function BranchWorkspace({
     codeViewRef,
     workerPool,
     comparisonKey: activeKey,
+    itemAnnotations: pathComments,
+    annotationsRev: commentsRev,
   });
 
   const handlePreview = (path: string) => {
