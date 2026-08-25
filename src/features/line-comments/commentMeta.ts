@@ -20,6 +20,10 @@ export type CommentMeta = {
 
 export type PathComments = Record<string, DiffLineAnnotation<CommentMeta>[]>;
 export type CommentsMap = Record<ComparisonKey, PathComments>;
+export type PathComment = {
+  path: string;
+  annotation: DiffLineAnnotation<CommentMeta>;
+};
 
 export const EMPTY_PATH_COMMENTS: PathComments = {};
 
@@ -62,11 +66,8 @@ export function makeAnnotation(
 export function savedComments(
   itemOrder: readonly string[],
   pathComments: PathComments,
-): Array<{ path: string; annotation: DiffLineAnnotation<CommentMeta> }> {
-  const out: Array<{
-    path: string;
-    annotation: DiffLineAnnotation<CommentMeta>;
-  }> = [];
+): PathComment[] {
+  const out: PathComment[] = [];
   for (const path of itemOrder) {
     const annotations = pathComments[path];
     if (annotations == null) continue;
@@ -77,6 +78,30 @@ export function savedComments(
     }
   }
   return out;
+}
+
+export function findPathComment(
+  pathComments: PathComments,
+  match: (meta: CommentMeta) => boolean,
+): PathComment | null {
+  for (const [path, annotations] of Object.entries(pathComments)) {
+    const annotation = annotations.find((row) => match(row.metadata));
+    if (annotation != null) return { path, annotation };
+  }
+  return null;
+}
+
+export function findComment(
+  pathComments: PathComments,
+  commentKey: string | null,
+): PathComment | null {
+  if (commentKey == null) return null;
+  return findPathComment(pathComments, (meta) => meta.key === commentKey);
+}
+
+/** The reducer keeps at most one draft per comparison (`stripDrafts`). */
+export function activeDraft(pathComments: PathComments): PathComment | null {
+  return findPathComment(pathComments, (meta) => meta.kind === "draft");
 }
 
 export function savedCommentCount(pathComments: PathComments): number {

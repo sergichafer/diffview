@@ -9,12 +9,23 @@ import type { CodeViewDiffItem, CodeViewItem } from "@pierre/diffs/react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { CommentCard } from "./CommentCard";
 import { CopyReviewPrompt } from "./CopyReviewPrompt";
-import { buildExportPrompt, type CommentMeta } from "./commentMeta";
+import {
+  activeDraft,
+  buildExportPrompt,
+  findComment,
+  type CommentMeta,
+} from "./commentMeta";
 import { captureCommentSnippet } from "./extractSnippet";
 import type { LineCommentsValue } from "./LineCommentsProvider";
 
 /** Room under the last file so the chip does not cover hunks. */
 export const COPY_PROMPT_PANEL_PADDING = 80;
+
+type SelectionState = {
+  key: string | null;
+  commentKey: string | null;
+  lines: CodeViewLineSelection | null;
+};
 
 export type CommentCodeViewBindings = {
   selectedLines: CodeViewLineSelection | null;
@@ -51,21 +62,33 @@ export function useCommentCodeView({
     savedCommentCount,
   } = comments;
 
-  const [selection, setSelection] = useState<{
-    key: string | null;
-    lines: CodeViewLineSelection | null;
-  }>({ key: activeKey, lines: null });
-  if (selection.key !== activeKey) {
-    setSelection({ key: activeKey, lines: null });
+  const [selection, setSelection] = useState<SelectionState>({
+    key: activeKey,
+    commentKey: null,
+    lines: null,
+  });
+  /** Draft wins so the range survives save. */
+  const locked =
+    activeDraft(pathComments) ??
+    findComment(pathComments, selection.commentKey);
+  const lockKey = locked?.annotation.metadata.key ?? null;
+  if (selection.key !== activeKey || selection.commentKey !== lockKey) {
+    setSelection({ key: activeKey, commentKey: lockKey, lines: null });
   }
-  const selectedLines =
-    selection.key === activeKey ? selection.lines : null;
 
-  const setSelectedLines = useCallback(
+  const selectedLines =
+    locked != null
+      ? { id: locked.path, range: locked.annotation.metadata.range }
+      : selection.key === activeKey
+        ? selection.lines
+        : null;
+
+  const onSelectedLinesChange = useCallback(
     (lines: CodeViewLineSelection | null) => {
-      setSelection({ key: activeKey, lines });
+      if (lockKey != null) return;
+      setSelection({ key: activeKey, commentKey: null, lines });
     },
-    [activeKey],
+    [activeKey, lockKey],
   );
 
   const handleSave = useCallback(
@@ -84,9 +107,8 @@ export function useCommentCodeView({
         captured.snippet,
         captured.language,
       );
-      setSelectedLines(null);
     },
-    [displayItems, saveComment, setSelectedLines],
+    [displayItems, saveComment],
   );
 
   const renderAnnotation = useCallback(
@@ -101,18 +123,15 @@ export function useCommentCodeView({
         <CommentCard
           annotation={annotation}
           onSave={(message) => handleSave(path, annotation, message)}
-          onDiscard={() => {
-            deleteComment(path, key);
-            setSelectedLines(null);
-          }}
+          onDiscard={() => deleteComment(path, key)}
           onEdit={() => beginEdit(path, key)}
           onSelectRange={() =>
-            setSelectedLines({ id: path, range: annotation.metadata.range })
+            setSelection({ key: activeKey, commentKey: key, lines: null })
           }
         />
       );
     },
-    [beginEdit, deleteComment, handleSave, setSelectedLines],
+    [activeKey, beginEdit, deleteComment, handleSave],
   );
 
   const onGutterUtilityClick = useCallback(
@@ -137,7 +156,7 @@ export function useCommentCodeView({
 
   return {
     selectedLines,
-    onSelectedLinesChange: setSelectedLines,
+    onSelectedLinesChange,
     renderAnnotation,
     onGutterUtilityClick,
     panelPaddingBottom: hasSaved ? COPY_PROMPT_PANEL_PADDING : 0,

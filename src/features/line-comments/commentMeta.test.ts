@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import type { DiffLineAnnotation, SelectedLineRange } from "@pierre/diffs";
 import {
   PROMPT_INTRO,
+  activeDraft,
   annotationAnchor,
   buildExportPrompt,
+  findComment,
   languageFromPath,
   makeAnnotation,
   rangeLabel,
@@ -80,6 +82,29 @@ describe("languageFromPath", () => {
     expect(languageFromPath("src/design/app.css")).toBe("css");
     expect(languageFromPath("src-tauri/src/lib.rs")).toBe("rust");
     expect(languageFromPath("README.md")).toBe("");
+  });
+});
+
+describe("findPathComment", () => {
+  test("matches by key or kind and ignores a null key", () => {
+    const draft = makeAnnotation({
+      kind: "draft",
+      key: "d1",
+      message: "",
+      range: range(4, 4),
+      snippet: "",
+      language: "ts",
+    });
+    if (draft == null) throw new Error("expected draft");
+    const pathComments: PathComments = {
+      "a.ts": [saved("a.ts", "s1", "one", range(1, 1), "x", "ts")],
+      "b.ts": [saved("b.ts", "s2", "two", range(2, 2), "y", "ts"), draft],
+    };
+    expect(findComment(pathComments, null)).toBeNull();
+    expect(findComment(pathComments, "missing")).toBeNull();
+    expect(findComment(pathComments, "s2")?.path).toBe("b.ts");
+    expect(activeDraft(pathComments)?.annotation.metadata.key).toBe("d1");
+    expect(activeDraft({ "a.ts": pathComments["a.ts"]! })).toBeNull();
   });
 });
 
