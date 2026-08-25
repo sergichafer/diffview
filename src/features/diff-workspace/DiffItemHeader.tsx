@@ -1,11 +1,12 @@
-import type { CodeViewDiffItem } from "@pierre/diffs/react";
+import type { CodeViewItem } from "@pierre/diffs/react";
+import type { CommentMeta } from "@/features/line-comments/commentMeta";
 import { useCallback, useSyncExternalStore } from "react";
 import type { FileSaveState } from "@/features/diff-edit/saveStatus";
 import { DiffHeaderActions } from "./DiffHeaderActions";
 
 interface DiffItemHeaderProps {
   repoPath: string;
-  item: CodeViewDiffItem;
+  item: CodeViewItem<CommentMeta>;
   viewedPaths: ReadonlySet<string>;
   expandedWhileViewed: ReadonlySet<string>;
   editablePaths: ReadonlySet<string>;
@@ -106,7 +107,7 @@ export function useDiffItemHeader({
   onRetrySave,
 }: Omit<DiffItemHeaderProps, "item">) {
   return useCallback(
-    (item: CodeViewDiffItem) => {
+    (item: CodeViewItem<CommentMeta>) => {
       if (item.type !== "diff") return null;
       const viewed = viewedPaths.has(item.id);
       const flipped = expandedWhileViewed.has(item.id);

@@ -10,6 +10,7 @@ Built with **Tauri 2**, **React**, **libgit2**, [@pierre/trees](https://trees.so
 - Per-file badges: `committed`, `staged`, `unstaged`, `untracked` (respects `.gitignore`)
 - File tree ([@pierre/trees](https://trees.software)) + syntax-highlighted diffs ([@pierre/diffs](https://diffs.com))
 - In-pane edit on live comparisons: **Edit** in the file header, then **Save** (working tree) or **Discard**. Typing does not write until Save.
+- Line comments on the diff, exported as a review prompt on the clipboard
 - Split / unified diff toggle
 - Rendered preview window for `.html` and `.markdown` (working tree)
 - Recent repos, startup preference, base branch override per repo

@@ -14,6 +14,7 @@ import { AppChromeShell } from "@/features/window-chrome/AppChromeShell";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { useChromeGlow } from "@/design/useChromeGlow";
 import { DiffReviewProvider } from "@/features/diff-review/DiffReviewProvider";
+import { LineCommentsProvider } from "@/features/line-comments/LineCommentsProvider";
 import { useAppFonts } from "@/design/fonts/useAppFonts";
 import { useAppTheme, useResolvedTheme } from "@/design/theme/useResolvedTheme";
 import { useSettings } from "@/features/settings/useSettings";
@@ -225,22 +226,24 @@ function AppReady() {
       cliOpenedPaths={startup.cliOpenedPaths}
     >
       <DiffReviewProvider>
-        <AppBody
-          settings={settings}
-          update={update}
-          resolvedTheme={resolvedTheme}
-          splitWidth={splitWidth}
-          workspacesWidth={workspacesWidth}
-          splitterDragging={splitterDragging}
-          splitterSettling={splitterSettling}
-          onSplitterPointerDown={onSplitterPointerDown}
-          onSplitterKeyDown={onSplitterKeyDown}
-          workspacesSplitterDragging={workspacesSplitterDragging}
-          workspacesSplitterSettling={workspacesSplitterSettling}
-          onWorkspacesSplitterPointerDown={onWorkspacesSplitterPointerDown}
-          onWorkspacesSplitterKeyDown={onWorkspacesSplitterKeyDown}
-          openError={startup.openError}
-        />
+        <LineCommentsProvider>
+          <AppBody
+            settings={settings}
+            update={update}
+            resolvedTheme={resolvedTheme}
+            splitWidth={splitWidth}
+            workspacesWidth={workspacesWidth}
+            splitterDragging={splitterDragging}
+            splitterSettling={splitterSettling}
+            onSplitterPointerDown={onSplitterPointerDown}
+            onSplitterKeyDown={onSplitterKeyDown}
+            workspacesSplitterDragging={workspacesSplitterDragging}
+            workspacesSplitterSettling={workspacesSplitterSettling}
+            onWorkspacesSplitterPointerDown={onWorkspacesSplitterPointerDown}
+            onWorkspacesSplitterKeyDown={onWorkspacesSplitterKeyDown}
+            openError={startup.openError}
+          />
+        </LineCommentsProvider>
       </DiffReviewProvider>
     </RepoSessionProvider>
   );

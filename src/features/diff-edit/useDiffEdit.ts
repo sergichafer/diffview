@@ -354,7 +354,7 @@ export function useDiffEdit({
   );
 
   const onItemEditChange = useCallback(
-    (item: CodeViewItem, file: FileContents) => {
+    (item: CodeViewItem<unknown>, file: FileContents) => {
       if (!isLive) return;
       if (restoring.current.has(item.id)) return;
       if (item.type === "diff" && needsHydration(item.fileDiff)) {
@@ -376,7 +376,7 @@ export function useDiffEdit({
   );
 
   const onItemEditComplete = useCallback(
-    (item: CodeViewItem, file: FileContents) => {
+    (item: CodeViewItem<unknown>, file: FileContents) => {
       if (!isLive) return;
       if (skipFlushOnce.current.delete(item.id)) {
         pending.current.delete(item.id);

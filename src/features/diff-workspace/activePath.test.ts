@@ -6,6 +6,7 @@ import {
   resolveActiveDiffPathFromScroll,
 } from "./activePath";
 import {
+  applyCommentAnnotations,
   applyEditSession,
   applyViewedCollapse,
   collapseItemVersion,
@@ -207,5 +208,92 @@ describe("applyEditSession", () => {
     const again = applyEditSession(items, editable, enabled);
     expect(again[0]?.version).toBe(3);
     expect(again[1]).toBe(items[1]);
+  });
+});
+
+describe("applyCommentAnnotations", () => {
+  test("folds commentsRev into version and overlays annotations", () => {
+    const items = [
+      {
+        id: "a.ts",
+        type: "diff" as const,
+        fileDiff: {} as never,
+        edit: true,
+        version: 3,
+      },
+      {
+        id: "b.ts",
+        type: "diff" as const,
+        fileDiff: {} as never,
+        edit: false,
+        version: 0,
+      },
+    ];
+    const annotation = {
+      side: "additions" as const,
+      lineNumber: 4,
+      metadata: {
+        kind: "saved" as const,
+        key: "c1",
+        message: "note",
+        range: { start: 4, end: 4, side: "additions" as const },
+        snippet: "x",
+        language: "ts",
+      },
+    };
+    const withComments = applyCommentAnnotations(
+      items,
+      { "a.ts": [annotation] },
+      2,
+    );
+    expect(withComments[0]?.version).toBe(3 + 16);
+    expect(withComments[0]?.annotations).toEqual([annotation]);
+    expect(withComments[1]?.version).toBe(16);
+    expect(withComments[1]?.annotations).toBeUndefined();
+  });
+
+  test("keeps identity when commentsRev is 0 and there are no comments", () => {
+    const items = [
+      {
+        id: "a.ts",
+        type: "diff" as const,
+        fileDiff: {} as never,
+        version: 2,
+      },
+    ];
+    const result = applyCommentAnnotations(items, {}, 0);
+    expect(result[0]).toBe(items[0]);
+  });
+
+  test("bumps version when the last comment is removed", () => {
+    const items = [
+      {
+        id: "a.ts",
+        type: "diff" as const,
+        fileDiff: {} as never,
+        version: 1,
+      },
+    ];
+    const annotation = {
+      side: "additions" as const,
+      lineNumber: 1,
+      metadata: {
+        kind: "saved" as const,
+        key: "c1",
+        message: "note",
+        range: { start: 1, end: 1, side: "additions" as const },
+        snippet: "x",
+        language: "ts",
+      },
+    };
+    const withComment = applyCommentAnnotations(
+      items,
+      { "a.ts": [annotation] },
+      1,
+    );
+    expect(withComment[0]?.annotations?.length).toBe(1);
+    const cleared = applyCommentAnnotations(items, {}, 2);
+    expect(cleared[0]?.version).toBe(1 + 16);
+    expect(cleared[0]?.annotations).toBeUndefined();
   });
 });
