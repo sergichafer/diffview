@@ -29,12 +29,14 @@ interface ExportControlProps {
   shape: ExportShape;
   copy: RestingCopy;
   commentCount: number;
+  payload: string;
 }
 
 export function ExportControl({
   shape,
   copy,
   commentCount,
+  payload,
 }: ExportControlProps) {
   const [copied, setCopied] = useState(false);
 
@@ -53,7 +55,12 @@ export function ExportControl({
       className={`review-export review-export-${shape}${copied ? " is-copied" : ""}`}
       aria-label={label}
       title={label}
-      onClick={() => setCopied(true)}
+      onClick={() => {
+        if (payload) {
+          void navigator.clipboard.writeText(payload).catch(() => {});
+        }
+        setCopied(true);
+      }}
     >
       {shape === "chip" ? (
         <span className="review-export-surface">
