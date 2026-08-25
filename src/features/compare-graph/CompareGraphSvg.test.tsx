@@ -122,6 +122,21 @@ describe("CompareGraphSvg", () => {
     expect(container.textContent).toContain("WIP");
   });
 
+  test("behind WIP sits above the merge-base diamond, not on the danger stem", () => {
+    act(() => {
+      root.render(<CompareGraphSvg topology={topology("behind")} hasWip />);
+    });
+    const wip = container.querySelector('[data-graph-node="wip"]')!;
+    const merge = container.querySelector('[data-graph-node="merge-base"]')!;
+    const mergeY =
+      Number(merge.getAttribute("y")) + Number(merge.getAttribute("height")) / 2;
+    expect(Number(wip.getAttribute("cy"))).toBeLessThan(mergeY);
+    const danger = [...container.querySelectorAll("path")].find(
+      (el) => el.getAttribute("stroke") === "var(--state-danger)",
+    );
+    expect(danger?.getAttribute("d") ?? "").not.toContain(`V ${mergeY - 16}`);
+  });
+
   test("linear without uncommitted work has no WIP node", () => {
     act(() => {
       root.render(

@@ -122,6 +122,35 @@ function WipTip({ cx, cy }: { cx: number; cy: number }) {
   );
 }
 
+function placedHeadY(naturalY: number, hasWip: boolean): number {
+  if (!hasWip || naturalY > Y0) return naturalY;
+  return Y0 + WIP_LIFT;
+}
+
+function WipAbove({
+  cx,
+  headCy,
+  hasWip,
+}: {
+  cx: number;
+  headCy: number;
+  hasWip: boolean;
+}) {
+  if (!hasWip) return null;
+  const wipY = headCy - WIP_LIFT;
+  return (
+    <>
+      <path
+        d={`M ${cx} ${wipY} V ${headCy}`}
+        stroke="var(--state-success)"
+        strokeWidth={1.6}
+        fill="none"
+      />
+      <WipTip cx={cx} cy={wipY} />
+    </>
+  );
+}
+
 interface CompareGraphSvgProps {
   topology: GraphTopology;
   hasWip: boolean;
@@ -133,23 +162,14 @@ function graphBody(topology: GraphTopology, hasWip: boolean): ReactNode {
   const baseLabel = topology.baseLabel
     ? truncateLabel(topology.baseLabel, GRAPH_LABEL_CHARS)
     : "base";
-  const headY = hasWip ? Y0 + WIP_LIFT : Y0;
 
   switch (topology.kind) {
     case "unknown": {
       const y = (Y0 + Y1) / 2;
       return (
         <>
-          {hasWip ? (
-            <path
-              d={`M ${X_JOIN} ${y - WIP_LIFT} V ${y}`}
-              stroke={success}
-              strokeWidth={1.6}
-              fill="none"
-            />
-          ) : null}
+          <WipAbove cx={X_JOIN} headCy={y} hasWip={hasWip} />
           <Diamond cx={X_JOIN} cy={y} />
-          {hasWip ? <WipTip cx={X_JOIN} cy={y - WIP_LIFT} /> : null}
           <Label x={X_JOIN} y={y + 22} text="counts pending" anchor="middle" />
         </>
       );
@@ -158,22 +178,15 @@ function graphBody(topology: GraphTopology, hasWip: boolean): ReactNode {
       const y = (Y0 + Y1) / 2;
       return (
         <>
-          {hasWip ? (
-            <path
-              d={`M ${X_JOIN} ${y - WIP_LIFT} V ${y}`}
-              stroke={success}
-              strokeWidth={1.6}
-              fill="none"
-            />
-          ) : null}
+          <WipAbove cx={X_JOIN} headCy={y} hasWip={hasWip} />
           <Diamond cx={X_JOIN} cy={y} />
-          {hasWip ? <WipTip cx={X_JOIN} cy={y - WIP_LIFT} /> : null}
           <Label x={X_JOIN + 12} y={y - 4} text="HEAD" anchor="start" />
           <Label x={X_JOIN + 12} y={y + 12} text="merge-base" anchor="start" />
         </>
       );
     }
-    case "linear":
+    case "linear": {
+      const headY = placedHeadY(Y0, hasWip);
       return (
         <>
           <path
@@ -185,28 +198,24 @@ function graphBody(topology: GraphTopology, hasWip: boolean): ReactNode {
           <Diamond cx={X_AHEAD} cy={Y1} />
           {laneDots(intermediateDotCount(topology.ahead), X_AHEAD, headY, Y1, success)}
           <Node cx={X_AHEAD} cy={headY} fill={success} r={5} role="head" />
-          {hasWip ? <WipTip cx={X_AHEAD} cy={Y0} /> : null}
+          <WipAbove cx={X_AHEAD} headCy={headY} hasWip={hasWip} />
           <Label x={X_AHEAD + 12} y={Y1 + 4} text={baseLabel} anchor="start" />
           <Label x={X_AHEAD + 12} y={headY + 4} text="HEAD" anchor="start" />
         </>
       );
-    case "behind":
+    }
+    case "behind": {
+      const behindStart = hasWip
+        ? `M ${X_AHEAD} ${Y1} C ${X_AHEAD} ${Y1 - 40}, ${X_BEHIND} ${Y1 - 48}, ${X_BEHIND} ${Y1 - 80} V ${Y0}`
+        : `M ${X_AHEAD} ${Y1} V ${Y1 - 16} C ${X_AHEAD} ${Y1 - 40}, ${X_BEHIND} ${Y1 - 48}, ${X_BEHIND} ${Y1 - 80} V ${Y0}`;
       return (
         <>
           <path
-            d={`M ${X_AHEAD} ${Y1} V ${Y1 - 16} C ${X_AHEAD} ${Y1 - 40}, ${X_BEHIND} ${Y1 - 48}, ${X_BEHIND} ${Y1 - 80} V ${Y0}`}
+            d={behindStart}
             stroke={danger}
             strokeWidth={1.6}
             fill="none"
           />
-          {hasWip ? (
-            <path
-              d={`M ${X_AHEAD} ${Y1 - WIP_LIFT} V ${Y1}`}
-              stroke={success}
-              strokeWidth={1.6}
-              fill="none"
-            />
-          ) : null}
           <Diamond cx={X_AHEAD} cy={Y1} />
           {laneDots(
             intermediateDotCount(topology.behind),
@@ -216,12 +225,14 @@ function graphBody(topology: GraphTopology, hasWip: boolean): ReactNode {
             danger,
           )}
           <Node cx={X_BEHIND} cy={Y0} fill={danger} r={5} role="head" />
-          {hasWip ? <WipTip cx={X_AHEAD} cy={Y1 - WIP_LIFT} /> : null}
+          <WipAbove cx={X_AHEAD} headCy={Y1} hasWip={hasWip} />
           <Label x={8} y={Y1 + 4} text="HEAD" anchor="start" />
           <Label x={X_BEHIND + 10} y={Y0 + 4} text={baseLabel} anchor="start" />
         </>
       );
-    case "diverged":
+    }
+    case "diverged": {
+      const headY = placedHeadY(Y0, hasWip);
       return (
         <>
           <path
@@ -253,12 +264,13 @@ function graphBody(topology: GraphTopology, hasWip: boolean): ReactNode {
           )}
           <Node cx={X_BEHIND} cy={Y0 + 8} fill={danger} r={5} role="head" />
           <Node cx={X_AHEAD} cy={headY} fill={success} r={5} role="head" />
-          {hasWip ? <WipTip cx={X_AHEAD} cy={Y0} /> : null}
+          <WipAbove cx={X_AHEAD} headCy={headY} hasWip={hasWip} />
           <Label x={8} y={Y1 + 12} text="merge-base" anchor="start" />
           <Label x={X_AHEAD - 6} y={headY - 8} text="HEAD" anchor="end" />
           <Label x={X_BEHIND + 10} y={Y0 + 12} text={baseLabel} anchor="start" />
         </>
       );
+    }
   }
 }
 
