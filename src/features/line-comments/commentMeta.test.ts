@@ -85,18 +85,8 @@ describe("languageFromPath", () => {
   });
 });
 
-describe("findComment and activeDraft", () => {
-  test("findComment walks paths and ignores a null key", () => {
-    const pathComments: PathComments = {
-      "a.ts": [saved("a.ts", "s1", "one", range(1, 1), "x", "ts")],
-      "b.ts": [saved("b.ts", "s2", "two", range(2, 2), "y", "ts")],
-    };
-    expect(findComment(pathComments, null)).toBeNull();
-    expect(findComment(pathComments, "missing")).toBeNull();
-    expect(findComment(pathComments, "s2")?.path).toBe("b.ts");
-  });
-
-  test("activeDraft returns the sole draft", () => {
+describe("findPathComment", () => {
+  test("matches by key or kind and ignores a null key", () => {
     const draft = makeAnnotation({
       kind: "draft",
       key: "d1",
@@ -108,8 +98,11 @@ describe("findComment and activeDraft", () => {
     if (draft == null) throw new Error("expected draft");
     const pathComments: PathComments = {
       "a.ts": [saved("a.ts", "s1", "one", range(1, 1), "x", "ts")],
-      "b.ts": [draft],
+      "b.ts": [saved("b.ts", "s2", "two", range(2, 2), "y", "ts"), draft],
     };
+    expect(findComment(pathComments, null)).toBeNull();
+    expect(findComment(pathComments, "missing")).toBeNull();
+    expect(findComment(pathComments, "s2")?.path).toBe("b.ts");
     expect(activeDraft(pathComments)?.annotation.metadata.key).toBe("d1");
     expect(activeDraft({ "a.ts": pathComments["a.ts"]! })).toBeNull();
   });

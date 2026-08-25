@@ -80,28 +80,28 @@ export function savedComments(
   return out;
 }
 
-export function findComment(
+export function findPathComment(
   pathComments: PathComments,
-  commentKey: string | null,
+  match: (meta: CommentMeta) => boolean,
 ): PathComment | null {
-  if (commentKey == null) return null;
   for (const [path, annotations] of Object.entries(pathComments)) {
-    const annotation = annotations.find(
-      (row) => row.metadata.key === commentKey,
-    );
+    const annotation = annotations.find((row) => match(row.metadata));
     if (annotation != null) return { path, annotation };
   }
   return null;
 }
 
+export function findComment(
+  pathComments: PathComments,
+  commentKey: string | null,
+): PathComment | null {
+  if (commentKey == null) return null;
+  return findPathComment(pathComments, (meta) => meta.key === commentKey);
+}
+
+/** The reducer keeps at most one draft per comparison (`stripDrafts`). */
 export function activeDraft(pathComments: PathComments): PathComment | null {
-  for (const [path, annotations] of Object.entries(pathComments)) {
-    const annotation = annotations.find(
-      (row) => row.metadata.kind === "draft",
-    );
-    if (annotation != null) return { path, annotation };
-  }
-  return null;
+  return findPathComment(pathComments, (meta) => meta.kind === "draft");
 }
 
 export function savedCommentCount(pathComments: PathComments): number {

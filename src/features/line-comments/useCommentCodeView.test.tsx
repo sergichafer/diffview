@@ -50,24 +50,6 @@ function item(path: string): CodeViewDiffItem<CommentMeta> {
   return { id: path, type: "diff", fileDiff };
 }
 
-function clickRange(node: ReturnType<ViewApi["renderAnnotation"]>) {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-  act(() => {
-    root.render(node);
-  });
-  const button = host.querySelector(".comment-card-range");
-  if (!(button instanceof HTMLButtonElement)) {
-    throw new Error("missing range button");
-  }
-  act(() => {
-    button.click();
-  });
-  act(() => root.unmount());
-  host.remove();
-}
-
 function mountView(args: {
   items: CodeViewDiffItem<CommentMeta>[];
   editingPaths?: ReadonlySet<string>;
@@ -75,6 +57,7 @@ function mountView(args: {
 }): {
   comments: () => CommentsApi;
   view: () => ViewApi;
+  host: HTMLElement;
   setActiveKey: (key: string | null) => void;
   unmount: () => void;
 } {
@@ -104,7 +87,20 @@ function mountView(args: {
     });
     commentsLatest = comments;
     viewLatest = view;
-    return view.chip;
+    return (
+      <>
+        {args.items.flatMap((row) => {
+          const annotations = comments.pathComments[row.id];
+          if (annotations == null) return [];
+          return annotations.map((annotation) => (
+            <div key={annotation.metadata.key}>
+              {view.renderAnnotation(annotation, row)}
+            </div>
+          ));
+        })}
+        {view.chip}
+      </>
+    );
   }
 
   act(() => {
@@ -120,6 +116,7 @@ function mountView(args: {
       if (!viewLatest) throw new Error("view not mounted");
       return viewLatest;
     },
+    host: container,
     setActiveKey: (key) => {
       act(() => setKey?.(key));
     },
@@ -278,9 +275,13 @@ describe("useCommentCodeView", () => {
     });
     expect(h.view().selectedLines).toEqual({ id: "b.ts", range: rangeB });
 
-    const savedA = h.comments().pathComments["a.ts"]?.[0];
-    if (savedA == null) throw new Error("expected saved a");
-    clickRange(h.view().renderAnnotation(savedA, items[0]!));
+    const rangeButton = h.host.querySelector(".comment-card-range");
+    if (!(rangeButton instanceof HTMLButtonElement)) {
+      throw new Error("missing range button");
+    }
+    act(() => {
+      rangeButton.click();
+    });
     expect(h.view().selectedLines).toEqual({ id: "a.ts", range: rangeA });
     act(() => {
       h.view().onSelectedLinesChange(null);

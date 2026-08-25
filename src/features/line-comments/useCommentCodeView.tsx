@@ -67,32 +67,21 @@ export function useCommentCodeView({
     commentKey: null,
     lines: null,
   });
-  const draft = activeDraft(pathComments);
-  const focused = findComment(pathComments, selection.commentKey);
-  if (selection.key !== activeKey) {
-    setSelection({ key: activeKey, commentKey: null, lines: null });
-  } else if (
-    draft != null &&
-    selection.commentKey !== draft.annotation.metadata.key
-  ) {
-    setSelection({
-      key: activeKey,
-      commentKey: draft.annotation.metadata.key,
-      lines: null,
-    });
-  } else if (selection.commentKey != null && focused == null) {
-    setSelection({ key: activeKey, commentKey: null, lines: null });
+  /** Draft wins so the range survives save. */
+  const locked =
+    activeDraft(pathComments) ??
+    findComment(pathComments, selection.commentKey);
+  const lockKey = locked?.annotation.metadata.key ?? null;
+  if (selection.key !== activeKey || selection.commentKey !== lockKey) {
+    setSelection({ key: activeKey, commentKey: lockKey, lines: null });
   }
 
-  const locked =
-    selection.key !== activeKey ? null : (draft ?? focused);
   const selectedLines =
     locked != null
       ? { id: locked.path, range: locked.annotation.metadata.range }
       : selection.key === activeKey
         ? selection.lines
         : null;
-  const lockKey = locked?.annotation.metadata.key ?? null;
 
   const onSelectedLinesChange = useCallback(
     (lines: CodeViewLineSelection | null) => {
