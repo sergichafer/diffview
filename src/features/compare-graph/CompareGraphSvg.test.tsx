@@ -47,7 +47,7 @@ describe("CompareGraphSvg", () => {
   test("sync is one commit, not a full-height lane", () => {
     act(() => {
       root.render(
-        <CompareGraphSvg topology={topology("sync")} isLive={false} />,
+        <CompareGraphSvg topology={topology("sync")} hasWip={false} />,
       );
     });
     expect(container.querySelector("path")).toBeNull();
@@ -62,7 +62,7 @@ describe("CompareGraphSvg", () => {
   test("behind does not stack a node on the merge-base diamond", () => {
     act(() => {
       root.render(
-        <CompareGraphSvg topology={topology("behind")} isLive={false} />,
+        <CompareGraphSvg topology={topology("behind")} hasWip={false} />,
       );
     });
     const merge = container.querySelector('[data-graph-node="merge-base"]')!;
@@ -84,21 +84,70 @@ describe("CompareGraphSvg", () => {
     expect(container.querySelector("path")).toBeTruthy();
   });
 
-  test("live unknown still draws a WIP ring on the merge-base", () => {
+  test("unknown without uncommitted work has no WIP node", () => {
     act(() => {
       root.render(
-        <CompareGraphSvg topology={topology("unknown")} isLive />,
+        <CompareGraphSvg topology={topology("unknown")} hasWip={false} />,
       );
     });
-    expect(container.querySelector('[data-graph-node="wip"]')).toBeTruthy();
+    expect(container.querySelector('[data-graph-node="wip"]')).toBeNull();
     expect(container.textContent).toContain("counts pending");
   });
 
-  test("live sync draws a WIP ring on the merge-base", () => {
+  test("unknown WIP sits above the merge-base", () => {
     act(() => {
-      root.render(<CompareGraphSvg topology={topology("sync")} isLive />);
+      root.render(<CompareGraphSvg topology={topology("unknown")} hasWip />);
     });
-    expect(container.querySelector('[data-graph-node="wip"]')).toBeTruthy();
+    const wip = container.querySelector('[data-graph-node="wip"]')!;
+    const merge = container.querySelector('[data-graph-node="merge-base"]')!;
+    const mergeY =
+      Number(merge.getAttribute("y")) + Number(merge.getAttribute("height")) / 2;
+    expect(Number(wip.getAttribute("cy"))).toBeLessThan(mergeY);
+    expect(container.textContent).toContain("WIP");
+  });
+
+  test("linear WIP sits past HEAD, not on it", () => {
+    act(() => {
+      root.render(
+        <CompareGraphSvg
+          topology={{ kind: "linear", ahead: 2, baseLabel: "main" }}
+          hasWip
+        />,
+      );
+    });
+    const wip = container.querySelector('[data-graph-node="wip"]')!;
+    const head = container.querySelector('[data-graph-node="head"]')!;
+    expect(Number(wip.getAttribute("cy"))).toBeLessThan(Number(head.getAttribute("cy")));
+    expect(container.textContent).toContain("HEAD");
+    expect(container.textContent).toContain("WIP");
+  });
+
+  test("behind WIP sits above the merge-base diamond, not on the danger stem", () => {
+    act(() => {
+      root.render(<CompareGraphSvg topology={topology("behind")} hasWip />);
+    });
+    const wip = container.querySelector('[data-graph-node="wip"]')!;
+    const merge = container.querySelector('[data-graph-node="merge-base"]')!;
+    const mergeY =
+      Number(merge.getAttribute("y")) + Number(merge.getAttribute("height")) / 2;
+    expect(Number(wip.getAttribute("cy"))).toBeLessThan(mergeY);
+    const danger = [...container.querySelectorAll("path")].find(
+      (el) => el.getAttribute("stroke") === "var(--state-danger)",
+    );
+    expect(danger?.getAttribute("d") ?? "").not.toContain(`V ${mergeY - 16}`);
+  });
+
+  test("linear without uncommitted work has no WIP node", () => {
+    act(() => {
+      root.render(
+        <CompareGraphSvg
+          topology={{ kind: "linear", ahead: 2, baseLabel: "main" }}
+          hasWip={false}
+        />,
+      );
+    });
+    expect(container.querySelector('[data-graph-node="wip"]')).toBeNull();
+    expect(container.querySelector('[data-graph-node="head"]')).toBeTruthy();
   });
 
   test("one ahead commit draws the tip only", () => {
@@ -106,7 +155,7 @@ describe("CompareGraphSvg", () => {
       root.render(
         <CompareGraphSvg
           topology={{ kind: "linear", ahead: 1, baseLabel: "main" }}
-          isLive={false}
+          hasWip={false}
         />,
       );
     });
@@ -124,7 +173,7 @@ describe("CompareGraphSvg", () => {
             behind: 15,
             baseLabel: "main",
           }}
-          isLive={false}
+          hasWip={false}
         />,
       );
     });
