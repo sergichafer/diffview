@@ -1,0 +1,29 @@
+{
+  "name": "Branch naming",
+  "target": "branch",
+  "source_type": "Repository",
+  "source": "sergichafer/diffview",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [
+        "refs/heads/main"
+      ],
+      "include": [
+        "~ALL"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "branch_name_pattern",
+      "parameters": {
+        "name": "Conventional branch prefix",
+        "negate": false,
+        "operator": "regex",
+        "pattern": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)\\/.+\\n?$"
+      }
+    }
+  ],
+  "bypass_actors": []
+}

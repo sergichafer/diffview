@@ -28,6 +28,12 @@ Desktop diff viewer. Tauri 2 + React 19 in `src/`, Rust with libgit2 in `src-tau
 - Frontend layout: `src/windows/` holds the two entry points (main, preview), `src/features/<name>/` holds feature code, `src/design/` holds theme, fonts, and motion, `src/shared/` holds what crosses features.
 - No eslint or prettier config. `tsc` strict mode and react-doctor are the static gates; keep both silent.
 
+## Git
+
+- Branches: `feat/`, `fix/`, `docs/`, `style/`, `refactor/`, `perf/`, `test/`, `build/`, `ci/`, `chore/`, `revert/`.
+- Commit subjects and PR titles: Conventional Commits (`feat: add palette picker`, optional scope, optional `!` for a breaking change).
+- PRs into `main` are squash-only. Use the What / Why template.
+
 ## CUBE CSS
 
 - CUBE: composition / utility / block / exception

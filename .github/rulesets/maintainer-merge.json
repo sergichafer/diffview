@@ -1,0 +1,30 @@
+{
+  "name": "Maintainer merge",
+  "target": "branch",
+  "source_type": "Repository",
+  "source": "sergichafer/diffview",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [],
+      "include": [
+        "refs/heads/main"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "update",
+      "parameters": {
+        "update_allows_fetch_and_merge": false
+      }
+    }
+  ],
+  "bypass_actors": [
+    {
+      "actor_id": 17047650,
+      "actor_type": "User",
+      "bypass_mode": "pull_request"
+    }
+  ]
+}
