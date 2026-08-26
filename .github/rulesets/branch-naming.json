@@ -21,7 +21,7 @@
         "name": "Conventional branch prefix",
         "negate": false,
         "operator": "regex",
-        "pattern": "^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)\\/.+\\n?$"
+        "pattern": "^(build|chore|ci|deps|docs|feat|fix|perf|refactor|revert|style|test)\\/.+\\n?$"
       }
     }
   ],

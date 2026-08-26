@@ -2,12 +2,12 @@
 # Validate conventional branch names, PR titles, and commit subjects.
 set -euo pipefail
 
-TYPES='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
+TYPES='build|chore|ci|deps|docs|feat|fix|perf|refactor|revert|style|test'
 COMMIT_RE="^(${TYPES})(\\([A-Za-z0-9._-]+\\))?(!)?: [^[:space:]].*"
 BRANCH_RE="^(${TYPES})/.+"
 
 usage() {
-  echo "Usage: TYPES match Conventional Commits (feat, fix, docs, ...)."
+  echo "Usage: TYPES match Conventional Commits (feat, fix, deps, docs, ...)."
   echo "  Branch:  feat/add-palette"
   echo "  Title:   feat: add palette picker"
   echo "  Commit:  same as title (subject line)"
@@ -41,6 +41,7 @@ self_test() {
   expect_match branch "feat/add-palette" "$BRANCH_RE"
   expect_match branch "fix/windows-webview" "$BRANCH_RE"
   expect_match branch "chore/deps" "$BRANCH_RE"
+  expect_match branch "deps/bump-tauri" "$BRANCH_RE"
   expect_reject branch "main" "$BRANCH_RE"
   expect_reject branch "feature/foo" "$BRANCH_RE"
   expect_reject branch "feat" "$BRANCH_RE"
@@ -49,6 +50,7 @@ self_test() {
   expect_match commit "feat: add palette picker" "$COMMIT_RE"
   expect_match commit "fix(windows)!: drop win7" "$COMMIT_RE"
   expect_match commit "chore(deps): bump tauri" "$COMMIT_RE"
+  expect_match commit "deps: bump tauri" "$COMMIT_RE"
   expect_reject commit "Add palette picker" "$COMMIT_RE"
   expect_reject commit "feat:" "$COMMIT_RE"
   expect_reject commit "feat: " "$COMMIT_RE"
@@ -71,7 +73,7 @@ check_pr() {
   FAILED=0
 
   if [[ ! "$HEAD_REF" =~ $BRANCH_RE ]]; then
-    fail_msg "Branch '${HEAD_REF}' must use a conventional prefix (feat/, fix/, docs/, style/, refactor/, perf/, test/, build/, ci/, chore/, revert/)."
+    fail_msg "Branch '${HEAD_REF}' must use a conventional prefix (feat/, fix/, deps/, docs/, style/, refactor/, perf/, test/, build/, ci/, chore/, revert/)."
   fi
 
   local title=${PR_TITLE//$'\r'/}

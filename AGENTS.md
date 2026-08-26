@@ -30,8 +30,8 @@ Desktop diff viewer. Tauri 2 + React 19 in `src/`, Rust with libgit2 in `src-tau
 
 ## Git
 
-- Branches: `feat/`, `fix/`, `docs/`, `style/`, `refactor/`, `perf/`, `test/`, `build/`, `ci/`, `chore/`, `revert/`.
-- Commit subjects and PR titles: Conventional Commits (`feat: add palette picker`, optional scope, optional `!` for a breaking change).
+- Branches: `feat/`, `fix/`, `deps/`, `docs/`, `style/`, `refactor/`, `perf/`, `test/`, `build/`, `ci/`, `chore/`, `revert/`.
+- Commit subjects and PR titles: Conventional Commits (`feat: add palette picker`, `deps: bump tauri`, optional scope, optional `!` for a breaking change).
 - PRs into `main` are squash-only. Use the What / Why template.
 
 ## CUBE CSS
