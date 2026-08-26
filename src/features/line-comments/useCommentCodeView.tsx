@@ -134,8 +134,9 @@ export function useCommentCodeView({
           annotation={annotation}
           onSave={(message) => handleSave(path, annotation, message)}
           onCancel={() => {
-            cancelComment(path, key);
-            if (annotation.metadata.kind === "draft") {
+            const dropSelection = annotation.metadata.kind === "draft";
+            cancelComment();
+            if (dropSelection) {
               releaseMatchingSelection(path, annotation.metadata.range);
             }
           }}

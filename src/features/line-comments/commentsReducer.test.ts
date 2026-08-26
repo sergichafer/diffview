@@ -124,8 +124,6 @@ describe("commentsReducer", () => {
     store = commentsReducer(store, {
       type: "cancel",
       key: KEY,
-      path: "a.ts",
-      commentKey: "s1",
     });
     expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata).toMatchObject({
       kind: "saved",
@@ -136,8 +134,6 @@ describe("commentsReducer", () => {
     store = commentsReducer(store, {
       type: "cancel",
       key: KEY,
-      path: "b.ts",
-      commentKey: "d2",
     });
     expect(store.map[KEY]?.["b.ts"]).toBeUndefined();
     expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata.kind).toBe("saved");

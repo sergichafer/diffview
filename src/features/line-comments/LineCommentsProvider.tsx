@@ -95,13 +95,10 @@ export function useLineCommentsState({
     [activeKey],
   );
 
-  const cancelComment = useCallback(
-    (path: string, commentKey: string) => {
-      if (!activeKey) return;
-      dispatch({ type: "cancel", key: activeKey, path, commentKey });
-    },
-    [activeKey],
-  );
+  const cancelComment = useCallback(() => {
+    if (!activeKey) return;
+    dispatch({ type: "cancel", key: activeKey });
+  }, [activeKey]);
 
   const deleteComment = useCallback(
     (path: string, commentKey: string) => {
