@@ -5,33 +5,36 @@ import type { CommentMeta } from "./commentMeta";
 interface CommentCardProps {
   annotation: DiffLineAnnotation<CommentMeta>;
   onSave: (message: string) => void;
-  onDiscard: () => void;
+  onCancel: () => void;
   onEdit: () => void;
+  onDelete: () => void;
 }
 
 export function CommentCard({
   annotation,
   onSave,
-  onDiscard,
+  onCancel,
   onEdit,
+  onDelete,
 }: CommentCardProps) {
   const { kind, message: savedMessage } = annotation.metadata;
   const [message, setMessage] = useState(savedMessage);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const trimmed = message.trim();
+  const composing = kind !== "saved";
 
   useEffect(() => {
     setMessage(savedMessage);
   }, [annotation.metadata.key, kind, savedMessage]);
 
   useEffect(() => {
-    if (kind !== "draft") return;
+    if (!composing) return;
     const textarea = textareaRef.current;
     if (textarea == null) return;
     textarea.focus({ preventScroll: true });
     const cursor = textarea.value.length;
     textarea.setSelectionRange(cursor, cursor);
-  }, [kind, annotation.metadata.key]);
+  }, [composing, annotation.metadata.key]);
 
   function save() {
     if (trimmed.length === 0) return;
@@ -41,7 +44,7 @@ export function CommentCard({
   function onComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
-      onDiscard();
+      onCancel();
       return;
     }
     if (event.key !== "Enter") return;
@@ -51,7 +54,7 @@ export function CommentCard({
     }
   }
 
-  if (kind === "draft") {
+  if (composing) {
     return (
       <div className="comment-card">
         <textarea
@@ -65,7 +68,7 @@ export function CommentCard({
           aria-label="Comment"
         />
         <div className="comment-card-actions">
-          <button type="button" onClick={onDiscard}>
+          <button type="button" onClick={onCancel}>
             Cancel
           </button>
           <button type="button" onClick={save} disabled={trimmed.length === 0}>
@@ -83,7 +86,7 @@ export function CommentCard({
         <button type="button" onClick={onEdit}>
           Edit
         </button>
-        <button type="button" onClick={onDiscard}>
+        <button type="button" onClick={onDelete}>
           Delete
         </button>
       </div>

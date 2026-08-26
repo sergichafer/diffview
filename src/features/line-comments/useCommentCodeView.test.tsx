@@ -323,6 +323,54 @@ describe("useCommentCodeView", () => {
     h.unmount();
   });
 
+  test("canceling an edit keeps the saved comment", () => {
+    const items = [item("a.ts")];
+    const h = mountView({ items });
+    const range = { start: 1, end: 1, side: "additions" as const };
+    act(() => {
+      h.view().onGutterUtilityClick(range, { item: items[0]! });
+    });
+    const draft = h.comments().pathComments["a.ts"]?.[0];
+    if (draft == null) throw new Error("expected draft");
+    act(() => {
+      h.comments().saveComment("a.ts", draft.metadata.key, "keep me", "x", "ts");
+    });
+    const edit = [...h.host.querySelectorAll("button")].find(
+      (btn) => btn.textContent === "Edit",
+    );
+    if (!(edit instanceof HTMLButtonElement)) throw new Error("missing edit");
+    act(() => {
+      edit.click();
+    });
+    expect(h.comments().pathComments["a.ts"]?.[0]?.metadata.kind).toBe("edit");
+    const textarea = h.host.querySelector("textarea");
+    if (!(textarea instanceof HTMLTextAreaElement)) {
+      throw new Error("missing composer");
+    }
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(textarea, "scratch");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const cancel = [...h.host.querySelectorAll("button")].find(
+      (btn) => btn.textContent === "Cancel",
+    );
+    if (!(cancel instanceof HTMLButtonElement)) {
+      throw new Error("missing cancel");
+    }
+    act(() => {
+      cancel.click();
+    });
+    expect(h.comments().pathComments["a.ts"]?.[0]?.metadata).toMatchObject({
+      kind: "saved",
+      message: "keep me",
+    });
+    h.unmount();
+  });
+
   test("editing a saved comment does not steal the current selection", () => {
     const items = [item("a.ts"), item("b.ts")];
     const h = mountView({ items });

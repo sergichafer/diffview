@@ -59,6 +59,7 @@ export function useCommentCodeView({
     saveComment,
     deleteComment,
     beginEdit,
+    cancelComment,
     startDraft,
     pathComments,
     savedCommentCount,
@@ -132,15 +133,28 @@ export function useCommentCodeView({
         <CommentCard
           annotation={annotation}
           onSave={(message) => handleSave(path, annotation, message)}
-          onDiscard={() => {
+          onCancel={() => {
+            const dropSelection = annotation.metadata.kind === "draft";
+            cancelComment();
+            if (dropSelection) {
+              releaseMatchingSelection(path, annotation.metadata.range);
+            }
+          }}
+          onEdit={() => beginEdit(path, key)}
+          onDelete={() => {
             deleteComment(path, key);
             releaseMatchingSelection(path, annotation.metadata.range);
           }}
-          onEdit={() => beginEdit(path, key)}
         />
       );
     },
-    [beginEdit, deleteComment, handleSave, releaseMatchingSelection],
+    [
+      beginEdit,
+      cancelComment,
+      deleteComment,
+      handleSave,
+      releaseMatchingSelection,
+    ],
   );
 
   const onGutterUtilityClick = useCallback(

@@ -43,6 +43,7 @@ export type CommentsAction =
       path: string;
       commentKey: string;
     }
+  | { type: "cancel"; key: ComparisonKey }
   | {
       type: "delete";
       key: ComparisonKey;
@@ -68,14 +69,36 @@ function setPath(
   return { ...paths, [path]: annotations };
 }
 
-function stripDrafts(paths: PathComments): PathComments {
+function abandonComposer(
+  annotation: DiffLineAnnotation<CommentMeta>,
+): DiffLineAnnotation<CommentMeta> | null {
+  switch (annotation.metadata.kind) {
+    case "draft":
+      return null;
+    case "edit":
+      return {
+        ...annotation,
+        metadata: { ...annotation.metadata, kind: "saved" },
+      };
+    case "saved":
+      return annotation;
+  }
+}
+
+function closeOpenComposer(paths: PathComments): PathComments {
   let changed = false;
   const next: PathComments = {};
   for (const [path, annotations] of Object.entries(paths)) {
-    const kept = annotations.filter(
-      (annotation) => annotation.metadata.kind !== "draft",
-    );
-    if (kept.length !== annotations.length) changed = true;
+    const kept: DiffLineAnnotation<CommentMeta>[] = [];
+    for (const annotation of annotations) {
+      const settled = abandonComposer(annotation);
+      if (settled == null) {
+        changed = true;
+        continue;
+      }
+      if (settled !== annotation) changed = true;
+      kept.push(settled);
+    }
     if (kept.length > 0) next[path] = kept;
   }
   return changed ? next : paths;
@@ -123,9 +146,9 @@ export function commentsReducer(
       const current = rowOf(store, action.key);
       const existing = current[action.path] ?? [];
       if (occupied(existing, draft.side, draft.lineNumber)) return store;
-      const stripped = stripDrafts(current);
-      const nextAnns = [...(stripped[action.path] ?? []), draft];
-      const nextRow = setPath(stripped, action.path, nextAnns);
+      const settled = closeOpenComposer(current);
+      const nextAnns = [...(settled[action.path] ?? []), draft];
+      const nextRow = setPath(settled, action.path, nextAnns);
       return bump(store, { ...store.map, [action.key]: nextRow });
     }
     case "save": {
@@ -138,7 +161,7 @@ export function commentsReducer(
       const nextAnns = annotations.map((annotation) => {
         if (
           annotation.metadata.key !== action.commentKey ||
-          annotation.metadata.kind !== "draft"
+          annotation.metadata.kind === "saved"
         ) {
           return annotation;
         }
@@ -168,19 +191,25 @@ export function commentsReducer(
         (annotation) => annotation.metadata.key === action.commentKey,
       );
       if (target == null || target.metadata.kind !== "saved") return store;
-      const stripped = stripDrafts(current);
-      const afterStrip = stripped[action.path] ?? [];
-      const nextAnns = afterStrip.map((annotation) => {
+      const settled = closeOpenComposer(current);
+      const afterClose = settled[action.path] ?? [];
+      const nextAnns = afterClose.map((annotation) => {
         if (annotation.metadata.key !== action.commentKey) return annotation;
         return {
           ...annotation,
-          metadata: { ...annotation.metadata, kind: "draft" as const },
+          metadata: { ...annotation.metadata, kind: "edit" as const },
         };
       });
       return bump(store, {
         ...store.map,
-        [action.key]: setPath(stripped, action.path, nextAnns),
+        [action.key]: setPath(settled, action.path, nextAnns),
       });
+    }
+    case "cancel": {
+      const current = rowOf(store, action.key);
+      const next = closeOpenComposer(current);
+      if (next === current) return store;
+      return bump(store, { ...store.map, [action.key]: next });
     }
     case "delete": {
       const current = rowOf(store, action.key);

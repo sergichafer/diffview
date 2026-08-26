@@ -95,6 +95,11 @@ export function useLineCommentsState({
     [activeKey],
   );
 
+  const cancelComment = useCallback(() => {
+    if (!activeKey) return;
+    dispatch({ type: "cancel", key: activeKey });
+  }, [activeKey]);
+
   const deleteComment = useCallback(
     (path: string, commentKey: string) => {
       if (!activeKey) return;
@@ -110,6 +115,7 @@ export function useLineCommentsState({
     startDraft,
     saveComment,
     beginEdit,
+    cancelComment,
     deleteComment,
   };
 }
