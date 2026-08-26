@@ -97,7 +97,7 @@ describe("commentsReducer", () => {
     expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata.kind).toBe("draft");
   });
 
-  test("begin-edit turns a saved comment into the sole draft", () => {
+  test("begin-edit turns a saved comment into the sole composer", () => {
     let store = startDraft(emptyCommentsStore, "a.ts", range(1, 1), "s1");
     store = save(store, "a.ts", "s1", "saved");
     store = startDraft(store, "b.ts", range(2, 2), "d2");
@@ -108,8 +108,71 @@ describe("commentsReducer", () => {
       commentKey: "s1",
     });
     expect(store.map[KEY]?.["b.ts"]).toBeUndefined();
-    expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata.kind).toBe("draft");
+    expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata.kind).toBe("edit");
     expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata.message).toBe("saved");
+  });
+
+  test("cancel restores an edit and deletes a new draft", () => {
+    let store = startDraft(emptyCommentsStore, "a.ts", range(1, 1), "s1");
+    store = save(store, "a.ts", "s1", "keep me");
+    store = commentsReducer(store, {
+      type: "begin-edit",
+      key: KEY,
+      path: "a.ts",
+      commentKey: "s1",
+    });
+    store = commentsReducer(store, {
+      type: "cancel",
+      key: KEY,
+      path: "a.ts",
+      commentKey: "s1",
+    });
+    expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata).toMatchObject({
+      kind: "saved",
+      message: "keep me",
+    });
+
+    store = startDraft(store, "b.ts", range(2, 2), "d2");
+    store = commentsReducer(store, {
+      type: "cancel",
+      key: KEY,
+      path: "b.ts",
+      commentKey: "d2",
+    });
+    expect(store.map[KEY]?.["b.ts"]).toBeUndefined();
+    expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata.kind).toBe("saved");
+  });
+
+  test("starting a draft restores an in-progress edit", () => {
+    let store = startDraft(emptyCommentsStore, "a.ts", range(1, 1), "s1");
+    store = save(store, "a.ts", "s1", "original");
+    store = commentsReducer(store, {
+      type: "begin-edit",
+      key: KEY,
+      path: "a.ts",
+      commentKey: "s1",
+    });
+    store = startDraft(store, "b.ts", range(2, 2), "d2");
+    expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata.kind).toBe("saved");
+    expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata.message).toBe("original");
+    expect(store.map[KEY]?.["b.ts"]?.[0]?.metadata.kind).toBe("draft");
+  });
+
+  test("save from an edit keeps the key and writes the new message", () => {
+    let store = startDraft(emptyCommentsStore, "a.ts", range(1, 1), "s1");
+    store = save(store, "a.ts", "s1", "old");
+    store = commentsReducer(store, {
+      type: "begin-edit",
+      key: KEY,
+      path: "a.ts",
+      commentKey: "s1",
+    });
+    store = save(store, "a.ts", "s1", "new");
+    expect(store.map[KEY]?.["a.ts"]?.[0]?.metadata).toMatchObject({
+      kind: "saved",
+      key: "s1",
+      message: "new",
+    });
   });
 
   test("delete removes a comment and drops empty paths", () => {

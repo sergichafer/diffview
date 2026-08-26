@@ -40,14 +40,14 @@ afterEach(() => {
 describe("CommentCard", () => {
   test("saves with meta/ctrl/shift enter and not with enter alone", () => {
     const onSave = mock((_message: string) => {});
-    const onDiscard = mock(() => {});
     act(() => {
       root.render(
         <CommentCard
           annotation={annotation("draft", "hello")}
           onSave={onSave}
-          onDiscard={onDiscard}
+          onCancel={() => {}}
           onEdit={() => {}}
+          onDelete={() => {}}
         />,
       );
     });
@@ -84,15 +84,16 @@ describe("CommentCard", () => {
     expect(onSave).toHaveBeenCalledTimes(2);
   });
 
-  test("escape discards a draft without a confirm", () => {
-    const onDiscard = mock(() => {});
+  test("escape cancels a composer without a confirm", () => {
+    const onCancel = mock(() => {});
     act(() => {
       root.render(
         <CommentCard
-          annotation={annotation("draft", "temp")}
+          annotation={annotation("edit", "temp")}
           onSave={() => {}}
-          onDiscard={onDiscard}
+          onCancel={onCancel}
           onEdit={() => {}}
+          onDelete={() => {}}
         />,
       );
     });
@@ -102,19 +103,20 @@ describe("CommentCard", () => {
         new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
       );
     });
-    expect(onDiscard).toHaveBeenCalledTimes(1);
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   test("saved body keeps newlines and edit/delete fire", () => {
     const onEdit = mock(() => {});
-    const onDiscard = mock(() => {});
+    const onDelete = mock(() => {});
     act(() => {
       root.render(
         <CommentCard
           annotation={annotation("saved", "line one\nline two")}
           onSave={() => {}}
-          onDiscard={onDiscard}
+          onCancel={() => {}}
           onEdit={onEdit}
+          onDelete={onDelete}
         />,
       );
     });
@@ -128,6 +130,6 @@ describe("CommentCard", () => {
     act(() => {
       buttons.find((btn) => btn.textContent === "Delete")?.click();
     });
-    expect(onDiscard).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });

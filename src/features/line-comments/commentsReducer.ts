@@ -44,6 +44,12 @@ export type CommentsAction =
       commentKey: string;
     }
   | {
+      type: "cancel";
+      key: ComparisonKey;
+      path: string;
+      commentKey: string;
+    }
+  | {
       type: "delete";
       key: ComparisonKey;
       path: string;
@@ -68,14 +74,27 @@ function setPath(
   return { ...paths, [path]: annotations };
 }
 
-function stripDrafts(paths: PathComments): PathComments {
+function closeOpenComposer(paths: PathComments): PathComments {
   let changed = false;
   const next: PathComments = {};
   for (const [path, annotations] of Object.entries(paths)) {
-    const kept = annotations.filter(
-      (annotation) => annotation.metadata.kind !== "draft",
-    );
-    if (kept.length !== annotations.length) changed = true;
+    const kept: DiffLineAnnotation<CommentMeta>[] = [];
+    for (const annotation of annotations) {
+      const { kind } = annotation.metadata;
+      if (kind === "draft") {
+        changed = true;
+        continue;
+      }
+      if (kind === "edit") {
+        changed = true;
+        kept.push({
+          ...annotation,
+          metadata: { ...annotation.metadata, kind: "saved" },
+        });
+        continue;
+      }
+      kept.push(annotation);
+    }
     if (kept.length > 0) next[path] = kept;
   }
   return changed ? next : paths;
@@ -123,9 +142,9 @@ export function commentsReducer(
       const current = rowOf(store, action.key);
       const existing = current[action.path] ?? [];
       if (occupied(existing, draft.side, draft.lineNumber)) return store;
-      const stripped = stripDrafts(current);
-      const nextAnns = [...(stripped[action.path] ?? []), draft];
-      const nextRow = setPath(stripped, action.path, nextAnns);
+      const settled = closeOpenComposer(current);
+      const nextAnns = [...(settled[action.path] ?? []), draft];
+      const nextRow = setPath(settled, action.path, nextAnns);
       return bump(store, { ...store.map, [action.key]: nextRow });
     }
     case "save": {
@@ -138,7 +157,7 @@ export function commentsReducer(
       const nextAnns = annotations.map((annotation) => {
         if (
           annotation.metadata.key !== action.commentKey ||
-          annotation.metadata.kind !== "draft"
+          annotation.metadata.kind === "saved"
         ) {
           return annotation;
         }
@@ -168,18 +187,48 @@ export function commentsReducer(
         (annotation) => annotation.metadata.key === action.commentKey,
       );
       if (target == null || target.metadata.kind !== "saved") return store;
-      const stripped = stripDrafts(current);
-      const afterStrip = stripped[action.path] ?? [];
-      const nextAnns = afterStrip.map((annotation) => {
+      const settled = closeOpenComposer(current);
+      const afterClose = settled[action.path] ?? [];
+      const nextAnns = afterClose.map((annotation) => {
         if (annotation.metadata.key !== action.commentKey) return annotation;
         return {
           ...annotation,
-          metadata: { ...annotation.metadata, kind: "draft" as const },
+          metadata: { ...annotation.metadata, kind: "edit" as const },
         };
       });
       return bump(store, {
         ...store.map,
-        [action.key]: setPath(stripped, action.path, nextAnns),
+        [action.key]: setPath(settled, action.path, nextAnns),
+      });
+    }
+    case "cancel": {
+      const current = rowOf(store, action.key);
+      const annotations = current[action.path];
+      if (annotations == null) return store;
+      const target = annotations.find(
+        (annotation) => annotation.metadata.key === action.commentKey,
+      );
+      if (target == null) return store;
+      if (target.metadata.kind === "draft") {
+        const nextAnns = annotations.filter(
+          (annotation) => annotation.metadata.key !== action.commentKey,
+        );
+        return bump(store, {
+          ...store.map,
+          [action.key]: setPath(current, action.path, nextAnns),
+        });
+      }
+      if (target.metadata.kind !== "edit") return store;
+      const nextAnns = annotations.map((annotation) => {
+        if (annotation.metadata.key !== action.commentKey) return annotation;
+        return {
+          ...annotation,
+          metadata: { ...annotation.metadata, kind: "saved" as const },
+        };
+      });
+      return bump(store, {
+        ...store.map,
+        [action.key]: setPath(current, action.path, nextAnns),
       });
     }
     case "delete": {

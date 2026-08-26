@@ -7,7 +7,7 @@ import type { ComparisonKey } from "@/features/branch-compare/comparisonKey";
 export const PROMPT_INTRO =
   "Address these review notes in the working tree. Each block is a file path, a line range, the current text of those lines, and the comment to apply.";
 
-export type CommentKind = "draft" | "saved";
+export type CommentKind = "draft" | "edit" | "saved";
 
 export type CommentMeta = {
   kind: CommentKind;
