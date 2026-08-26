@@ -16,7 +16,7 @@
     {
       "type": "commit_message_pattern",
       "parameters": {
-        "name": "Conventional Commits",
+        "name": "Conventional Commits, including type! breaking changes",
         "negate": false,
         "operator": "regex",
         "pattern": "^(build|chore|ci|deps|docs|feat|fix|perf|refactor|revert|style|test)(\\([\\w\\.-]+\\))?(!)?: \\S.*\\n?$"

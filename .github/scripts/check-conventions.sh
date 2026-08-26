@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Validate conventional branch names, PR titles, and commit subjects.
+# Breaking change: put ! after the type or scope, then a colon (feat!: ..., deps(npm)!: ...).
 set -euo pipefail
 
 TYPES='build|chore|ci|deps|docs|feat|fix|perf|refactor|revert|style|test'
@@ -10,6 +11,7 @@ usage() {
   echo "Usage: TYPES match Conventional Commits (feat, fix, deps, docs, ...)."
   echo "  Branch:  feat/add-palette"
   echo "  Title:   feat: add palette picker"
+  echo "  Breaking: feat!: drop the old theme API"
   echo "  Commit:  same as title (subject line)"
 }
 
@@ -48,13 +50,18 @@ self_test() {
   expect_reject branch "Feat/foo" "$BRANCH_RE"
 
   expect_match commit "feat: add palette picker" "$COMMIT_RE"
+  expect_match commit "feat!: drop the old theme API" "$COMMIT_RE"
+  expect_match commit "deps!: bump tauri" "$COMMIT_RE"
   expect_match commit "fix(windows)!: drop win7" "$COMMIT_RE"
+  expect_match commit "deps(npm)!: bump tauri" "$COMMIT_RE"
   expect_match commit "chore(deps): bump tauri" "$COMMIT_RE"
   expect_match commit "deps: bump tauri" "$COMMIT_RE"
   expect_reject commit "Add palette picker" "$COMMIT_RE"
   expect_reject commit "feat:" "$COMMIT_RE"
   expect_reject commit "feat: " "$COMMIT_RE"
   expect_reject commit "feat add palette" "$COMMIT_RE"
+  expect_reject commit "feat!" "$COMMIT_RE"
+  expect_reject commit "feat! drop the old theme API" "$COMMIT_RE"
 
   if ((failed)); then
     echo "self-test failed" >&2
@@ -78,7 +85,7 @@ check_pr() {
 
   local title=${PR_TITLE//$'\r'/}
   if [[ ! "$title" =~ $COMMIT_RE ]]; then
-    fail_msg "PR title must be a conventional commit subject (e.g. 'feat: add palette picker'). Got: ${title}"
+    fail_msg "PR title must be a conventional commit subject (e.g. 'feat: add palette picker' or 'feat!: drop the old API'). Got: ${title}"
   fi
 
   local subject
@@ -86,7 +93,7 @@ check_pr() {
     [[ -z "$subject" ]] && continue
     subject=${subject//$'\r'/}
     if [[ ! "$subject" =~ $COMMIT_RE ]]; then
-      fail_msg "Commit subject must be a conventional commit (e.g. 'feat: add palette picker'). Got: ${subject}"
+      fail_msg "Commit subject must be a conventional commit (e.g. 'feat: add palette picker' or 'feat!: drop the old API'). Got: ${subject}"
     fi
   done < <(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/commits" --jq '.[].commit.message | split("\n")[0]')
 
