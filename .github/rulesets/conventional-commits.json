@@ -1,0 +1,27 @@
+{
+  "name": "Conventional commits",
+  "target": "branch",
+  "source_type": "Repository",
+  "source": "sergichafer/diffview",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "exclude": [],
+      "include": [
+        "~ALL"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "type": "commit_message_pattern",
+      "parameters": {
+        "name": "Conventional Commits, including type! breaking changes",
+        "negate": false,
+        "operator": "regex",
+        "pattern": "^(build|chore|ci|deps|docs|feat|fix|perf|refactor|revert|style|test)(\\([\\w\\.-]+\\))?(!)?: \\S.*\\n?$"
+      }
+    }
+  ],
+  "bypass_actors": []
+}
