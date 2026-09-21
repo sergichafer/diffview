@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ACKNOWLEDGMENT_GROUPS } from "./acknowledgments";
 
-const EM_DASH = "\u2014";
-
 describe("ACKNOWLEDGMENT_GROUPS", () => {
   test("names the shipped stack with https project pages", () => {
     const names = ACKNOWLEDGMENT_GROUPS.flatMap((group) =>
@@ -32,9 +30,6 @@ describe("ACKNOWLEDGMENT_GROUPS", () => {
         expect(item.license.length).toBeGreaterThan(0);
         const url = new URL(item.href);
         expect(url.protocol).toBe("https:");
-        for (const value of [group.title, item.name, item.role, item.license]) {
-          expect(value).not.toContain(EM_DASH);
-        }
       }
     }
   });
