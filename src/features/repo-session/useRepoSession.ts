@@ -19,8 +19,15 @@ import {
 } from "@/features/branch-compare/loadAllFileDiffs";
 import { pushRecent } from "@/features/settings/settings";
 import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
-import { makeComparisonKey, type ComparisonKey } from "@/features/branch-compare/comparisonKey";
-import type { HistorySliceTarget } from "@/features/history/historyModel";
+import {
+  makeComparisonKey,
+  sliceComparisonKey,
+  type ComparisonKey,
+} from "@/features/branch-compare/comparisonKey";
+import {
+  sameHistorySpec,
+  type HistorySlice,
+} from "@/features/history/historyModel";
 import {
   CONCURRENT_LOAD_CAP,
   HOT_CAP,
@@ -41,7 +48,9 @@ import {
 } from "./staleness";
 import {
   emptyComparisonRow,
+  specOf,
   type ComparisonRow,
+  type MultiSessionState,
   type Residency,
   type WorkspaceGroup,
 } from "./types";
@@ -49,6 +58,15 @@ import {
   buildInitialState,
   stateToWorkspaceTree,
 } from "./workspaceTreeCodec";
+
+function loadTokenFor(state: MultiSessionState): string | null {
+  const key = state.activeKey;
+  if (!key) return null;
+  const row = state.comparisons[key];
+  if (!row) return key;
+  const spec = specOf(row);
+  return `${key}\0${spec.base}\0${spec.head}\0${row.history?.kind ?? ""}`;
+}
 
 function snapshotOf(
   row: ComparisonRow,
@@ -127,8 +145,9 @@ export function useRepoSessionState(
       dispatch({ type: "comparison-error", key, error: null });
 
       try {
-        const { baseBranch: base, headBranch: head, repoPath } = row;
-        const overview = await api.getBranchOverview(repoPath, base, head);
+        const spec = specOf(row);
+        const { repoPath } = row;
+        const overview = await api.getBranchOverview(repoPath, spec.base, spec.head);
         if (isStale()) return;
 
         dispatch({ type: "comparison-overview", key, overview });
@@ -140,7 +159,7 @@ export function useRepoSessionState(
             batchSize: FILE_DIFF_BATCH_SIZE,
             concurrency: FILE_DIFF_BATCH_CONCURRENCY,
             fetchBatch: (batchPaths) =>
-              api.getBranchFileDiffs(repoPath, base, head, batchPaths),
+              api.getBranchFileDiffs(repoPath, spec.base, spec.head, batchPaths),
             onBatch: (fileDiffs) => {
               if (!isStale()) {
                 dispatch({ type: "append-file-diffs", key, fileDiffs });
@@ -182,10 +201,11 @@ export function useRepoSessionState(
       }
       if (pre === "skip") return;
       try {
+        const spec = specOf(row);
         const stamp = await api.getComparisonStamp(
           row.repoPath,
-          row.baseBranch,
-          row.headBranch,
+          spec.base,
+          spec.head,
         );
         const current = stateRef.current.comparisons[key];
         if (!current) return;
@@ -239,10 +259,11 @@ export function useRepoSessionState(
       return;
     }
     try {
+      const spec = specOf(row);
       const overview = await api.getBranchOverview(
         row.repoPath,
-        row.baseBranch,
-        row.headBranch,
+        spec.base,
+        spec.head,
       );
       if (!stateRef.current.comparisons[targetKey]) return;
       dispatch({ type: "patch-overview", key: targetKey, overview });
@@ -306,11 +327,12 @@ export function useRepoSessionState(
     }
   }, [cliOpenedPaths, settings, update]);
 
+  const activeLoadToken = loadTokenFor(state);
   useEffect(() => {
     const key = state.activeKey;
     if (!key) return;
     void ensureLoaded(key);
-  }, [state.activeKey, ensureLoaded]);
+  }, [activeLoadToken, ensureLoaded, state.activeKey]);
 
   // Idle-warm remaining rows after the active load has a chance to start.
   useEffect(() => {
@@ -324,11 +346,14 @@ export function useRepoSessionState(
       const current = stateRef.current;
       for (const row of Object.values(current.comparisons)) {
         if (row.isLive) continue;
+        const spec = specOf(row);
         void api
-          .getComparisonStamp(row.repoPath, row.baseBranch, row.headBranch)
+          .getComparisonStamp(row.repoPath, spec.base, spec.head)
           .then((stamp) => {
             const latest = stateRef.current.comparisons[row.key];
             if (!latest || latest.isLive) return;
+            const latestSpec = specOf(latest);
+            if (latestSpec.base !== spec.base || latestSpec.head !== spec.head) return;
             if (!stampsMatch(latest, stamp)) {
               dispatch({ type: "mark-outdated", key: row.key, outdated: true });
             }
@@ -553,60 +578,33 @@ export function useRepoSessionState(
   );
 
   const applyHistorySlice = useCallback(
-    (sourceKey: ComparisonKey, request: HistorySliceTarget | null) => {
+    (sourceKey: ComparisonKey, request: HistorySlice | null) => {
       const current = stateRef.current;
-      if (!request) {
-        const active = activeRowFromState(current);
-        const origin = active?.ephemeral ? active.ephemeralSourceKey : sourceKey;
-        if (origin && current.comparisons[origin] && current.activeKey !== origin) {
-          dispatch({ type: "activate", key: origin });
-        }
-        return;
-      }
+      const source = current.comparisons[sourceKey];
+      if (source?.history) return;
+      const sliceKey = sliceComparisonKey(sourceKey);
+      const sliceRow = current.comparisons[sliceKey];
+      const repoPath = source?.repoPath ?? sliceRow?.repoPath;
+      if (!repoPath) return;
 
-      let resolvedSource = sourceKey;
-      let source = current.comparisons[resolvedSource];
-      if (source?.ephemeral && source.ephemeralSourceKey) {
-        resolvedSource = source.ephemeralSourceKey;
-        source = current.comparisons[resolvedSource];
-      }
-      if (!source || source.ephemeral) return;
-
-      const key = makeComparisonKey(
-        source.repoPath,
-        request.baseBranch,
-        request.headBranch,
-      );
-      const previous = Object.values(current.comparisons).find(
-        (row) => row.ephemeral && row.ephemeralSourceKey === resolvedSource,
-      );
-      if (previous && previous.key !== key) {
+      const existing = sliceRow?.history;
+      const specChanged =
+        request != null &&
+        (existing == null || !sameHistorySpec(existing, request));
+      if (specChanged) {
+        // The slot key stays put. Bump the generation so an in-flight overview
+        // cannot land on the new spec. The spec token effect starts the new load.
         refreshGenByKey.current.set(
-          previous.key,
-          (refreshGenByKey.current.get(previous.key) ?? 0) + 1,
+          sliceKey,
+          (refreshGenByKey.current.get(sliceKey) ?? 0) + 1,
         );
       }
-      const row = {
-        ...emptyComparisonRow(
-          key,
-          source.repoPath,
-          request.baseBranch,
-          request.headBranch,
-        ),
-        ephemeral: true,
-        ephemeralSourceKey: resolvedSource,
-        historyLabel: request.label,
-        historyShort: request.short,
-        historyDetail: request.detail,
-        historyBaseLabel: request.historyBaseLabel,
-        historyMark: request.historyMark,
-      };
+
       dispatch({
-        type: "retarget-ephemeral",
-        workspaceId: source.repoPath,
-        previousKey: previous?.key ?? null,
-        key,
-        row,
+        type: "set-history-slice",
+        workspaceId: repoPath,
+        sourceKey,
+        slice: request,
       });
     },
     [],

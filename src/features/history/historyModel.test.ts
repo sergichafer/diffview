@@ -6,7 +6,10 @@ import {
   historyNodeDimmed,
   historySliceTarget,
   indexForSelection,
+  indexToY,
   relativeCommitTime,
+  yToIndex,
+  type HistoryMode,
 } from "./historyModel";
 
 const lane: HistoryLane = {
@@ -46,100 +49,118 @@ describe("buildHistoryNodes", () => {
   });
 });
 
+function target(args: {
+  nodes?: typeof live;
+  index: number;
+  mode: HistoryMode;
+  headOid?: string;
+  mergeBase?: string;
+}) {
+  return historySliceTarget({
+    nodes: args.nodes ?? live,
+    index: args.index,
+    mode: args.mode,
+    sourceBase: "main",
+    sourceHead: "feature",
+    headOid: args.headOid ?? lane.headOid,
+    mergeBase: args.mergeBase ?? lane.mergeBase,
+  });
+}
+
 describe("historySliceTarget", () => {
   test("working tree stays on the branch comparison", () => {
-    expect(
-      historySliceTarget({
-        nodes: live,
-        index: 0,
-        mode: "range",
-        baseBranch: "main",
-        headOid: lane.headOid,
-        mergeBase: lane.mergeBase,
-      }),
-    ).toBeNull();
+    expect(target({ index: 0, mode: "range" })).toBeNull();
   });
 
   test("through the tip hides uncommitted changes", () => {
-    const target = historySliceTarget({
-      nodes: live,
-      index: 1,
-      mode: "range",
-      baseBranch: "main",
-      headOid: lane.headOid,
-      mergeBase: lane.mergeBase,
-    });
-    expect(target).toMatchObject({
-      mode: "range",
-      baseBranch: "main",
-      headBranch: "tip-oid",
+    expect(target({ index: 1, mode: "range" })).toMatchObject({
+      kind: "range",
+      sourceBase: "main",
+      sourceHead: "feature",
+      specBase: "main",
+      specHead: "tip-oid",
       short: "tipoid1",
-      historyMark: "through here",
       detail: "Through tipoid1. Uncommitted changes hidden.",
     });
   });
 
   test("through an earlier commit counts later commits", () => {
-    const target = historySliceTarget({
-      nodes: live,
-      index: 2,
-      mode: "range",
-      baseBranch: "main",
-      headOid: lane.headOid,
-      mergeBase: lane.mergeBase,
-    });
-    expect(target?.detail).toBe(
+    const slice = target({ index: 2, mode: "range" });
+    expect(slice?.detail).toBe(
       "Through midoid1. 1 later commit and uncommitted changes hidden.",
     );
-    expect(target?.headBranch).toBe("mid-oid");
+    expect(slice?.specHead).toBe("mid-oid");
+    expect(slice?.specBase).toBe("main");
   });
 
   test("this commit compares the commit with its parent", () => {
-    const target = historySliceTarget({
-      nodes: live,
-      index: 2,
-      mode: "commit",
-      baseBranch: "main",
-      headOid: lane.headOid,
-      mergeBase: lane.mergeBase,
-    });
-    expect(target).toMatchObject({
-      mode: "commit",
-      baseBranch: "base-oid",
-      headBranch: "mid-oid",
-      historyBaseLabel: "main",
-      historyMark: "this commit",
+    expect(target({ index: 2, mode: "commit" })).toMatchObject({
+      kind: "commit",
+      sourceBase: "main",
+      sourceHead: "feature",
+      specBase: "base-oid",
+      specHead: "mid-oid",
+      baseLabel: "main",
       detail: "Only midoid1.",
     });
   });
 
-  test("the tip of a committed comparison stays on the branch", () => {
+  test("a commit with no parent does not fall through to a range slice", () => {
+    const nodes = buildHistoryNodes(
+      {
+        ...lane,
+        commits: [
+          lane.commits[0]!,
+          { ...lane.commits[1]!, parent: "" },
+        ],
+      },
+      true,
+      "main",
+    );
+    expect(target({ nodes, index: 2, mode: "commit" })).toBeNull();
     expect(
-      historySliceTarget({
-        nodes: frozen,
-        index: 0,
-        mode: "range",
-        baseBranch: "main",
+      historyCaption({
+        nodes,
+        index: 2,
+        mode: "commit",
+        sourceBase: "main",
+        sourceHead: "feature",
         headOid: lane.headOid,
         mergeBase: lane.mergeBase,
+        truncated: false,
       }),
-    ).toBeNull();
+    ).toBe("This commit. Anchor the popover.");
+  });
+
+  test("the tip of a committed comparison stays on the branch", () => {
+    expect(target({ nodes: frozen, index: 0, mode: "range" })).toBeNull();
   });
 
   test("merge-base of an ahead branch is its own slice", () => {
-    const target = historySliceTarget({
-      nodes: live,
-      index: 3,
-      mode: "range",
-      baseBranch: "main",
-      headOid: lane.headOid,
-      mergeBase: lane.mergeBase,
-    });
-    expect(target).toMatchObject({
-      headBranch: "base-oid",
-      historyMark: "merge-base",
+    expect(target({ index: 3, mode: "range" })).toMatchObject({
+      kind: "base",
+      specBase: "main",
+      specHead: "base-oid",
       label: "main",
+      detail: "Merge-base. Nothing ahead of this point.",
     });
+  });
+
+  test("in-sync base returns null", () => {
+    const synced = buildHistoryNodes(
+      { ...lane, headOid: lane.mergeBase, commits: [] },
+      true,
+      "main",
+    );
+    expect(
+      target({
+        nodes: synced,
+        index: 1,
+        mode: "range",
+        headOid: lane.mergeBase,
+        mergeBase: lane.mergeBase,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -162,7 +183,8 @@ describe("history captions and dimming", () => {
         nodes: live,
         index: 2,
         mode: "commit",
-        baseBranch: "main",
+        sourceBase: "main",
+        sourceHead: "feature",
         headOid: lane.headOid,
         mergeBase: lane.mergeBase,
         truncated: false,
@@ -182,6 +204,12 @@ describe("indexForSelection", () => {
 
   test("the merge-base oid selects the base row", () => {
     expect(indexForSelection(frozen, "base-oid")).toBe(2);
+  });
+});
+
+describe("indexToY", () => {
+  test("row centers round back to their index", () => {
+    expect(Math.round(yToIndex(indexToY(3, 52), 52))).toBe(3);
   });
 });
 

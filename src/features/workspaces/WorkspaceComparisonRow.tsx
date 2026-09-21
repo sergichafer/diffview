@@ -1,5 +1,6 @@
 import { IconGlyph } from "@/design/IconButton";
 import { computeAppliedStat } from "@/features/branch-compare/compareStat";
+import { historySliceChip } from "@/features/history/historyModel";
 import type { ComparisonRow } from "@/features/repo-session/types";
 import { WIP_LABEL, WIP_TITLE } from "@/shared/wipCopy";
 import { repoInitial } from "./labels";
@@ -65,8 +66,11 @@ export function WorkspaceComparisonRow({
   onClose,
   onFocus,
 }: WorkspaceComparisonRowProps) {
-  const headLabel = row.historyShort || row.historyLabel || row.headBranch || "Working tree";
-  const baseLabel = row.historyBaseLabel || row.baseBranch;
+  const headLabel = row.history
+    ? row.history.short || row.history.label || row.headBranch || "Working tree"
+    : row.headBranch || "Working tree";
+  const baseLabel = row.history?.baseLabel || row.baseBranch;
+  const chip = row.history ? historySliceChip(row.history.kind) : null;
   return (
     <div
       className={[
@@ -79,7 +83,7 @@ export function WorkspaceComparisonRow({
       role="treeitem"
       aria-selected={selected}
       tabIndex={tabIndex}
-      title={`${headLabel} → ${baseLabel}${row.historyMark ? ` · ${row.historyMark}` : row.isLive ? ` (${WIP_LABEL})` : ""}`}
+      title={`${headLabel} → ${baseLabel}${chip ? ` · ${chip}` : row.isLive ? ` (${WIP_LABEL})` : ""}`}
       data-ws-key={row.key}
       data-press=""
       onClick={onActivate}
@@ -95,12 +99,12 @@ export function WorkspaceComparisonRow({
             →
           </span>
           <span className="workspaces-base">{baseLabel}</span>
-          {row.historyMark ? (
+          {chip ? (
             <>
               <span className="workspaces-dot" aria-hidden="true">
                 ·
               </span>
-              <span className="workspaces-wip">{row.historyMark}</span>
+              <span className="workspaces-wip">{chip}</span>
             </>
           ) : row.isLive ? (
             <>
@@ -128,7 +132,7 @@ export function WorkspaceComparisonRow({
         type="button"
         className="workspaces-icon"
         data-press=""
-        aria-label={`Close comparison ${headLabel} to ${row.baseBranch}`}
+        aria-label={`Close comparison ${headLabel} to ${baseLabel}`}
         title="Close comparison"
         onClick={(e) => {
           e.stopPropagation();

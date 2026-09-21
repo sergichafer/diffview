@@ -9,6 +9,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
+import { sourceKeyOfSlice } from "@/features/branch-compare/comparisonKey";
 import { getActivePathForComparison } from "@/features/file-navigation/activePathByRepo";
 import { useActiveFileNavigation } from "@/features/file-navigation/useActiveFileNavigation";
 import { usePersistActivePath } from "@/features/file-navigation/usePersistActivePath";
@@ -70,6 +71,7 @@ export function BranchWorkspace({
     overview,
     fileDiffs,
     activeKey,
+    comparisons,
     columnCollapsed,
     activeMergeBase,
   } = useRepoSession();
@@ -80,9 +82,19 @@ export function BranchWorkspace({
   const codeViewRef = useRef<CodeViewHandle<CommentMeta> | null>(null);
   const workerPool = useWorkerPool();
   const files = overview?.files ?? [];
+  const activeRow = activeKey != null ? comparisons[activeKey] : undefined;
+  const persistComparisonKey =
+    activeKey != null &&
+    activeRow?.history == null &&
+    sourceKeyOfSlice(activeKey) == null
+      ? activeKey
+      : null;
   const seedPath =
-    activeKey != null
-      ? getActivePathForComparison(settings.activePathByComparison, activeKey)
+    persistComparisonKey != null
+      ? getActivePathForComparison(
+          settings.activePathByComparison,
+          persistComparisonKey,
+        )
       : null;
 
   const activeFile = useActiveFileNavigation({
@@ -92,7 +104,7 @@ export function BranchWorkspace({
   });
 
   usePersistActivePath({
-    comparisonKey: activeKey,
+    comparisonKey: persistComparisonKey,
     selectedPath: activeFile.selectedPath,
     activePathByComparison: settings.activePathByComparison,
     update: updateSettings,

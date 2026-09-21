@@ -2,7 +2,11 @@ import { describe, expect, test } from "bun:test";
 import type { BranchOverview, FileDiffResult, RepoInfo } from "@/shared/types/app";
 import { applyBranchPick } from "@/features/branch-compare/branchCompare";
 import { DEFAULT_SETTINGS } from "@/shared/types/app";
-import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
+import {
+  makeComparisonKey,
+  sliceComparisonKey,
+} from "@/features/branch-compare/comparisonKey";
+import type { HistorySlice } from "@/features/history/historyModel";
 import { mergeFileDiffs } from "./mergeFileDiffs";
 import { buildInitialState } from "./workspaceTreeCodec";
 import {
@@ -12,6 +16,7 @@ import {
 import {
   emptyComparisonRow,
   emptyMultiSessionState,
+  specOf,
   type MultiSessionState,
 } from "./types";
 
@@ -272,45 +277,159 @@ describe("sessionReducer", () => {
     expect(nextPick).toEqual({ head: "develop", base: "main" });
   });
 
-  test("retarget-ephemeral replaces the slice and keeps the branch row", () => {
-    const firstKey = makeComparisonKey(repo.path, "main", "abc");
-    const secondKey = makeComparisonKey(repo.path, "parent", "def");
-    const first = {
-      ...emptyComparisonRow(firstKey, repo.path, "main", "abc"),
-      ephemeral: true,
-      ephemeralSourceKey: key,
-      historyShort: "abcdef0",
-      historyMark: "through here",
+  test("set-history-slice retargets one slot and keeps the branch row", () => {
+    const sliceKey = sliceComparisonKey(key);
+    const through: HistorySlice = {
+      sourceBase: "main",
+      sourceHead: "feature",
+      specBase: "main",
+      specHead: "abc",
+      kind: "range",
+      label: "First",
+      short: "abcdef0",
+      detail: "Through abcdef0. 1 later commit hidden.",
+      baseLabel: "main",
     };
     const opened = sessionReducer(openedState(), {
-      type: "retarget-ephemeral",
+      type: "set-history-slice",
       workspaceId: repo.path,
-      previousKey: null,
-      key: firstKey,
-      row: first,
+      sourceKey: key,
+      slice: through,
     });
-    expect(opened.activeKey).toBe(firstKey);
-    expect(opened.groups[repo.path]?.comparisonKeys).toEqual([key, firstKey]);
+    expect(opened.activeKey).toBe(sliceKey);
+    expect(opened.groups[repo.path]?.comparisonKeys).toEqual([key, sliceKey]);
+    expect(opened.comparisons[key]?.headBranch).toBe("feature");
+    expect(opened.comparisons[key]?.history).toBeUndefined();
+    expect(opened.comparisons[sliceKey]?.baseBranch).toBe("main");
+    expect(opened.comparisons[sliceKey]?.headBranch).toBe("feature");
+    expect(specOf(opened.comparisons[sliceKey]!).head).toBe("abc");
 
-    const second = {
-      ...emptyComparisonRow(secondKey, repo.path, "parent", "def"),
-      ephemeral: true,
-      ephemeralSourceKey: key,
-      historyShort: "defdef0",
-      historyMark: "this commit",
+    const warm = {
+      ...opened,
+      comparisons: {
+        ...opened.comparisons,
+        [sliceKey]: {
+          ...opened.comparisons[sliceKey]!,
+          residency: "hot" as const,
+          overview: overview(),
+          fileDiffs: [diff("a.ts")],
+          error: "stale",
+        },
+      },
     };
-    const next = sessionReducer(opened, {
-      type: "retarget-ephemeral",
+    const commitSlice: HistorySlice = {
+      ...through,
+      specBase: "parent",
+      specHead: "def",
+      kind: "commit",
+      short: "defdef0",
+      detail: "Only defdef0.",
+    };
+    const next = sessionReducer(warm, {
+      type: "set-history-slice",
       workspaceId: repo.path,
-      previousKey: firstKey,
-      key: secondKey,
-      row: second,
+      sourceKey: key,
+      slice: commitSlice,
     });
-    expect(next.comparisons[firstKey]).toBeUndefined();
+    expect(next.activeKey).toBe(sliceKey);
+    expect(next.comparisons[sliceKey]?.history?.kind).toBe("commit");
+    expect(next.comparisons[sliceKey]?.residency).toBe("cold");
+    expect(next.comparisons[sliceKey]?.overview).toBeNull();
+    expect(next.comparisons[sliceKey]?.fileDiffs).toEqual([]);
+    expect(next.comparisons[sliceKey]?.error).toBeNull();
+    expect(next.comparisons[sliceKey]?.baseBranch).toBe("main");
+    expect(specOf(next.comparisons[sliceKey]!)).toEqual({
+      base: "parent",
+      head: "def",
+    });
+    expect(next.groups[repo.path]?.comparisonKeys).toEqual([key, sliceKey]);
     expect(next.comparisons[key]?.headBranch).toBe("feature");
-    expect(next.activeKey).toBe(secondKey);
-    expect(next.groups[repo.path]?.comparisonKeys).toEqual([key, secondKey]);
-    expect(next.comparisons[secondKey]?.historyMark).toBe("this commit");
+
+    const kept = sessionReducer(next, {
+      type: "set-history-slice",
+      workspaceId: repo.path,
+      sourceKey: key,
+      slice: null,
+    });
+    expect(kept.activeKey).toBe(key);
+    expect(kept.comparisons[sliceKey]?.history?.specHead).toBe("def");
+  });
+
+  test("an unchanged slice spec does not drop a loaded diff", () => {
+    const sliceKey = sliceComparisonKey(key);
+    const slice: HistorySlice = {
+      sourceBase: "main",
+      sourceHead: "feature",
+      specBase: "main",
+      specHead: "abc",
+      kind: "range",
+      label: "First",
+      short: "abcdef0",
+      detail: "Through abcdef0. 1 later commit hidden.",
+      baseLabel: "main",
+    };
+    const opened = sessionReducer(openedState(), {
+      type: "set-history-slice",
+      workspaceId: repo.path,
+      sourceKey: key,
+      slice,
+    });
+    const hot = {
+      ...opened,
+      comparisons: {
+        ...opened.comparisons,
+        [sliceKey]: {
+          ...opened.comparisons[sliceKey]!,
+          residency: "hot" as const,
+          overview: overview(),
+          fileDiffs: [diff("a.ts")],
+        },
+      },
+    };
+    const again = sessionReducer(hot, {
+      type: "set-history-slice",
+      workspaceId: repo.path,
+      sourceKey: key,
+      slice,
+    });
+    expect(again.comparisons[sliceKey]?.residency).toBe("hot");
+    expect(again.comparisons[sliceKey]?.fileDiffs).toHaveLength(1);
+  });
+
+  test("branches recovery keeps a slice whose source names are real branches", () => {
+    const sliceKey = sliceComparisonKey(key);
+    const opened = sessionReducer(openedState(), {
+      type: "set-history-slice",
+      workspaceId: repo.path,
+      sourceKey: key,
+      slice: {
+        sourceBase: "main",
+        sourceHead: "feature",
+        specBase: "main",
+        specHead: "abcabcabcabc",
+        kind: "range",
+        label: "First",
+        short: "abcabc1",
+        detail: "Through abcabc1. 1 later commit hidden.",
+        baseLabel: "main",
+      },
+    });
+    const emptied: MultiSessionState = {
+      ...opened,
+      groups: {
+        ...opened.groups,
+        [repo.path]: { ...opened.groups[repo.path]!, branches: [] },
+      },
+    };
+    const recovered = sessionReducer(emptied, {
+      type: "branches",
+      workspaceId: repo.path,
+      branches: ["main", "feature"],
+      settings: DEFAULT_SETTINGS,
+    });
+    expect(recovered.activeKey).toBe(sliceKey);
+    expect(recovered.comparisons[sliceKey]?.headBranch).toBe("feature");
+    expect(recovered.comparisons[key]?.headBranch).toBe("feature");
   });
 
   test("reset clears to empty session", () => {

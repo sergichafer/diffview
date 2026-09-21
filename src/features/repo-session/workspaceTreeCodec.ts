@@ -1,7 +1,10 @@
 import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
 import type { WorkspaceTree } from "@/shared/types/generated/types";
 import { resolveComparisonPrefs } from "@/features/settings/comparisonPrefs";
-import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
+import {
+  makeComparisonKey,
+  sourceKeyOfSlice,
+} from "@/features/branch-compare/comparisonKey";
 import {
   emptyComparisonRow,
   emptyMultiSessionState,
@@ -31,17 +34,15 @@ export function stateToWorkspaceTree(state: {
     {
       baseBranch: string;
       headBranch: string;
-      ephemeral?: boolean;
-      ephemeralSourceKey?: string;
+      history?: unknown;
     }
   >;
   activeKey: string | null;
   columnCollapsed: boolean;
 }) {
-  const active = state.activeKey ? state.comparisons[state.activeKey] : undefined;
-  const activeComparisonKey = active?.ephemeral
-    ? active.ephemeralSourceKey
-    : (state.activeKey ?? undefined);
+  const activeComparisonKey = state.activeKey
+    ? (sourceKeyOfSlice(state.activeKey) ?? state.activeKey)
+    : undefined;
   return {
     workspaces: state.workspaceOrder.map((repoPath) => {
       const group = state.groups[repoPath];
@@ -49,7 +50,11 @@ export function stateToWorkspaceTree(state: {
         repoPath,
         collapsed: group?.collapsed ?? false,
         comparisons: (group?.comparisonKeys ?? [])
-          .filter((key) => !state.comparisons[key]?.ephemeral)
+          .filter(
+            (key) =>
+              sourceKeyOfSlice(key) == null &&
+              state.comparisons[key]?.history == null,
+          )
           .map((key) => {
             const row = state.comparisons[key];
             return {

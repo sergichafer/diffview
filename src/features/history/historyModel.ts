@@ -4,6 +4,20 @@ export const HISTORY_ROW = 52;
 
 export type HistoryMode = "range" | "commit";
 
+export type HistoryKind = "range" | "commit" | "base";
+
+export type HistorySlice = {
+  sourceBase: string;
+  sourceHead: string;
+  specBase: string;
+  specHead: string;
+  kind: HistoryKind;
+  label: string;
+  short: string;
+  detail: string;
+  baseLabel: string;
+};
+
 export type HistoryNode =
   | { kind: "wip"; id: "wip" }
   | {
@@ -12,22 +26,46 @@ export type HistoryNode =
       oid: string;
       short: string;
       subject: string;
-      parent: string;
+      parent?: string;
       time: number;
       tip: boolean;
     }
   | { kind: "base"; id: "base"; oid: string; label: string };
 
-export type HistorySliceTarget = {
-  mode: HistoryMode;
-  baseBranch: string;
-  headBranch: string;
-  label: string;
-  short: string;
-  detail: string;
-  historyBaseLabel: string;
-  historyMark: string;
-};
+export function indexToY(index: number, row = HISTORY_ROW): number {
+  return (index + 0.5) * row;
+}
+
+export function yToIndex(y: number, row = HISTORY_ROW): number {
+  return y / row - 0.5;
+}
+
+export function sameHistorySpec(a: HistorySlice, b: HistorySlice): boolean {
+  return a.kind === b.kind && a.specBase === b.specBase && a.specHead === b.specHead;
+}
+
+export function historySliceChip(kind: HistoryKind): string {
+  switch (kind) {
+    case "range":
+      return "through here";
+    case "commit":
+      return "this commit";
+    case "base":
+      return "merge-base";
+  }
+}
+
+export function historyModeOf(kind: HistoryKind): HistoryMode {
+  return kind === "commit" ? "commit" : "range";
+}
+
+/** Empty and missing parents are the same: the commit has no parent. */
+export function commitParent(parent: string | null | undefined): string | undefined {
+  if (parent == null) return undefined;
+  const trimmed = parent.trim();
+  if (trimmed === "") return undefined;
+  return trimmed;
+}
 
 export function buildHistoryNodes(
   lane: HistoryLane,
@@ -43,7 +81,7 @@ export function buildHistoryNodes(
       oid: commit.oid,
       short: commit.short,
       subject: commit.subject,
-      parent: commit.parent,
+      parent: commitParent(commit.parent),
       time: commit.time,
       tip: index === 0,
     });
@@ -81,41 +119,45 @@ export function historySliceTarget(args: {
   nodes: readonly HistoryNode[];
   index: number;
   mode: HistoryMode;
-  baseBranch: string;
+  sourceBase: string;
+  sourceHead: string;
   headOid: string;
   mergeBase: string;
-}): HistorySliceTarget | null {
+}): HistorySlice | null {
   const node = args.nodes[args.index];
   if (!node || node.kind === "wip") return null;
 
   if (node.kind === "base") {
     if (args.headOid === args.mergeBase) return null;
     return {
-      mode: "range",
-      baseBranch: args.baseBranch,
-      headBranch: node.oid,
+      sourceBase: args.sourceBase,
+      sourceHead: args.sourceHead,
+      specBase: args.sourceBase,
+      specHead: node.oid,
+      kind: "base",
       label: node.label,
       short: "",
       detail: "Merge-base. Nothing ahead of this point.",
-      historyBaseLabel: args.baseBranch,
-      historyMark: "merge-base",
+      baseLabel: args.sourceBase,
     };
   }
 
-  if (node.tip && args.mode === "range" && !hasWip(args.nodes)) return null;
-
-  if (args.mode === "commit" && node.parent) {
+  if (args.mode === "commit") {
+    if (!node.parent) return null;
     return {
-      mode: "commit",
-      baseBranch: node.parent,
-      headBranch: node.oid,
+      sourceBase: args.sourceBase,
+      sourceHead: args.sourceHead,
+      specBase: node.parent,
+      specHead: node.oid,
+      kind: "commit",
       label: node.subject,
       short: node.short,
       detail: `Only ${node.short}.`,
-      historyBaseLabel: args.baseBranch,
-      historyMark: "this commit",
+      baseLabel: args.sourceBase,
     };
   }
+
+  if (node.tip && !hasWip(args.nodes)) return null;
 
   const later = laterCommitCount(args.nodes, args.index);
   const detail = node.tip
@@ -125,14 +167,15 @@ export function historySliceTarget(args: {
       : `Through ${node.short}. ${later} later ${later === 1 ? "commit" : "commits"} hidden.`;
 
   return {
-    mode: "range",
-    baseBranch: args.baseBranch,
-    headBranch: node.oid,
+    sourceBase: args.sourceBase,
+    sourceHead: args.sourceHead,
+    specBase: args.sourceBase,
+    specHead: node.oid,
+    kind: "range",
     label: node.subject,
     short: node.short,
     detail,
-    historyBaseLabel: args.baseBranch,
-    historyMark: "through here",
+    baseLabel: args.sourceBase,
   };
 }
 
@@ -140,7 +183,8 @@ export function historyCaption(args: {
   nodes: readonly HistoryNode[];
   index: number;
   mode: HistoryMode;
-  baseBranch: string;
+  sourceBase: string;
+  sourceHead: string;
   headOid: string;
   mergeBase: string;
   truncated: boolean;
@@ -154,10 +198,13 @@ export function historyCaption(args: {
   if (node.kind === "base") {
     return `Merge-base. Nothing ahead of this point.${tail}`;
   }
-  if (args.mode === "commit" && node.parent) {
+  const target = historySliceTarget(args);
+  if (target?.kind === "commit") {
+    return `This commit. ${target.label}.${tail}`;
+  }
+  if (args.mode === "commit" && node.kind === "commit") {
     return `This commit. ${node.subject}.${tail}`;
   }
-  const target = historySliceTarget(args);
   if (!target) return `Linear. ${ahead} ahead.${tail}`;
   return `Linear. ${target.detail}${tail}`;
 }

@@ -1,6 +1,11 @@
 import { enrichInventory } from "@/features/changed-files/enrich";
 import { resolveComparisonPrefs } from "@/features/settings/comparisonPrefs";
-import { makeComparisonKey, type ComparisonKey } from "@/features/branch-compare/comparisonKey";
+import {
+  makeComparisonKey,
+  sliceComparisonKey,
+  type ComparisonKey,
+} from "@/features/branch-compare/comparisonKey";
+import { sameHistorySpec } from "@/features/history/historyModel";
 import { mergeFileDiffs } from "./mergeFileDiffs";
 import {
   emptyComparisonRow,
@@ -320,51 +325,92 @@ export function sessionReducer(
         },
       };
     }
-    case "retarget-ephemeral": {
+    case "set-history-slice": {
       const group = state.groups[action.workspaceId];
       if (!group) return state;
 
-      let next = state;
-      if (action.previousKey && action.previousKey !== action.key) {
-        next = removeComparisonFromState(next, action.previousKey);
+      const source = state.comparisons[action.sourceKey];
+      if (source?.history) return state;
+
+      if (action.slice == null) {
+        if (source && state.activeKey !== action.sourceKey) {
+          return {
+            ...state,
+            activeKey: action.sourceKey,
+            mruKeys: touchMru(state.mruKeys, action.sourceKey),
+          };
+        }
+        return state;
       }
 
-      const labels = {
-        historyLabel: action.row.historyLabel,
-        historyShort: action.row.historyShort,
-        historyDetail: action.row.historyDetail,
-        historyBaseLabel: action.row.historyBaseLabel,
-        historyMark: action.row.historyMark,
-      };
-      const existing = next.comparisons[action.key];
-      if (existing) {
+      const slice = action.slice;
+      const key = sliceComparisonKey(action.sourceKey);
+      const existing = state.comparisons[key];
+      if (existing && !existing.history) return state;
+
+      if (existing?.history && sameHistorySpec(existing.history, slice)) {
+        const copyChanged =
+          existing.history.label !== slice.label ||
+          existing.history.short !== slice.short ||
+          existing.history.detail !== slice.detail ||
+          existing.history.baseLabel !== slice.baseLabel ||
+          existing.baseBranch !== slice.sourceBase ||
+          existing.headBranch !== slice.sourceHead;
+        const row = copyChanged
+          ? {
+              ...existing,
+              baseBranch: slice.sourceBase,
+              headBranch: slice.sourceHead,
+              history: slice,
+            }
+          : existing;
+        if (row === existing && state.activeKey === key) return state;
         return {
-          ...updateComparisonRow(next, action.key, {
-            ...labels,
-            ephemeral: existing.ephemeral,
-            ephemeralSourceKey: existing.ephemeral
-              ? action.row.ephemeralSourceKey
-              : existing.ephemeralSourceKey,
-          }),
-          activeKey: action.key,
-          mruKeys: touchMru(next.mruKeys, action.key),
+          ...state,
+          comparisons:
+            row === existing
+              ? state.comparisons
+              : { ...state.comparisons, [key]: row },
+          activeKey: key,
+          mruKeys: touchMru(state.mruKeys, key),
         };
       }
 
-      const groupNow = next.groups[action.workspaceId];
-      if (!groupNow) return next;
+      const cleared: ComparisonRow = {
+        ...(existing ??
+          emptyComparisonRow(
+            key,
+            action.workspaceId,
+            slice.sourceBase,
+            slice.sourceHead,
+          )),
+        key,
+        repoPath: action.workspaceId,
+        baseBranch: slice.sourceBase,
+        headBranch: slice.sourceHead,
+        history: slice,
+        residency: "cold",
+        overview: null,
+        fileDiffs: [],
+        loading: false,
+        error: null,
+        mergeBaseOid: "",
+        headOid: "",
+        isLive: false,
+        outdated: false,
+      };
+      const comparisonKeys = group.comparisonKeys.includes(key)
+        ? group.comparisonKeys
+        : [...group.comparisonKeys, key];
       return {
-        ...next,
-        comparisons: { ...next.comparisons, [action.key]: action.row },
+        ...state,
+        comparisons: { ...state.comparisons, [key]: cleared },
         groups: {
-          ...next.groups,
-          [action.workspaceId]: {
-            ...groupNow,
-            comparisonKeys: [...groupNow.comparisonKeys, action.key],
-          },
+          ...state.groups,
+          [action.workspaceId]: { ...group, comparisonKeys },
         },
-        activeKey: action.key,
-        mruKeys: touchMru(next.mruKeys, action.key),
+        activeKey: key,
+        mruKeys: touchMru(state.mruKeys, key),
       };
     }
   }

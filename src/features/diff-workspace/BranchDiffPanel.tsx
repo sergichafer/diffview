@@ -16,6 +16,7 @@ import { useLineComments } from "@/features/line-comments/LineCommentsProvider";
 import type { CommentMeta } from "@/features/line-comments/commentMeta";
 import type { CodeFontId, DiffStyle, ThemeId, UiFontId } from "@/shared/types/app";
 import { useRepoSession } from "@/features/repo-session/context";
+import { specOf } from "@/features/repo-session/types";
 import { useDiffItemHeader } from "./DiffItemHeader";
 
 interface BranchDiffPanelProps {
@@ -64,11 +65,12 @@ export function BranchDiffPanel({
     branchLoading,
     branchError,
     repo,
-    baseBranch,
-    headBranch,
+    comparisons,
     refreshOverviewMeta,
     activeKey,
   } = useRepoSession();
+  const activeRow = activeKey != null ? comparisons[activeKey] : undefined;
+  const spec = activeRow != null ? specOf(activeRow) : { base: "", head: "" };
   const {
     viewedPaths,
     expandedWhileViewed,
@@ -98,8 +100,8 @@ export function BranchDiffPanel({
     discardEdit,
   } = useDiffEdit<CommentMeta>({
     repoPath: repo?.path ?? null,
-    baseBranch,
-    headBranch,
+    baseBranch: spec.base,
+    headBranch: spec.head,
     isLive: editAllowed,
     onSavedLive,
   });

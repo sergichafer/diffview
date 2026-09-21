@@ -70,6 +70,12 @@
   cursor: grabbing;
 }
 
+.history-track.is-dragging .history-playhead,
+.history-track.is-dragging .history-pill,
+.history-track.is-dragging .history-track-ink {
+  transition: none;
+}
+
 .history-track-line {
   position: absolute;
   left: 17px;
@@ -88,6 +94,10 @@
   background: var(--state-success);
   border-radius: 1px;
   pointer-events: none;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    height 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .history-playhead {
@@ -103,6 +113,7 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--state-success) 16%, transparent);
   pointer-events: none;
   z-index: 3;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .history-playhead.is-wip {
@@ -127,6 +138,7 @@
   border-radius: 10px;
   background: var(--list-active);
   pointer-events: none;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .history-row {
@@ -212,8 +224,18 @@
   margin: 0;
 }
 
+.history-status {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .history-segment-thumb {
+  .history-segment-thumb,
+  .history-playhead,
+  .history-pill,
+  .history-track-ink {
     transition: none;
   }
 }

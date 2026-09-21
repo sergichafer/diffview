@@ -79,7 +79,8 @@ export interface HistoryCommit {
 	oid: string;
 	short: string;
 	subject: string;
-	parent: string;
+	/** First parent. Absent when the commit has none. Empty is treated as absent. */
+	parent?: string;
 	/** Commit time, Unix seconds (UTC). */
 	time: number;
 }

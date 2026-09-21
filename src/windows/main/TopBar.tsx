@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRepoSession } from "@/features/repo-session/context";
 import { BranchComparePalette } from "@/features/branch-compare/BranchComparePalette";
+import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
 import { CompareGraphPopover } from "@/features/compare-graph/CompareGraphPopover";
 import { comparisonIsLive } from "@/features/compare-graph/graphTopology";
-import type { HistoryMode } from "@/features/history/historyModel";
+import { historyModeOf } from "@/features/history/historyModel";
 import { IconButton } from "@/design/IconButton";
 import { branchOptionNames } from "@/features/branch-compare/branchCompare";
 import { computeAppliedStat } from "@/features/branch-compare/compareStat";
-import { api } from "@/shared/tauri/api";
 
 interface TopBarProps {
   onOpenSettings: () => void;
@@ -67,36 +67,27 @@ export function TopBar({
   }, [loadBranches, loadBranchMetadata]);
 
   const activeRow = activeKey ? comparisons[activeKey] : undefined;
-  const sourceRow =
-    activeRow?.ephemeral && activeRow.ephemeralSourceKey
-      ? (comparisons[activeRow.ephemeralSourceKey] ?? activeRow)
-      : activeRow;
-  const headLabel = activeRow?.historyLabel || headBranch || "Working tree";
-  const lead = activeRow?.historyDetail
-    ? activeRow.historyDetail
+  const history = activeRow?.history;
+  const sourceBase = history?.sourceBase ?? baseBranch;
+  const sourceHead = history?.sourceHead ?? headBranch;
+  const sourceKey =
+    history && activeRow
+      ? makeComparisonKey(activeRow.repoPath, history.sourceBase, history.sourceHead)
+      : activeKey;
+  const sourceLiveRow = history
+    ? sourceKey != null
+      ? comparisons[sourceKey]
+      : undefined
+    : activeRow;
+  const sourceIsLive = sourceLiveRow
+    ? comparisonIsLive(sourceLiveRow.overview, sourceLiveRow.headBranch)
+    : false;
+  const headLabel = history?.label || headBranch || "Working tree";
+  const lead = history?.detail
+    ? history.detail
     : [repo?.name, baseBranch ? `against ${baseBranch}` : null]
         .filter(Boolean)
         .join(" · ");
-  const sourceIsLive = comparisonIsLive(
-    sourceRow?.overview ?? null,
-    sourceRow?.headBranch ?? "",
-  );
-  const sliceMode: HistoryMode | undefined =
-    activeRow?.historyMark === "this commit"
-      ? "commit"
-      : activeRow?.historyMark === "through here" ||
-          activeRow?.historyMark === "merge-base"
-        ? "range"
-        : undefined;
-  const sourcePath = sourceRow?.repoPath;
-  const sourceBase = sourceRow?.baseBranch;
-  const sourceHead = sourceRow?.headBranch;
-  const loadLane = useCallback(() => {
-    if (!sourcePath || sourceBase == null || sourceHead == null) {
-      return Promise.reject(new Error("No comparison"));
-    }
-    return api.getHistoryLane(sourcePath, sourceBase, sourceHead);
-  }, [sourcePath, sourceBase, sourceHead]);
 
   return (
     <header className="top-bar">
@@ -130,19 +121,15 @@ export function TopBar({
         />
         {repo && (
           <CompareGraphPopover
-            head={sourceRow?.headBranch ?? headBranch}
-            base={sourceRow?.baseBranch ?? baseBranch}
-            overview={sourceRow?.overview ?? overview}
-            metadata={branchMetadata}
-            onNeedMetadata={loadBranchMetadata}
-            sourceKey={sourceRow?.key ?? null}
+            repoPath={repo.path}
+            sourceBase={sourceBase}
+            sourceHead={sourceHead}
             sourceIsLive={sourceIsLive}
-            selectedHead={activeRow?.ephemeral ? activeRow.headBranch : null}
-            sliceMode={sliceMode}
-            loadLane={sourceRow ? loadLane : undefined}
-            onApplySlice={(target) => {
-              if (!sourceRow) return;
-              applyHistorySlice(sourceRow.key, target);
+            selectedHead={history?.specHead ?? null}
+            mode={history ? historyModeOf(history.kind) : "range"}
+            onSlice={(slice) => {
+              if (!sourceKey) return;
+              applyHistorySlice(sourceKey, slice);
             }}
           />
         )}

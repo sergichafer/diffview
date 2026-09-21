@@ -13,54 +13,36 @@ import {
   applyOverlayOrigin,
   useOverlayPresence,
 } from "@/design/useOverlayPresence";
-import type { BranchMetadata, BranchOverview, HistoryLane as HistoryLaneData } from "@/shared/types/app";
-import { GRAPH_WIP_TITLE, WIP_LABEL } from "@/shared/wipCopy";
 import { HistoryLane } from "@/features/history/HistoryLane";
 import {
   buildHistoryNodes,
   historySliceTarget,
   type HistoryMode,
-  type HistorySliceTarget,
+  type HistorySlice,
 } from "@/features/history/historyModel";
-import { CompareGraphSvg } from "./CompareGraphSvg";
-import {
-  comparisonHasWip,
-  graphDetail,
-  graphTitle,
-  graphTopology,
-} from "./graphTopology";
+import { useHistoryLane } from "@/features/history/useHistoryLane";
 
 interface CompareGraphPopoverProps {
-  head: string;
-  base: string;
-  overview: BranchOverview | null;
-  metadata: BranchMetadata[];
-  onNeedMetadata?: () => void;
-  sourceKey?: string | null;
-  sourceIsLive?: boolean;
+  repoPath: string;
+  sourceBase: string;
+  sourceHead: string;
+  sourceIsLive: boolean;
   selectedHead?: string | null;
-  sliceMode?: HistoryMode;
-  loadLane?: () => Promise<HistoryLaneData>;
-  onApplySlice?: (target: HistorySliceTarget | null) => void;
+  mode?: HistoryMode;
+  onSlice: (slice: HistorySlice | null) => void;
 }
 
 export function CompareGraphPopover({
-  head,
-  base,
-  overview,
-  metadata,
-  onNeedMetadata,
-  sourceKey = null,
-  sourceIsLive = false,
+  repoPath,
+  sourceBase,
+  sourceHead,
+  sourceIsLive,
   selectedHead = null,
-  sliceMode,
-  loadLane,
-  onApplySlice,
+  mode = "range",
+  onSlice,
 }: CompareGraphPopoverProps) {
   const [open, setOpen] = useState(false);
-  const [lane, setLane] = useState<HistoryLaneData | null>(null);
-  const [mode, setMode] = useState<HistoryMode>(sliceMode ?? "range");
-  const sliceSignature = useRef("");
+  const { lane, status } = useHistoryLane(repoPath, sourceBase, sourceHead, open);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDialogElement>(null);
@@ -73,64 +55,27 @@ export function CompareGraphPopover({
     restoreFocusRef.current = false;
   });
 
-  const topology = useMemo(
-    () => graphTopology({ head, base, overview, metadata }),
-    [head, base, overview, metadata],
-  );
-  const hasWip = comparisonHasWip(overview, head);
   const nodes = useMemo(
-    () => (lane ? buildHistoryNodes(lane, sourceIsLive, base) : []),
-    [lane, sourceIsLive, base],
+    () => (lane ? buildHistoryNodes(lane, sourceIsLive, sourceBase) : []),
+    [lane, sourceIsLive, sourceBase],
   );
 
-  useEffect(() => {
-    if (sliceMode) setMode(sliceMode);
-  }, [sliceMode]);
-
-  useEffect(() => {
-    if (selectedHead == null) sliceSignature.current = "";
-  }, [selectedHead]);
-
-  useEffect(() => {
-    setLane(null);
-    sliceSignature.current = "";
-  }, [loadLane]);
-
-  useEffect(() => {
-    if (!open || !loadLane) return;
-    let cancelled = false;
-    loadLane()
-      .then((next) => {
-        if (!cancelled) setLane(next);
-      })
-      .catch(() => {
-        if (!cancelled) setLane(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, loadLane]);
-
-  const pickSlice = useCallback(
+  const onSelect = useCallback(
     (index: number, nextMode: HistoryMode) => {
-      if (!lane || !sourceKey || !onApplySlice) return;
-      setMode(nextMode);
-      const target = historySliceTarget({
-        nodes,
-        index,
-        mode: nextMode,
-        baseBranch: base,
-        headOid: lane.headOid,
-        mergeBase: lane.mergeBase,
-      });
-      const signature = target
-        ? `${sourceKey}|${target.mode}|${target.baseBranch}|${target.headBranch}`
-        : `source:${sourceKey}`;
-      if (sliceSignature.current === signature) return;
-      sliceSignature.current = signature;
-      onApplySlice(target);
+      if (!lane) return;
+      onSlice(
+        historySliceTarget({
+          nodes,
+          index,
+          mode: nextMode,
+          sourceBase,
+          sourceHead,
+          headOid: lane.headOid,
+          mergeBase: lane.mergeBase,
+        }),
+      );
     },
-    [lane, sourceKey, onApplySlice, nodes, base],
+    [lane, nodes, onSlice, sourceBase, sourceHead],
   );
 
   const close = useCallback((restoreFocus: boolean) => {
@@ -144,9 +89,8 @@ export function CompareGraphPopover({
       return;
     }
     restoreFocusRef.current = false;
-    onNeedMetadata?.();
     setOpen(true);
-  }, [open, onNeedMetadata, close]);
+  }, [open, close]);
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
@@ -209,68 +153,38 @@ export function CompareGraphPopover({
           <dialog
             ref={panelRef}
             id={panelId}
-            className={
-              lane
-                ? "compare-graph-panel overlay-surface is-history"
-                : "compare-graph-panel overlay-surface"
-            }
-            aria-label={lane ? "History" : "Compare graph"}
+            className="compare-graph-panel overlay-surface is-history"
+            aria-label="History"
             aria-describedby={captionId}
             onTransitionEnd={presence.onTransitionEnd}
           >
-            {lane ? (
+            {status === "ready" && lane ? (
               <HistoryLane
                 nodes={nodes}
                 mode={mode}
                 selectedHead={selectedHead}
-                baseBranch={base}
+                sourceBase={sourceBase}
+                sourceHead={sourceHead}
                 headOid={lane.headOid}
                 mergeBase={lane.mergeBase}
                 truncated={lane.truncated}
                 nowSeconds={Math.floor(Date.now() / 1000)}
-                onMode={setMode}
-                onSelect={pickSlice}
+                onSelect={onSelect}
                 captionId={captionId}
               />
+            ) : status === "error" ? (
+              <>
+                <p className="compare-graph-head">History</p>
+                <p id={captionId} className="history-status" role="alert">
+                  Could not load history.
+                </p>
+              </>
             ) : (
               <>
-            <p className="compare-graph-head">Graph</p>
-            <CompareGraphSvg topology={topology} hasWip={hasWip} />
-            <p id={captionId} className="compare-graph-caption">
-              <strong>{graphTitle(topology)}.</strong> {graphDetail(topology)}
-            </p>
-            <div className="compare-graph-legend">
-              <span className="compare-graph-legend-item">
-                <span
-                  className="compare-graph-swatch compare-graph-swatch-merge"
-                  aria-hidden="true"
-                />
-                merge-base
-              </span>
-              <span className="compare-graph-legend-item">
-                <span
-                  className="compare-graph-swatch compare-graph-swatch-ahead"
-                  aria-hidden="true"
-                />
-                ahead
-              </span>
-              <span className="compare-graph-legend-item">
-                <span
-                  className="compare-graph-swatch compare-graph-swatch-behind"
-                  aria-hidden="true"
-                />
-                behind
-              </span>
-              {hasWip ? (
-                <span className="compare-graph-legend-item" title={GRAPH_WIP_TITLE}>
-                  <span
-                    className="compare-graph-swatch compare-graph-swatch-live"
-                    aria-hidden="true"
-                  />
-                  {WIP_LABEL}
-                </span>
-              ) : null}
-            </div>
+                <p className="compare-graph-head">History</p>
+                <p id={captionId} className="history-status" role="status">
+                  Loading history.
+                </p>
               </>
             )}
           </dialog>

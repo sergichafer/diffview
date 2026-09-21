@@ -1,4 +1,4 @@
-//! Commits reachable from the resolved head and not from the merge-base.
+//! First-parent commits reachable from the resolved head and not from the merge-base.
 //! Newest first. The merge-base itself is not included.
 
 use git2::{Oid, Repository, Sort};
@@ -17,13 +17,15 @@ pub struct HistoryCommit {
     pub oid: String,
     pub short: String,
     pub subject: String,
-    pub parent: String,
+    /// First parent. Absent when the commit has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
     /// Commit time, Unix seconds (UTC).
     #[typeshare(serialized_as = "I54")]
     pub time: i64,
 }
 
-/// Commits reachable from head and not from the merge-base.
+/// First-parent commits reachable from head and not from the merge-base.
 #[typeshare]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -68,6 +70,7 @@ pub fn history_lane(
     walk.push(head_oid).map_err(|e| e.to_string())?;
     walk.hide(merge_oid).map_err(|e| e.to_string())?;
     walk.set_sorting(Sort::TIME).map_err(|e| e.to_string())?;
+    walk.simplify_first_parent().map_err(|e| e.to_string())?;
 
     let mut commits = Vec::new();
     let mut truncated = false;
@@ -78,11 +81,7 @@ pub fn history_lane(
             break;
         }
         let commit = repo.find_commit(oid).map_err(|e| e.to_string())?;
-        let parent = commit
-            .parent_id(0)
-            .ok()
-            .map(|id| id.to_string())
-            .unwrap_or_default();
+        let parent = commit.parent_id(0).ok().map(|id| id.to_string());
         let full = oid.to_string();
         let short = full.chars().take(7).collect();
         commits.push(HistoryCommit {
@@ -175,6 +174,36 @@ mod tests {
             }
             oid
         }
+
+        fn commit_with_parents(
+            &self,
+            message: &str,
+            seconds: i64,
+            parent_oids: &[Oid],
+            update_ref: &str,
+        ) -> Oid {
+            let repo = self.open();
+            let file = self.path.join("note.txt");
+            fs::write(&file, message).expect("write file");
+            let mut index = repo.index().expect("index");
+            index.add_path(Path::new("note.txt")).expect("add path");
+            index.write().expect("write index");
+            let tree_id = repo.index().expect("index").write_tree().expect("tree");
+            let tree = repo.find_tree(tree_id).expect("find tree");
+            let sig = Signature::new(
+                "Diffview Test",
+                "test@diffview.local",
+                &Time::new(seconds, 0),
+            )
+            .expect("signature");
+            let commits: Vec<git2::Commit> = parent_oids
+                .iter()
+                .map(|oid| repo.find_commit(*oid).expect("parent"))
+                .collect();
+            let parents: Vec<&git2::Commit> = commits.iter().collect();
+            repo.commit(Some(update_ref), &sig, &sig, message, &tree, &parents)
+                .expect("commit")
+        }
     }
 
     impl Drop for TestRepo {
@@ -210,9 +239,9 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["three", "two", "one"]
         );
-        assert_eq!(lane.commits[0].parent, lane.commits[1].oid);
-        assert_eq!(lane.commits[1].parent, lane.commits[2].oid);
-        assert_eq!(lane.commits[2].parent, base.to_string());
+        assert_eq!(lane.commits[0].parent.as_deref(), Some(lane.commits[1].oid.as_str()));
+        assert_eq!(lane.commits[1].parent.as_deref(), Some(lane.commits[2].oid.as_str()));
+        assert_eq!(lane.commits[2].parent.as_deref(), Some(base.to_string().as_str()));
         assert!(lane.commits.iter().all(|c| c.short.len() == 7));
         assert!(lane.commits.iter().all(|c| c.oid != base.to_string()));
     }
@@ -225,6 +254,45 @@ mod tests {
         assert!(lane.commits.is_empty());
         assert_eq!(lane.head_oid, base.to_string());
         assert_eq!(lane.merge_base, base.to_string());
+        assert!(!lane.truncated);
+    }
+
+    #[test]
+    fn merge_lane_keeps_the_first_parent_chain_and_hides_the_side_branch() {
+        let fixture = TestRepo::init("merge");
+        let base = fixture.commit("initial", 1_700_000_000);
+        let repo = fixture.open();
+        repo.branch("feature", &repo.find_commit(base).unwrap(), false)
+            .unwrap();
+        repo.set_head("refs/heads/feature").unwrap();
+        let one = fixture.commit("one", 1_700_000_100);
+
+        let repo = fixture.open();
+        repo.branch("side", &repo.find_commit(one).unwrap(), false)
+            .unwrap();
+        repo.set_head("refs/heads/side").unwrap();
+        let side = fixture.commit("side", 1_700_000_150);
+
+        let repo = fixture.open();
+        repo.set_head("refs/heads/feature").unwrap();
+        fixture.commit_with_parents("merge", 1_700_000_180, &[one, side], "HEAD");
+        fixture.commit("after", 1_700_000_200);
+
+        let lane = history_lane(&fixture.open(), "main", "feature").expect("lane");
+        assert_eq!(
+            lane.commits
+                .iter()
+                .map(|c| c.subject.as_str())
+                .collect::<Vec<_>>(),
+            vec!["after", "merge", "one"]
+        );
+        assert!(lane.commits.iter().all(|c| c.oid != side.to_string()));
+        let merge = lane
+            .commits
+            .iter()
+            .find(|c| c.subject == "merge")
+            .expect("merge");
+        assert_eq!(merge.parent.as_deref(), Some(one.to_string().as_str()));
         assert!(!lane.truncated);
     }
 }

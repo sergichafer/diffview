@@ -32,6 +32,7 @@ const nodes: HistoryNode[] = [
 
 let container: HTMLElement;
 let root: ReturnType<typeof createRoot>;
+const originalScroll = HTMLElement.prototype.scrollIntoView;
 
 beforeEach(() => {
   container = document.createElement("div");
@@ -42,59 +43,135 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  HTMLElement.prototype.scrollIntoView = originalScroll;
 });
 
-describe("HistoryLane", () => {
-  test("a row click selects that commit in the current mode", () => {
-    const onSelect = mock(() => {});
-    act(() => {
-      root.render(
+function renderLane(
+  onSelect: (index: number, mode: "range" | "commit") => void,
+  props: { selectedHead?: string | null; mode?: "range" | "commit" } = {},
+) {
+  act(() => {
+    root.render(
+      <dialog open>
         <HistoryLane
           nodes={nodes}
-          mode="range"
-          selectedHead={null}
-          baseBranch="main"
+          mode={props.mode ?? "range"}
+          selectedHead={props.selectedHead ?? null}
+          sourceBase="main"
+          sourceHead="feature"
           headOid="tip-oid"
           mergeBase="base-oid"
           truncated={false}
           nowSeconds={1_700_000_400}
-          onMode={() => {}}
           onSelect={onSelect}
-        />,
-      );
-    });
+        />
+      </dialog>,
+    );
+  });
+}
+
+describe("HistoryLane", () => {
+  test("a row click selects that commit once in the current mode", () => {
+    const onSelect = mock(() => {});
+    renderLane(onSelect);
     const row = container.querySelector('[data-history-index="2"]');
     expect(row?.textContent).toContain("Anchor the popover");
     act(() => {
       row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
+    expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(2, "range");
   });
 
-  test("This commit reports the commit mode for the current row", () => {
+  test("This commit reports the commit mode once for the current row", () => {
     const onSelect = mock(() => {});
-    act(() => {
-      root.render(
-        <HistoryLane
-          nodes={nodes}
-          mode="range"
-          selectedHead="mid-oid"
-          baseBranch="main"
-          headOid="tip-oid"
-          mergeBase="base-oid"
-          truncated={false}
-          nowSeconds={1_700_000_400}
-          onMode={() => {}}
-          onSelect={onSelect}
-        />,
-      );
-    });
+    renderLane(onSelect, { selectedHead: "mid-oid" });
     const button = [...container.querySelectorAll("button")].find((entry) =>
       entry.textContent?.includes("This commit"),
     );
     act(() => {
       button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
+    expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(2, "commit");
+  });
+
+  test("dragging updates the highlight and selects once on pointer up", () => {
+    const onSelect = mock(() => {});
+    renderLane(onSelect);
+    const track = container.querySelector(".history-track") as HTMLElement;
+    const down = new PointerEvent("pointerdown", {
+      bubbles: true,
+      pointerId: 1,
+      clientY: 10,
+    });
+    const move = new PointerEvent("pointermove", {
+      bubbles: true,
+      pointerId: 1,
+      clientY: 180,
+    });
+    const up = new PointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 1,
+      clientY: 180,
+    });
+    act(() => {
+      track.dispatchEvent(down);
+      track.dispatchEvent(move);
+    });
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(track.querySelector('[aria-selected="true"]')?.getAttribute("data-history-index")).toBe(
+      "3",
+    );
+    act(() => {
+      track.dispatchEvent(up);
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(3, "range");
+  });
+
+  test("arrow keys move the lane from the dialog and ignore the window", () => {
+    const onSelect = mock(() => {});
+    renderLane(onSelect);
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onSelect).not.toHaveBeenCalled();
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+    act(() => {
+      outside.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onSelect).not.toHaveBeenCalled();
+    outside.remove();
+
+    const dialog = container.querySelector("dialog")!;
+    act(() => {
+      dialog.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(1, "range");
+  });
+
+  test("a committed row scrolls into view", () => {
+    const scrolled: string[] = [];
+    HTMLElement.prototype.scrollIntoView = function scrollIntoView(this: HTMLElement) {
+      const index = this.getAttribute("data-history-index");
+      if (index != null) scrolled.push(index);
+    };
+    const onSelect = mock(() => {});
+    renderLane(onSelect);
+    const row = container.querySelector('[data-history-index="2"]');
+    act(() => {
+      row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(scrolled).toContain("2");
   });
 });

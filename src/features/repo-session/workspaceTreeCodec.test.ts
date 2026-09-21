@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { OpenRepoResult, RepoInfo } from "@/shared/types/app";
 import { DEFAULT_SETTINGS, type AppSettings } from "@/shared/types/app";
-import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
+import {
+  makeComparisonKey,
+  sliceComparisonKey,
+} from "@/features/branch-compare/comparisonKey";
+import type { HistorySlice } from "@/features/history/historyModel";
 import {
   buildInitialState,
   mergeOpenedIntoTree,
@@ -418,14 +422,23 @@ describe("mergeOpenedIntoTree", () => {
 });
 
 describe("stateToWorkspaceTree", () => {
-  test("omits an ephemeral history slice and restores the branch comparison", () => {
-    const sliceKey = makeComparisonKey(repoA.path, "main", "abc");
+  test("omits a history slice and restores the branch comparison", () => {
+    const sliceKey = sliceComparisonKey(keyA);
     const source = emptyComparisonRow(keyA, repoA.path, "main", "feature");
+    const history: HistorySlice = {
+      sourceBase: "main",
+      sourceHead: "feature",
+      specBase: "main",
+      specHead: "abc",
+      kind: "range",
+      label: "Keep the lane schematic",
+      short: "abcdef0",
+      detail: "Through abcdef0. 1 later commit hidden.",
+      baseLabel: "main",
+    };
     const slice = {
-      ...emptyComparisonRow(sliceKey, repoA.path, "main", "abc"),
-      ephemeral: true,
-      ephemeralSourceKey: keyA,
-      historyLabel: "Keep the lane schematic",
+      ...emptyComparisonRow(sliceKey, repoA.path, "main", "feature"),
+      history,
     };
     const tree = stateToWorkspaceTree({
       ...emptyMultiSessionState,

@@ -1,35 +1,32 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { isTypingTarget } from "@/design/isTypingTarget";
 import {
   HISTORY_ROW,
   historyCaption,
   historyNodeDimmed,
   indexForSelection,
+  indexToY,
   relativeCommitTime,
+  yToIndex,
   type HistoryMode,
   type HistoryNode,
 } from "./historyModel";
-import {
-  containPosition,
-  createSpring,
-  indexToY,
-  projectVelocity,
-  springSettled,
-  stepSpring,
-  yToIndex,
-  type Spring,
-} from "./spring";
 
 interface HistoryLaneProps {
   nodes: HistoryNode[];
   mode: HistoryMode;
   selectedHead: string | null;
-  baseBranch: string;
+  sourceBase: string;
+  sourceHead: string;
   headOid: string;
   mergeBase: string;
   truncated: boolean;
   nowSeconds: number;
-  onMode: (mode: HistoryMode) => void;
   onSelect: (index: number, mode: HistoryMode) => void;
   captionId?: string;
 }
@@ -60,114 +57,100 @@ function nodeMeta(node: HistoryNode, nowSeconds: number): string {
 
 export function HistoryLane({
   nodes,
-  mode,
+  mode: modeProp,
   selectedHead,
-  baseBranch,
+  sourceBase,
+  sourceHead,
   headOid,
   mergeBase,
   truncated,
   nowSeconds,
-  onMode,
   onSelect,
   captionId,
 }: HistoryLaneProps) {
-  const reduced =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const initial = indexForSelection(nodes, selectedHead);
-  const springRef = useRef<Spring>(createSpring(indexToY(initial, HISTORY_ROW)));
-  const nearestRef = useRef(initial);
-  const holdingRef = useRef(false);
-  const draggingRef = useRef(false);
-  const [nearest, setNearest] = useState(initial);
-  const [y, setY] = useState(springRef.current.value);
+  const [index, setIndex] = useState(initial);
+  const [mode, setMode] = useState(modeProp);
   const [dragging, setDragging] = useState(false);
-  const [motion, setMotion] = useState(0);
-  const trackRef = useRef<HTMLDivElement>(null);
+  const indexRef = useRef(initial);
+  const modeRef = useRef(modeProp);
+  const nodesRef = useRef(nodes);
+  const draggingRef = useRef(false);
   const pointerId = useRef<number | null>(null);
   const downY = useRef(0);
-  const history = useRef<{ y: number; t: number }[]>([]);
   const suppressClick = useRef(false);
-  const targetRef = useRef(initial);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const onSelectRef = useRef(onSelect);
+  nodesRef.current = nodes;
+  modeRef.current = mode;
+  onSelectRef.current = onSelect;
 
-  function wake(target: number) {
-    targetRef.current = target;
-    springRef.current.target = indexToY(target, HISTORY_ROW);
-    setMotion((count) => count + 1);
+  function scrollToIndex(next: number) {
+    const row = trackRef.current?.querySelector<HTMLElement>(
+      `[data-history-index="${next}"]`,
+    );
+    row?.scrollIntoView({ block: "nearest" });
   }
 
-  function choose(index: number, nextMode: HistoryMode = mode) {
-    const next = clampIndex(index, nodes.length);
-    nearestRef.current = next;
-    setNearest(next);
-    springRef.current.damping = 1;
-    springRef.current.response = 0.3;
-    springRef.current.velocity = 0;
-    wake(next);
-    onSelect(next, nextMode);
+  function commit(nextIndex: number, nextMode: HistoryMode = modeRef.current) {
+    const next = clampIndex(nextIndex, nodesRef.current.length);
+    indexRef.current = next;
+    modeRef.current = nextMode;
+    setIndex(next);
+    setMode(nextMode);
+    onSelectRef.current(next, nextMode);
+    scrollToIndex(next);
   }
+
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
 
   useEffect(() => {
-    if (holdingRef.current || draggingRef.current) return;
-    const index = indexForSelection(nodes, selectedHead);
-    if (index === nearestRef.current) return;
-    nearestRef.current = index;
-    setNearest(index);
-    springRef.current.damping = 1;
-    springRef.current.response = 0.3;
-    springRef.current.velocity = 0;
-    wake(index);
+    setMode(modeProp);
+    modeRef.current = modeProp;
+  }, [modeProp]);
+
+  useEffect(() => {
+    if (draggingRef.current) return;
+    const next = indexForSelection(nodes, selectedHead);
+    indexRef.current = next;
+    setIndex(next);
+    scrollToIndex(next);
   }, [nodes, selectedHead]);
 
   useEffect(() => {
-    let frame = 0;
-    let last = 0;
-    const loop = (now: number) => {
-      const dt = last ? (now - last) / 1000 : 1 / 60;
-      last = now;
-      const spring = springRef.current;
-      if (!holdingRef.current && !draggingRef.current) {
-        stepSpring(spring, dt, reduced);
-      }
-      setY(spring.value);
-      const busy =
-        holdingRef.current ||
-        draggingRef.current ||
-        !springSettled(spring);
-      if (busy) frame = requestAnimationFrame(loop);
+    const dialog = rootRef.current?.closest("dialog");
+    if (!dialog) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      if (isTypingTarget(event.target)) return;
+      event.preventDefault();
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      commitRef.current(indexRef.current + delta);
     };
-    frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
-  }, [reduced, motion]);
+    dialog.addEventListener("keydown", onKey);
+    return () => dialog.removeEventListener("keydown", onKey);
+  }, []);
 
   function localY(clientY: number): number {
     const rect = trackRef.current?.getBoundingClientRect();
     return clientY - (rect?.top ?? 0);
   }
 
-  function releaseVelocity(): number {
-    const samples = history.current;
-    if (samples.length < 2) return 0;
-    const last = samples[samples.length - 1]!;
-    let first = samples[0]!;
-    for (let i = samples.length - 1; i >= 0; i--) {
-      const sample = samples[i]!;
-      if (last.t - sample.t > 80) break;
-      first = sample;
-    }
-    const dt = last.t - first.t;
-    if (dt < 8) return 0;
-    return ((last.y - first.y) / dt) * 1000;
-  }
-
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    trackRef.current?.setPointerCapture(event.pointerId);
+    suppressClick.current = false;
+    const track = trackRef.current;
+    if (track?.setPointerCapture) {
+      try {
+        track.setPointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture is unavailable in some test hosts.
+      }
+    }
     pointerId.current = event.pointerId;
-    holdingRef.current = true;
     draggingRef.current = false;
     downY.current = localY(event.clientY);
-    springRef.current.velocity = 0;
-    history.current = [{ y: springRef.current.value, t: event.timeStamp }];
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -176,95 +159,53 @@ export function HistoryLane({
     if (!draggingRef.current && Math.abs(pointer - downY.current) < 8) return;
     if (!draggingRef.current) {
       draggingRef.current = true;
-      suppressClick.current = true;
       setDragging(true);
     }
-    const min = indexToY(0, HISTORY_ROW);
-    const max = indexToY(nodes.length - 1, HISTORY_ROW);
-    const contained = containPosition(pointer, min, max, HISTORY_ROW, reduced);
-    const previous = history.current[history.current.length - 1];
-    springRef.current.velocity = previous
-      ? ((contained - previous.y) / Math.max(8, event.timeStamp - previous.t)) * 1000
-      : 0;
-    springRef.current.value = contained;
-    history.current.push({ y: contained, t: event.timeStamp });
-    if (history.current.length > 6) history.current.shift();
-    const index = clampIndex(
-      Math.round(yToIndex(contained, HISTORY_ROW)),
-      nodes.length,
+    const next = clampIndex(
+      Math.round(yToIndex(pointer, HISTORY_ROW)),
+      nodesRef.current.length,
     );
-    if (index !== nearestRef.current) {
-      nearestRef.current = index;
-      setNearest(index);
-      onSelect(index, mode);
-    }
-    setY(contained);
+    if (next === indexRef.current) return;
+    indexRef.current = next;
+    setIndex(next);
   }
 
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     if (pointerId.current !== event.pointerId) return;
     pointerId.current = null;
     const wasDragging = draggingRef.current;
-    holdingRef.current = false;
     draggingRef.current = false;
     setDragging(false);
-    const velocity = releaseVelocity();
-    if (!wasDragging) {
-      choose(Math.round(yToIndex(localY(event.clientY), HISTORY_ROW)));
+    if (wasDragging) {
+      suppressClick.current = true;
+      commit(indexRef.current);
       return;
     }
-    if (Math.abs(velocity) > 220 && !reduced) {
-      const projected = springRef.current.value + projectVelocity(velocity);
-      const index = clampIndex(Math.round(yToIndex(projected, HISTORY_ROW)), nodes.length);
-      springRef.current.damping = 0.82;
-      springRef.current.response = 0.36;
-      const remaining = indexToY(index, HISTORY_ROW) - springRef.current.value;
-      if (remaining !== 0 && Math.sign(velocity) !== Math.sign(remaining)) {
-        springRef.current.velocity = velocity * 0.35;
-      } else {
-        springRef.current.velocity = velocity;
-      }
-      nearestRef.current = index;
-      setNearest(index);
-      wake(index);
-      onSelect(index, mode);
+    if (event.target instanceof Element && event.target.closest(".history-row")) {
       return;
     }
-    choose(Math.round(yToIndex(springRef.current.value, HISTORY_ROW)));
+    commit(Math.round(yToIndex(localY(event.clientY), HISTORY_ROW)));
   }
 
-  const chooseRef = useRef(choose);
-  chooseRef.current = choose;
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-      if (isTypingTarget(event.target)) return;
-      event.preventDefault();
-      const delta = event.key === "ArrowDown" ? 1 : -1;
-      chooseRef.current(nearestRef.current + delta);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  const node = nodes[nearest];
-  const baseY = indexToY(nodes.length - 1, HISTORY_ROW);
+  const node = nodes[index];
+  const y = indexToY(index, HISTORY_ROW);
+  const baseY = indexToY(Math.max(0, nodes.length - 1), HISTORY_ROW);
   const showInk = mode === "range" && node?.kind !== "base";
   const inkTop = Math.min(y, baseY);
   const spin = node?.kind === "base" ? " rotate(45deg)" : "";
   const caption = historyCaption({
     nodes,
-    index: nearest,
+    index,
     mode,
-    baseBranch,
+    sourceBase,
+    sourceHead,
     headOid,
     mergeBase,
     truncated,
   });
 
   return (
-    <div className="history-lane">
+    <div className="history-lane" ref={rootRef}>
       <div className="history-head">
         <p className="compare-graph-head">History</p>
         <div className="history-segment" role="radiogroup" aria-label="Slice">
@@ -276,10 +217,7 @@ export function HistoryLane({
             type="button"
             role="radio"
             aria-checked={mode === "range"}
-            onClick={() => {
-              onMode("range");
-              choose(nearestRef.current, "range");
-            }}
+            onClick={() => commit(indexRef.current, "range")}
           >
             Through here
           </button>
@@ -287,10 +225,7 @@ export function HistoryLane({
             type="button"
             role="radio"
             aria-checked={mode === "commit"}
-            onClick={() => {
-              onMode("commit");
-              choose(nearestRef.current, "commit");
-            }}
+            onClick={() => commit(indexRef.current, "commit")}
           >
             This commit
           </button>
@@ -327,16 +262,16 @@ export function HistoryLane({
               .join(" ")}
             style={{ transform: `translateY(${y}px)${spin}` }}
           />
-          {nodes.map((entry, index) => (
+          {nodes.map((entry, entryIndex) => (
             <div
               key={entry.id}
               role="option"
-              aria-selected={index === nearest}
-              data-history-index={index}
+              aria-selected={entryIndex === index}
+              data-history-index={entryIndex}
               className={[
                 "history-row",
                 nodeClass(entry),
-                historyNodeDimmed(nodes, index, nearest, mode) ? "is-dim" : "",
+                historyNodeDimmed(nodes, entryIndex, index, mode) ? "is-dim" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -345,7 +280,7 @@ export function HistoryLane({
                   suppressClick.current = false;
                   return;
                 }
-                choose(index);
+                commit(entryIndex);
               }}
             >
               <div className="history-dot" />
