@@ -1,4 +1,5 @@
 import { load, type Store } from "@tauri-apps/plugin-store";
+import { isTauriApp } from "@/shared/tauri/tauriEnv";
 import { normalizeCodeFont, normalizeUiFont } from "@/design/fonts/normalize";
 import { normalizeThemeId } from "@/design/theme/registry";
 import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
@@ -161,12 +162,15 @@ export function normalizeAppSettings(
 }
 
 export async function loadSettings(): Promise<AppSettings> {
+  // Vite in the browser has no desktop store.
+  if (!isTauriApp()) return normalizeAppSettings(null);
   const store = await getStore();
   const stored = (await store.get<Partial<AppSettings>>("app")) ?? {};
   return normalizeAppSettings(stored);
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
+  if (!isTauriApp()) return;
   await getStore().then((store) =>
     store.set("app", settings).then(() => store.save()),
   );

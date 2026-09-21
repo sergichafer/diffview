@@ -115,7 +115,8 @@
 .settings-tile,
 .settings-seg-option,
 .settings-specimen,
-.settings-choice {
+.settings-choice,
+.settings-credit {
   transition:
     transform 100ms ease-out,
     background-color 100ms ease-out,
@@ -130,6 +131,10 @@
 .settings-specimen:active:not(:disabled),
 .settings-choice:active:not(:disabled) {
   transform: scale(0.97);
+}
+
+.settings-credit:active {
+  background-color: color-mix(in srgb, var(--fg-base) 10%, var(--bg-inset));
 }
 
 .welcome-recents button,
