@@ -2,9 +2,12 @@ import { useCallback, useMemo, useState } from "react";
 import { useRepoSession } from "@/features/repo-session/context";
 import { BranchComparePalette } from "@/features/branch-compare/BranchComparePalette";
 import { CompareGraphPopover } from "@/features/compare-graph/CompareGraphPopover";
+import { comparisonIsLive } from "@/features/compare-graph/graphTopology";
+import type { HistoryMode } from "@/features/history/historyModel";
 import { IconButton } from "@/design/IconButton";
 import { branchOptionNames } from "@/features/branch-compare/branchCompare";
 import { computeAppliedStat } from "@/features/branch-compare/compareStat";
+import { api } from "@/shared/tauri/api";
 
 interface TopBarProps {
   onOpenSettings: () => void;
@@ -32,6 +35,9 @@ export function TopBar({
     handleComparisonChange,
     loadBranches,
     loadBranchMetadata,
+    comparisons,
+    activeKey,
+    applyHistorySlice,
   } = useRepoSession();
 
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -60,10 +66,37 @@ export function TopBar({
     void loadBranchMetadata();
   }, [loadBranches, loadBranchMetadata]);
 
-  const headLabel = headBranch || "Working tree";
-  const lead = [repo?.name, baseBranch ? `against ${baseBranch}` : null]
-    .filter(Boolean)
-    .join(" · ");
+  const activeRow = activeKey ? comparisons[activeKey] : undefined;
+  const sourceRow =
+    activeRow?.ephemeral && activeRow.ephemeralSourceKey
+      ? (comparisons[activeRow.ephemeralSourceKey] ?? activeRow)
+      : activeRow;
+  const headLabel = activeRow?.historyLabel || headBranch || "Working tree";
+  const lead = activeRow?.historyDetail
+    ? activeRow.historyDetail
+    : [repo?.name, baseBranch ? `against ${baseBranch}` : null]
+        .filter(Boolean)
+        .join(" · ");
+  const sourceIsLive = comparisonIsLive(
+    sourceRow?.overview ?? null,
+    sourceRow?.headBranch ?? "",
+  );
+  const sliceMode: HistoryMode | undefined =
+    activeRow?.historyMark === "this commit"
+      ? "commit"
+      : activeRow?.historyMark === "through here" ||
+          activeRow?.historyMark === "merge-base"
+        ? "range"
+        : undefined;
+  const sourcePath = sourceRow?.repoPath;
+  const sourceBase = sourceRow?.baseBranch;
+  const sourceHead = sourceRow?.headBranch;
+  const loadLane = useCallback(() => {
+    if (!sourcePath || sourceBase == null || sourceHead == null) {
+      return Promise.reject(new Error("No comparison"));
+    }
+    return api.getHistoryLane(sourcePath, sourceBase, sourceHead);
+  }, [sourcePath, sourceBase, sourceHead]);
 
   return (
     <header className="top-bar">
@@ -97,11 +130,20 @@ export function TopBar({
         />
         {repo && (
           <CompareGraphPopover
-            head={headBranch}
-            base={baseBranch}
-            overview={overview}
+            head={sourceRow?.headBranch ?? headBranch}
+            base={sourceRow?.baseBranch ?? baseBranch}
+            overview={sourceRow?.overview ?? overview}
             metadata={branchMetadata}
             onNeedMetadata={loadBranchMetadata}
+            sourceKey={sourceRow?.key ?? null}
+            sourceIsLive={sourceIsLive}
+            selectedHead={activeRow?.ephemeral ? activeRow.headBranch : null}
+            sliceMode={sliceMode}
+            loadLane={sourceRow ? loadLane : undefined}
+            onApplySlice={(target) => {
+              if (!sourceRow) return;
+              applyHistorySlice(sourceRow.key, target);
+            }}
           />
         )}
         {startupError && (

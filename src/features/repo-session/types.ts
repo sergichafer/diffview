@@ -25,6 +25,14 @@ export type ComparisonRow = {
   headOid: string;
   isLive: boolean;
   outdated: boolean;
+  /** History slice. Omitted from the persisted workspace tree. */
+  ephemeral?: boolean;
+  ephemeralSourceKey?: ComparisonKey;
+  historyLabel?: string;
+  historyShort?: string;
+  historyDetail?: string;
+  historyBaseLabel?: string;
+  historyMark?: string;
 };
 
 export type WorkspaceGroup = {
@@ -75,7 +83,14 @@ export type MultiSessionAction =
     }
   | { type: "branch-metadata-loading"; workspaceId: WorkspaceId; loading: boolean }
   | { type: "branch-metadata"; workspaceId: WorkspaceId; metadata: BranchMetadata[] }
-  | { type: "update-repo"; workspaceId: WorkspaceId; repo: RepoInfo };
+  | { type: "update-repo"; workspaceId: WorkspaceId; repo: RepoInfo }
+  | {
+      type: "retarget-ephemeral";
+      workspaceId: WorkspaceId;
+      previousKey: ComparisonKey | null;
+      key: ComparisonKey;
+      row: ComparisonRow;
+    };
 
 export const emptyMultiSessionState: MultiSessionState = {
   workspaceOrder: [],

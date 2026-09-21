@@ -5,7 +5,9 @@ import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
 import {
   buildInitialState,
   mergeOpenedIntoTree,
+  stateToWorkspaceTree,
 } from "./workspaceTreeCodec";
+import { emptyComparisonRow, emptyMultiSessionState } from "./types";
 
 const repoA: RepoInfo = {
   path: "/repos/a/",
@@ -412,5 +414,34 @@ describe("mergeOpenedIntoTree", () => {
     expect(next.groups[repoA.path]?.branches).toContain("new-branch");
     expect(next.workspaceOrder).toEqual([repoA.path, repoB.path]);
     expect(next.activeKey).toBe(base.activeKey);
+  });
+});
+
+describe("stateToWorkspaceTree", () => {
+  test("omits an ephemeral history slice and restores the branch comparison", () => {
+    const sliceKey = makeComparisonKey(repoA.path, "main", "abc");
+    const source = emptyComparisonRow(keyA, repoA.path, "main", "feature");
+    const slice = {
+      ...emptyComparisonRow(sliceKey, repoA.path, "main", "abc"),
+      ephemeral: true,
+      ephemeralSourceKey: keyA,
+      historyLabel: "Keep the lane schematic",
+    };
+    const tree = stateToWorkspaceTree({
+      ...emptyMultiSessionState,
+      workspaceOrder: [repoA.path],
+      groups: {
+        [repoA.path]: {
+          collapsed: false,
+          comparisonKeys: [keyA, sliceKey],
+        },
+      },
+      comparisons: { [keyA]: source, [sliceKey]: slice },
+      activeKey: sliceKey,
+    });
+    expect(tree.workspaces[0]?.comparisons).toEqual([
+      { baseBranch: "main", headBranch: "feature" },
+    ]);
+    expect(tree.activeComparisonKey).toBe(keyA);
   });
 });

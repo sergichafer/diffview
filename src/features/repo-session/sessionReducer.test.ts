@@ -272,6 +272,47 @@ describe("sessionReducer", () => {
     expect(nextPick).toEqual({ head: "develop", base: "main" });
   });
 
+  test("retarget-ephemeral replaces the slice and keeps the branch row", () => {
+    const firstKey = makeComparisonKey(repo.path, "main", "abc");
+    const secondKey = makeComparisonKey(repo.path, "parent", "def");
+    const first = {
+      ...emptyComparisonRow(firstKey, repo.path, "main", "abc"),
+      ephemeral: true,
+      ephemeralSourceKey: key,
+      historyShort: "abcdef0",
+      historyMark: "through here",
+    };
+    const opened = sessionReducer(openedState(), {
+      type: "retarget-ephemeral",
+      workspaceId: repo.path,
+      previousKey: null,
+      key: firstKey,
+      row: first,
+    });
+    expect(opened.activeKey).toBe(firstKey);
+    expect(opened.groups[repo.path]?.comparisonKeys).toEqual([key, firstKey]);
+
+    const second = {
+      ...emptyComparisonRow(secondKey, repo.path, "parent", "def"),
+      ephemeral: true,
+      ephemeralSourceKey: key,
+      historyShort: "defdef0",
+      historyMark: "this commit",
+    };
+    const next = sessionReducer(opened, {
+      type: "retarget-ephemeral",
+      workspaceId: repo.path,
+      previousKey: firstKey,
+      key: secondKey,
+      row: second,
+    });
+    expect(next.comparisons[firstKey]).toBeUndefined();
+    expect(next.comparisons[key]?.headBranch).toBe("feature");
+    expect(next.activeKey).toBe(secondKey);
+    expect(next.groups[repo.path]?.comparisonKeys).toEqual([key, secondKey]);
+    expect(next.comparisons[secondKey]?.historyMark).toBe("this commit");
+  });
+
   test("reset clears to empty session", () => {
     const next = sessionReducer(
       {

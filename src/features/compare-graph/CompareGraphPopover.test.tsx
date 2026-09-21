@@ -387,4 +387,61 @@ describe("CompareGraphPopover", () => {
       proto.getBoundingClientRect = originalRect;
     }
   });
+
+  test("a loaded lane selects the range through that commit", async () => {
+    const onApplySlice = mock(() => {});
+    await act(async () => {
+      root.render(
+        <CompareGraphPopover
+          head="feature"
+          base="main"
+          overview={overview({ isLive: true, currentBranch: "feature" })}
+          metadata={[]}
+          sourceKey="/repos/demo|main|feature"
+          sourceIsLive
+          loadLane={() =>
+            Promise.resolve({
+              mergeBase: "base-oid",
+              headOid: "tip-oid",
+              truncated: false,
+              commits: [
+                {
+                  oid: "tip-oid",
+                  short: "tipoid1",
+                  subject: "Keep the lane schematic",
+                  parent: "mid-oid",
+                  time: 1_700_000_300,
+                },
+                {
+                  oid: "mid-oid",
+                  short: "midoid1",
+                  subject: "Anchor the popover",
+                  parent: "base-oid",
+                  time: 1_700_000_200,
+                },
+              ],
+            })
+          }
+          onApplySlice={onApplySlice}
+        />,
+      );
+    });
+    await act(async () => {
+      graphButton().click();
+    });
+    expect(panel()?.getAttribute("aria-label")).toBe("History");
+    expect(panel()?.textContent).toContain("Anchor the popover");
+    const row = container.querySelector('[data-history-index="2"]');
+    await act(async () => {
+      row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onApplySlice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "range",
+        baseBranch: "main",
+        headBranch: "mid-oid",
+        historyMark: "through here",
+      }),
+    );
+  });
 });

@@ -320,6 +320,53 @@ export function sessionReducer(
         },
       };
     }
+    case "retarget-ephemeral": {
+      const group = state.groups[action.workspaceId];
+      if (!group) return state;
+
+      let next = state;
+      if (action.previousKey && action.previousKey !== action.key) {
+        next = removeComparisonFromState(next, action.previousKey);
+      }
+
+      const labels = {
+        historyLabel: action.row.historyLabel,
+        historyShort: action.row.historyShort,
+        historyDetail: action.row.historyDetail,
+        historyBaseLabel: action.row.historyBaseLabel,
+        historyMark: action.row.historyMark,
+      };
+      const existing = next.comparisons[action.key];
+      if (existing) {
+        return {
+          ...updateComparisonRow(next, action.key, {
+            ...labels,
+            ephemeral: existing.ephemeral,
+            ephemeralSourceKey: existing.ephemeral
+              ? action.row.ephemeralSourceKey
+              : existing.ephemeralSourceKey,
+          }),
+          activeKey: action.key,
+          mruKeys: touchMru(next.mruKeys, action.key),
+        };
+      }
+
+      const groupNow = next.groups[action.workspaceId];
+      if (!groupNow) return next;
+      return {
+        ...next,
+        comparisons: { ...next.comparisons, [action.key]: action.row },
+        groups: {
+          ...next.groups,
+          [action.workspaceId]: {
+            ...groupNow,
+            comparisonKeys: [...groupNow.comparisonKeys, action.key],
+          },
+        },
+        activeKey: action.key,
+        mruKeys: touchMru(next.mruKeys, action.key),
+      };
+    }
   }
 }
 

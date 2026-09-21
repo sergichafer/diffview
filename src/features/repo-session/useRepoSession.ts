@@ -20,6 +20,7 @@ import {
 import { pushRecent } from "@/features/settings/settings";
 import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
 import { makeComparisonKey, type ComparisonKey } from "@/features/branch-compare/comparisonKey";
+import type { HistorySliceTarget } from "@/features/history/historyModel";
 import {
   CONCURRENT_LOAD_CAP,
   HOT_CAP,
@@ -551,6 +552,66 @@ export function useRepoSessionState(
     ],
   );
 
+  const applyHistorySlice = useCallback(
+    (sourceKey: ComparisonKey, request: HistorySliceTarget | null) => {
+      const current = stateRef.current;
+      if (!request) {
+        const active = activeRowFromState(current);
+        const origin = active?.ephemeral ? active.ephemeralSourceKey : sourceKey;
+        if (origin && current.comparisons[origin] && current.activeKey !== origin) {
+          dispatch({ type: "activate", key: origin });
+        }
+        return;
+      }
+
+      let resolvedSource = sourceKey;
+      let source = current.comparisons[resolvedSource];
+      if (source?.ephemeral && source.ephemeralSourceKey) {
+        resolvedSource = source.ephemeralSourceKey;
+        source = current.comparisons[resolvedSource];
+      }
+      if (!source || source.ephemeral) return;
+
+      const key = makeComparisonKey(
+        source.repoPath,
+        request.baseBranch,
+        request.headBranch,
+      );
+      const previous = Object.values(current.comparisons).find(
+        (row) => row.ephemeral && row.ephemeralSourceKey === resolvedSource,
+      );
+      if (previous && previous.key !== key) {
+        refreshGenByKey.current.set(
+          previous.key,
+          (refreshGenByKey.current.get(previous.key) ?? 0) + 1,
+        );
+      }
+      const row = {
+        ...emptyComparisonRow(
+          key,
+          source.repoPath,
+          request.baseBranch,
+          request.headBranch,
+        ),
+        ephemeral: true,
+        ephemeralSourceKey: resolvedSource,
+        historyLabel: request.label,
+        historyShort: request.short,
+        historyDetail: request.detail,
+        historyBaseLabel: request.historyBaseLabel,
+        historyMark: request.historyMark,
+      };
+      dispatch({
+        type: "retarget-ephemeral",
+        workspaceId: source.repoPath,
+        previousKey: previous?.key ?? null,
+        key,
+        row,
+      });
+    },
+    [],
+  );
+
   const workspaces = useMemo(
     () =>
       state.workspaceOrder.map((id) => ({
@@ -591,6 +652,7 @@ export function useRepoSessionState(
     handleComparisonChange,
     loadBranches,
     loadBranchMetadata,
+    applyHistorySlice,
   };
 }
 

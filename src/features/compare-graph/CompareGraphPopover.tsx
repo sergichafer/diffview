@@ -13,8 +13,15 @@ import {
   applyOverlayOrigin,
   useOverlayPresence,
 } from "@/design/useOverlayPresence";
-import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
+import type { BranchMetadata, BranchOverview, HistoryLane as HistoryLaneData } from "@/shared/types/app";
 import { GRAPH_WIP_TITLE, WIP_LABEL } from "@/shared/wipCopy";
+import { HistoryLane } from "@/features/history/HistoryLane";
+import {
+  buildHistoryNodes,
+  historySliceTarget,
+  type HistoryMode,
+  type HistorySliceTarget,
+} from "@/features/history/historyModel";
 import { CompareGraphSvg } from "./CompareGraphSvg";
 import {
   comparisonHasWip,
@@ -29,6 +36,12 @@ interface CompareGraphPopoverProps {
   overview: BranchOverview | null;
   metadata: BranchMetadata[];
   onNeedMetadata?: () => void;
+  sourceKey?: string | null;
+  sourceIsLive?: boolean;
+  selectedHead?: string | null;
+  sliceMode?: HistoryMode;
+  loadLane?: () => Promise<HistoryLaneData>;
+  onApplySlice?: (target: HistorySliceTarget | null) => void;
 }
 
 export function CompareGraphPopover({
@@ -37,8 +50,17 @@ export function CompareGraphPopover({
   overview,
   metadata,
   onNeedMetadata,
+  sourceKey = null,
+  sourceIsLive = false,
+  selectedHead = null,
+  sliceMode,
+  loadLane,
+  onApplySlice,
 }: CompareGraphPopoverProps) {
   const [open, setOpen] = useState(false);
+  const [lane, setLane] = useState<HistoryLaneData | null>(null);
+  const [mode, setMode] = useState<HistoryMode>(sliceMode ?? "range");
+  const sliceSignature = useRef("");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDialogElement>(null);
@@ -56,6 +78,60 @@ export function CompareGraphPopover({
     [head, base, overview, metadata],
   );
   const hasWip = comparisonHasWip(overview, head);
+  const nodes = useMemo(
+    () => (lane ? buildHistoryNodes(lane, sourceIsLive, base) : []),
+    [lane, sourceIsLive, base],
+  );
+
+  useEffect(() => {
+    if (sliceMode) setMode(sliceMode);
+  }, [sliceMode]);
+
+  useEffect(() => {
+    if (selectedHead == null) sliceSignature.current = "";
+  }, [selectedHead]);
+
+  useEffect(() => {
+    setLane(null);
+    sliceSignature.current = "";
+  }, [loadLane]);
+
+  useEffect(() => {
+    if (!open || !loadLane) return;
+    let cancelled = false;
+    loadLane()
+      .then((next) => {
+        if (!cancelled) setLane(next);
+      })
+      .catch(() => {
+        if (!cancelled) setLane(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, loadLane]);
+
+  const pickSlice = useCallback(
+    (index: number, nextMode: HistoryMode) => {
+      if (!lane || !sourceKey || !onApplySlice) return;
+      setMode(nextMode);
+      const target = historySliceTarget({
+        nodes,
+        index,
+        mode: nextMode,
+        baseBranch: base,
+        headOid: lane.headOid,
+        mergeBase: lane.mergeBase,
+      });
+      const signature = target
+        ? `${sourceKey}|${target.mode}|${target.baseBranch}|${target.headBranch}`
+        : `source:${sourceKey}`;
+      if (sliceSignature.current === signature) return;
+      sliceSignature.current = signature;
+      onApplySlice(target);
+    },
+    [lane, sourceKey, onApplySlice, nodes, base],
+  );
 
   const close = useCallback((restoreFocus: boolean) => {
     restoreFocusRef.current = restoreFocus;
@@ -133,11 +209,31 @@ export function CompareGraphPopover({
           <dialog
             ref={panelRef}
             id={panelId}
-            className="compare-graph-panel overlay-surface"
-            aria-label="Compare graph"
+            className={
+              lane
+                ? "compare-graph-panel overlay-surface is-history"
+                : "compare-graph-panel overlay-surface"
+            }
+            aria-label={lane ? "History" : "Compare graph"}
             aria-describedby={captionId}
             onTransitionEnd={presence.onTransitionEnd}
           >
+            {lane ? (
+              <HistoryLane
+                nodes={nodes}
+                mode={mode}
+                selectedHead={selectedHead}
+                baseBranch={base}
+                headOid={lane.headOid}
+                mergeBase={lane.mergeBase}
+                truncated={lane.truncated}
+                nowSeconds={Math.floor(Date.now() / 1000)}
+                onMode={setMode}
+                onSelect={pickSlice}
+                captionId={captionId}
+              />
+            ) : (
+              <>
             <p className="compare-graph-head">Graph</p>
             <CompareGraphSvg topology={topology} hasWip={hasWip} />
             <p id={captionId} className="compare-graph-caption">
@@ -175,6 +271,8 @@ export function CompareGraphPopover({
                 </span>
               ) : null}
             </div>
+              </>
+            )}
           </dialog>
         </div>
       ) : null}

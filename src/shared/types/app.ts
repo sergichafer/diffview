@@ -19,6 +19,8 @@ export type {
   BranchMetadata,
   ComparisonFileContents,
   ComparisonStamp,
+  HistoryCommit,
+  HistoryLane,
   OpenRepoResult,
   RepoInfo,
 } from "./generated/types";

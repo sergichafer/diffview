@@ -28,27 +28,38 @@ export function stateToWorkspaceTree(state: {
   >;
   comparisons: Record<
     string,
-    { baseBranch: string; headBranch: string }
+    {
+      baseBranch: string;
+      headBranch: string;
+      ephemeral?: boolean;
+      ephemeralSourceKey?: string;
+    }
   >;
   activeKey: string | null;
   columnCollapsed: boolean;
 }) {
+  const active = state.activeKey ? state.comparisons[state.activeKey] : undefined;
+  const activeComparisonKey = active?.ephemeral
+    ? active.ephemeralSourceKey
+    : (state.activeKey ?? undefined);
   return {
     workspaces: state.workspaceOrder.map((repoPath) => {
       const group = state.groups[repoPath];
       return {
         repoPath,
         collapsed: group?.collapsed ?? false,
-        comparisons: (group?.comparisonKeys ?? []).map((key) => {
-          const row = state.comparisons[key];
-          return {
-            baseBranch: row?.baseBranch ?? "",
-            headBranch: row?.headBranch ?? "",
-          };
-        }),
+        comparisons: (group?.comparisonKeys ?? [])
+          .filter((key) => !state.comparisons[key]?.ephemeral)
+          .map((key) => {
+            const row = state.comparisons[key];
+            return {
+              baseBranch: row?.baseBranch ?? "",
+              headBranch: row?.headBranch ?? "",
+            };
+          }),
       };
     }),
-    activeComparisonKey: state.activeKey ?? undefined,
+    activeComparisonKey,
     columnCollapsed: state.columnCollapsed,
   };
 }

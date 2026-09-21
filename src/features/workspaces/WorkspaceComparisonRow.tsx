@@ -65,7 +65,8 @@ export function WorkspaceComparisonRow({
   onClose,
   onFocus,
 }: WorkspaceComparisonRowProps) {
-  const headLabel = row.headBranch || "Working tree";
+  const headLabel = row.historyShort || row.historyLabel || row.headBranch || "Working tree";
+  const baseLabel = row.historyBaseLabel || row.baseBranch;
   return (
     <div
       className={[
@@ -78,7 +79,7 @@ export function WorkspaceComparisonRow({
       role="treeitem"
       aria-selected={selected}
       tabIndex={tabIndex}
-      title={`${headLabel} → ${row.baseBranch}${row.isLive ? ` (${WIP_LABEL})` : ""}`}
+      title={`${headLabel} → ${baseLabel}${row.historyMark ? ` · ${row.historyMark}` : row.isLive ? ` (${WIP_LABEL})` : ""}`}
       data-ws-key={row.key}
       data-press=""
       onClick={onActivate}
@@ -93,8 +94,15 @@ export function WorkspaceComparisonRow({
           <span className="workspaces-arrow" aria-hidden="true">
             →
           </span>
-          <span className="workspaces-base">{row.baseBranch}</span>
-          {row.isLive && (
+          <span className="workspaces-base">{baseLabel}</span>
+          {row.historyMark ? (
+            <>
+              <span className="workspaces-dot" aria-hidden="true">
+                ·
+              </span>
+              <span className="workspaces-wip">{row.historyMark}</span>
+            </>
+          ) : row.isLive ? (
             <>
               <span className="workspaces-dot" aria-hidden="true">
                 ·
@@ -103,7 +111,7 @@ export function WorkspaceComparisonRow({
                 {WIP_LABEL}
               </span>
             </>
-          )}
+          ) : null}
           {row.outdated && (
             <span
               className="workspaces-chip workspaces-chip-stale"

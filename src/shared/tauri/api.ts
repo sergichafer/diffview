@@ -6,6 +6,7 @@ import type {
   ComparisonFileContents,
   ComparisonStamp,
   FileDiffResult,
+  HistoryLane,
   OpenRepoResult,
 } from "@/shared/types/app";
 
@@ -22,6 +23,12 @@ export const api = {
     }),
   getBranchMetadata: (repoPath: string, baseBranch: string) =>
     invoke<BranchMetadata[]>("get_branch_metadata", { repoPath, baseBranch }),
+  getHistoryLane: (repoPath: string, baseBranch: string, headBranch: string) =>
+    invoke<HistoryLane>("get_history_lane", {
+      repoPath,
+      baseBranch,
+      headBranch,
+    }),
   listBranches: (repoPath: string) =>
     invoke<string[]>("list_branches", { repoPath }),
   getBranchFileDiffs: (
