@@ -160,6 +160,71 @@ describe("HistoryLane", () => {
     expect(onSelect).toHaveBeenCalledWith(1, "range");
   });
 
+  function segmentChecked(label: string): string | null {
+    const button = [...container.querySelectorAll("button")].find((entry) =>
+      entry.textContent?.includes(label),
+    );
+    return button?.getAttribute("aria-checked") ?? null;
+  }
+
+  test("local slice mode follows a later mode prop", () => {
+    const onSelect = mock(() => {});
+    renderLane(onSelect, { mode: "range" });
+    const commitButton = [...container.querySelectorAll("button")].find((entry) =>
+      entry.textContent?.includes("This commit"),
+    );
+    act(() => {
+      commitButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(segmentChecked("This commit")).toBe("true");
+
+    renderLane(onSelect, { mode: "commit" });
+    expect(segmentChecked("This commit")).toBe("true");
+
+    renderLane(onSelect, { mode: "range" });
+    expect(segmentChecked("Through here")).toBe("true");
+    expect(segmentChecked("This commit")).toBe("false");
+  });
+
+  test("the selected commit is the only tab stop", () => {
+    renderLane(mock(() => {}), { selectedHead: "mid-oid" });
+    const tabs = [...container.querySelectorAll('[role="option"]')].map((row) =>
+      row.getAttribute("tabindex"),
+    );
+    expect(tabs).toEqual(["-1", "-1", "0", "-1"]);
+  });
+
+  test("arrow keys from a commit row move focus with the playhead", () => {
+    const onSelect = mock(() => {});
+    renderLane(onSelect, { selectedHead: "mid-oid" });
+    const current = container.querySelector('[data-history-index="2"]') as HTMLElement;
+    current.focus();
+    act(() => {
+      current.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+      );
+    });
+    const next = container.querySelector('[data-history-index="3"]') as HTMLElement;
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(3, "range");
+    expect(document.activeElement).toBe(next);
+    expect(next.getAttribute("tabindex")).toBe("0");
+    expect(current.getAttribute("tabindex")).toBe("-1");
+  });
+
+  test("enter selects the focused commit row", () => {
+    const onSelect = mock(() => {});
+    renderLane(onSelect);
+    const row = container.querySelector('[data-history-index="2"]') as HTMLElement;
+    act(() => {
+      row.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(2, "range");
+  });
+
   test("a committed row scrolls into view", () => {
     const scrolled: string[] = [];
     HTMLElement.prototype.scrollIntoView = function scrollIntoView(this: HTMLElement) {

@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -71,52 +72,44 @@ export function HistoryLane({
   const initial = indexForSelection(nodes, selectedHead);
   const [index, setIndex] = useState(initial);
   const [mode, setMode] = useState(modeProp);
+  const [seenModeProp, setSeenModeProp] = useState(modeProp);
+  if (modeProp !== seenModeProp) {
+    setSeenModeProp(modeProp);
+    setMode(modeProp);
+  }
   const [dragging, setDragging] = useState(false);
   const indexRef = useRef(initial);
-  const modeRef = useRef(modeProp);
-  const nodesRef = useRef(nodes);
   const draggingRef = useRef(false);
   const pointerId = useRef<number | null>(null);
   const downY = useRef(0);
   const suppressClick = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-  const onSelectRef = useRef(onSelect);
-  nodesRef.current = nodes;
-  modeRef.current = mode;
-  onSelectRef.current = onSelect;
 
-  function scrollToIndex(next: number) {
-    const row = trackRef.current?.querySelector<HTMLElement>(
-      `[data-history-index="${next}"]`,
-    );
-    row?.scrollIntoView({ block: "nearest" });
-  }
-
-  function commit(nextIndex: number, nextMode: HistoryMode = modeRef.current) {
-    const next = clampIndex(nextIndex, nodesRef.current.length);
-    indexRef.current = next;
-    modeRef.current = nextMode;
-    setIndex(next);
-    setMode(nextMode);
-    onSelectRef.current(next, nextMode);
-    scrollToIndex(next);
-  }
-
-  const commitRef = useRef(commit);
-  commitRef.current = commit;
-
-  useEffect(() => {
-    setMode(modeProp);
-    modeRef.current = modeProp;
-  }, [modeProp]);
+  const commit = useCallback(
+    (nextIndex: number, nextMode: HistoryMode = mode) => {
+      const next = clampIndex(nextIndex, nodes.length);
+      indexRef.current = next;
+      setIndex(next);
+      setMode(nextMode);
+      onSelect(next, nextMode);
+      const row = trackRef.current?.querySelector<HTMLElement>(
+        `[data-history-index="${next}"]`,
+      );
+      row?.scrollIntoView({ block: "nearest" });
+    },
+    [mode, nodes, onSelect],
+  );
 
   useEffect(() => {
     if (draggingRef.current) return;
     const next = indexForSelection(nodes, selectedHead);
     indexRef.current = next;
     setIndex(next);
-    scrollToIndex(next);
+    const row = trackRef.current?.querySelector<HTMLElement>(
+      `[data-history-index="${next}"]`,
+    );
+    row?.scrollIntoView({ block: "nearest" });
   }, [nodes, selectedHead]);
 
   useEffect(() => {
@@ -127,11 +120,18 @@ export function HistoryLane({
       if (isTypingTarget(event.target)) return;
       event.preventDefault();
       const delta = event.key === "ArrowDown" ? 1 : -1;
-      commitRef.current(indexRef.current + delta);
+      const track = trackRef.current;
+      const fromTrack =
+        event.target instanceof Node && (track?.contains(event.target) ?? false);
+      commit(indexRef.current + delta);
+      if (!fromTrack) return;
+      track
+        ?.querySelector<HTMLElement>(`[data-history-index="${indexRef.current}"]`)
+        ?.focus({ preventScroll: true });
     };
     dialog.addEventListener("keydown", onKey);
     return () => dialog.removeEventListener("keydown", onKey);
-  }, []);
+  }, [commit]);
 
   function localY(clientY: number): number {
     const rect = trackRef.current?.getBoundingClientRect();
@@ -163,7 +163,7 @@ export function HistoryLane({
     }
     const next = clampIndex(
       Math.round(yToIndex(pointer, HISTORY_ROW)),
-      nodesRef.current.length,
+      nodes.length,
     );
     if (next === indexRef.current) return;
     indexRef.current = next;
@@ -265,7 +265,9 @@ export function HistoryLane({
           {nodes.map((entry, entryIndex) => (
             <div
               key={entry.id}
+              id={`history-node-${entry.id}`}
               role="option"
+              tabIndex={entryIndex === index ? 0 : -1}
               aria-selected={entryIndex === index}
               data-history-index={entryIndex}
               className={[
@@ -280,6 +282,11 @@ export function HistoryLane({
                   suppressClick.current = false;
                   return;
                 }
+                commit(entryIndex);
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
                 commit(entryIndex);
               }}
             >

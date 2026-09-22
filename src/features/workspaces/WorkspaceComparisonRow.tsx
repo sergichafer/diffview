@@ -45,6 +45,26 @@ function HangDelta({ row }: { row: ComparisonRow }) {
   );
 }
 
+function comparisonRowLabels(row: ComparisonRow): {
+  headLabel: string;
+  baseLabel: string;
+  chip: string | null;
+  title: string;
+} {
+  const headLabel = row.history
+    ? row.history.short || row.history.label || row.headBranch || "Working tree"
+    : row.headBranch || "Working tree";
+  const baseLabel = row.history?.baseLabel || row.baseBranch;
+  const chip = row.history ? historySliceChip(row.history.kind) : null;
+  const marker = chip ? ` · ${chip}` : row.isLive ? ` (${WIP_LABEL})` : "";
+  return {
+    headLabel,
+    baseLabel,
+    chip,
+    title: `${headLabel} → ${baseLabel}${marker}`,
+  };
+}
+
 interface WorkspaceComparisonRowProps {
   row: ComparisonRow;
   repoName: string;
@@ -66,11 +86,7 @@ export function WorkspaceComparisonRow({
   onClose,
   onFocus,
 }: WorkspaceComparisonRowProps) {
-  const headLabel = row.history
-    ? row.history.short || row.history.label || row.headBranch || "Working tree"
-    : row.headBranch || "Working tree";
-  const baseLabel = row.history?.baseLabel || row.baseBranch;
-  const chip = row.history ? historySliceChip(row.history.kind) : null;
+  const { headLabel, baseLabel, chip, title } = comparisonRowLabels(row);
   return (
     <div
       className={[
@@ -83,7 +99,7 @@ export function WorkspaceComparisonRow({
       role="treeitem"
       aria-selected={selected}
       tabIndex={tabIndex}
-      title={`${headLabel} → ${baseLabel}${chip ? ` · ${chip}` : row.isLive ? ` (${WIP_LABEL})` : ""}`}
+      title={title}
       data-ws-key={row.key}
       data-press=""
       onClick={onActivate}
