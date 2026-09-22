@@ -1,7 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRepoSession } from "@/features/repo-session/context";
 import { BranchComparePalette } from "@/features/branch-compare/BranchComparePalette";
+import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
 import { CompareGraphPopover } from "@/features/compare-graph/CompareGraphPopover";
+import { comparisonIsLive } from "@/features/compare-graph/graphTopology";
+import {
+  historyModeOf,
+  type HistoryMode,
+  type HistorySlice,
+} from "@/features/history/historyModel";
+import type { ComparisonRow } from "@/features/repo-session/types";
 import { IconButton } from "@/design/IconButton";
 import { branchOptionNames } from "@/features/branch-compare/branchCompare";
 import { computeAppliedStat } from "@/features/branch-compare/compareStat";
@@ -10,6 +18,60 @@ interface TopBarProps {
   onOpenSettings: () => void;
   paletteOpenRequest: number;
   startupError?: string | null;
+}
+
+function topBarHistory(args: {
+  repoName: string | undefined;
+  baseBranch: string;
+  headBranch: string;
+  activeKey: string | null;
+  activeRow: ComparisonRow | undefined;
+  comparisons: Record<string, ComparisonRow>;
+}): {
+  headLabel: string;
+  lead: string;
+  sourceBase: string;
+  sourceHead: string;
+  sourceKey: string | null;
+  sourceIsLive: boolean;
+  selectedHead: string | null;
+  mode: HistoryMode;
+} {
+  const history: HistorySlice | undefined = args.activeRow?.history;
+  const sourceBase = history?.sourceBase ?? args.baseBranch;
+  const sourceHead = history?.sourceHead ?? args.headBranch;
+  const sourceKey =
+    history && args.activeRow
+      ? makeComparisonKey(
+          args.activeRow.repoPath,
+          history.sourceBase,
+          history.sourceHead,
+        )
+      : args.activeKey;
+  const sourceLiveRow = history
+    ? sourceKey != null
+      ? args.comparisons[sourceKey]
+      : undefined
+    : args.activeRow;
+  const sourceIsLive = sourceLiveRow
+    ? comparisonIsLive(sourceLiveRow.overview, sourceLiveRow.headBranch)
+    : false;
+  const headLabel = history?.label || args.headBranch || "Working tree";
+  const lead = history?.detail
+    ? history.detail
+    : [args.repoName, args.baseBranch ? `against ${args.baseBranch}` : null]
+        .filter(Boolean)
+        .join(" · ");
+  return {
+    headLabel,
+    lead,
+    sourceBase,
+    sourceHead,
+    sourceKey,
+    sourceIsLive,
+    selectedHead: history?.specHead ?? null,
+    mode: history ? historyModeOf(history.kind) : "range",
+  };
 }
 
 export function TopBar({
@@ -32,6 +94,9 @@ export function TopBar({
     handleComparisonChange,
     loadBranches,
     loadBranchMetadata,
+    comparisons,
+    activeKey,
+    applyHistorySlice,
   } = useRepoSession();
 
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -60,17 +125,24 @@ export function TopBar({
     void loadBranchMetadata();
   }, [loadBranches, loadBranchMetadata]);
 
-  const headLabel = headBranch || "Working tree";
-  const lead = [repo?.name, baseBranch ? `against ${baseBranch}` : null]
-    .filter(Boolean)
-    .join(" · ");
+  const activeRow = activeKey ? comparisons[activeKey] : undefined;
+  const historyBar = topBarHistory({
+    repoName: repo?.name,
+    baseBranch,
+    headBranch,
+    activeKey,
+    activeRow,
+    comparisons,
+  });
 
   return (
     <header className="top-bar">
       {repo && (
         <div className="topbar-copy">
-          <h2 className="topbar-title">{headLabel}</h2>
-          {lead ? <p className="topbar-lead">{lead}</p> : null}
+          <h2 className="topbar-title">{historyBar.headLabel}</h2>
+          {historyBar.lead ? (
+            <p className="topbar-lead">{historyBar.lead}</p>
+          ) : null}
         </div>
       )}
       <div className="topbar-zone topbar-zone-right icon-toolbar">
@@ -97,11 +169,16 @@ export function TopBar({
         />
         {repo && (
           <CompareGraphPopover
-            head={headBranch}
-            base={baseBranch}
-            overview={overview}
-            metadata={branchMetadata}
-            onNeedMetadata={loadBranchMetadata}
+            repoPath={repo.path}
+            sourceBase={historyBar.sourceBase}
+            sourceHead={historyBar.sourceHead}
+            sourceIsLive={historyBar.sourceIsLive}
+            selectedHead={historyBar.selectedHead}
+            mode={historyBar.mode}
+            onSlice={(slice) => {
+              if (!historyBar.sourceKey) return;
+              applyHistorySlice(historyBar.sourceKey, slice);
+            }}
           />
         )}
         {startupError && (

@@ -148,6 +148,275 @@ export function BranchComparePalette(props: BranchComparePaletteProps) {
   );
 }
 
+function PaletteSlotButton({
+  tag,
+  label,
+  title,
+  active,
+  disabled,
+  meta,
+  onSelect,
+}: {
+  tag: string;
+  label: string;
+  title: string | undefined;
+  active: boolean;
+  disabled: boolean;
+  meta: BranchMetadata | undefined;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={active ? "compare-slot is-active" : "compare-slot"}
+      aria-pressed={active}
+      disabled={disabled}
+      onClick={onSelect}
+    >
+      <span className="compare-slot-tag">{tag}</span>
+      <span className="compare-slot-name" title={title}>
+        {label}
+      </span>
+      <DivergenceChips meta={meta} />
+    </button>
+  );
+}
+
+function PaletteSlots({
+  slot,
+  head,
+  base,
+  headMeta,
+  baseMeta,
+  noBranches,
+  canSwap,
+  onSlot,
+  onSwap,
+}: {
+  slot: CompareSlot;
+  head: string;
+  base: string;
+  headMeta: BranchMetadata | undefined;
+  baseMeta: BranchMetadata | undefined;
+  noBranches: boolean;
+  canSwap: boolean;
+  onSlot: (slot: CompareSlot) => void;
+  onSwap: () => void;
+}) {
+  return (
+    <div className="compare-slots">
+      <PaletteSlotButton
+        tag="HEAD"
+        label={truncateBranchLabel(head || "Working tree", 22)}
+        title={head || "Working tree"}
+        active={slot === "head"}
+        disabled={noBranches}
+        meta={headMeta}
+        onSelect={() => onSlot("head")}
+      />
+      <button
+        type="button"
+        className="compare-swap"
+        onClick={onSwap}
+        disabled={!canSwap}
+        title="Swap head and base"
+        aria-label="Swap head and base"
+      >
+        ⇄
+      </button>
+      <PaletteSlotButton
+        tag="BASE"
+        label={truncateBranchLabel(base || "-", 22)}
+        title={base || undefined}
+        active={slot === "base"}
+        disabled={noBranches}
+        meta={baseMeta}
+        onSelect={() => onSlot("base")}
+      />
+    </div>
+  );
+}
+
+function PaletteSearch({
+  inputRef,
+  query,
+  slot,
+  active,
+  resultCount,
+  noBranches,
+  metadataLoading,
+  onQuery,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  query: string;
+  slot: CompareSlot;
+  active: number;
+  resultCount: number;
+  noBranches: boolean;
+  metadataLoading: boolean;
+  onQuery: (query: string) => void;
+}) {
+  const emptyLabel = noBranches ? "No branches yet" : null;
+  return (
+    <div className="compare-search">
+      <span className="compare-search-icon" aria-hidden="true">
+        ⌕
+      </span>
+      <input
+        ref={inputRef}
+        type="text"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="compare-results"
+        aria-activedescendant={
+          resultCount > 0 ? `compare-opt-${active}` : undefined
+        }
+        value={query}
+        onChange={(e) => onQuery(e.target.value)}
+        placeholder={emptyLabel ?? `Filter ${slot} branches…`}
+        aria-label={emptyLabel ?? `Set ${slot} branch`}
+        disabled={noBranches}
+        autoComplete="off"
+        spellCheck={false}
+      />
+      {metadataLoading ? (
+        <span className="compare-loading" aria-live="polite">
+          loading…
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function PaletteResults({
+  results,
+  active,
+  query,
+  noBranches,
+  slot,
+  head,
+  base,
+  metaMap,
+  onActive,
+  onPick,
+}: {
+  results: string[];
+  active: number;
+  query: string;
+  noBranches: boolean;
+  slot: CompareSlot;
+  head: string;
+  base: string;
+  metaMap: Map<string, BranchMetadata>;
+  onActive: (index: number) => void;
+  onPick: (name: string) => void;
+}) {
+  const otherSlotBranch = slot === "head" ? base : head;
+  if (noBranches) {
+    return (
+      <ul className="compare-results" id="compare-results" role="listbox">
+        <li className="compare-empty" role="presentation">
+          No commits yet. Nothing to compare.
+        </li>
+      </ul>
+    );
+  }
+  return (
+    <ul className="compare-results" id="compare-results" role="listbox">
+      {results.map((name, i) => {
+        const meta = metaMap.get(name);
+        const swaps = name === otherSlotBranch && name !== "";
+        return (
+          <li key={name} role="presentation">
+            <button
+              type="button"
+              id={`compare-opt-${i}`}
+              role="option"
+              aria-selected={i === active}
+              className={i === active ? "compare-row is-active" : "compare-row"}
+              onMouseEnter={() => onActive(i)}
+              onClick={() => onPick(name)}
+            >
+              <span className="compare-avatar" aria-hidden="true">
+                {meta?.authorInitials ?? "?"}
+              </span>
+              <span className="compare-row-main">
+                <span className="compare-row-top">
+                  <span className="compare-row-name">{name}</span>
+                  {meta?.isDefault ? (
+                    <span className="compare-badge">default</span>
+                  ) : null}
+                  {meta?.isCurrent ? (
+                    <span className="compare-badge compare-badge-current">
+                      checked out
+                    </span>
+                  ) : null}
+                  {swaps ? (
+                    <span className="compare-badge compare-badge-swap">
+                      swap
+                    </span>
+                  ) : null}
+                </span>
+                {meta && (meta.lastSubject || meta.author) ? (
+                  <span className="compare-row-sub">
+                    {[
+                      meta.lastSubject,
+                      meta.author,
+                      formatRelativeTime(meta.lastCommitTime),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                ) : null}
+              </span>
+              <DivergenceChips meta={meta} />
+            </button>
+          </li>
+        );
+      })}
+      {results.length === 0 ? (
+        <li className="compare-empty" role="presentation">
+          No match for “{query}”
+        </li>
+      ) : null}
+    </ul>
+  );
+}
+
+function PaletteFooter({
+  head,
+  base,
+  commits,
+  stat,
+}: {
+  head: string;
+  base: string;
+  commits: number | undefined;
+  stat: AppliedStat;
+}) {
+  const commitLabel =
+    commits == null
+      ? ""
+      : `${commits} ${commits === 1 ? "commit" : "commits"} · `;
+  return (
+    <div className="compare-footer">
+      <span className="compare-footer-pair">
+        {truncateBranchLabel(head || "Working tree", 20)}{" "}
+        <span className="compare-footer-arrow" aria-hidden="true">
+          →
+        </span>{" "}
+        {truncateBranchLabel(base || "-", 20)}
+      </span>
+      <span className="compare-footer-stat">
+        {commitLabel}
+        {stat.files} {stat.files === 1 ? "file" : "files"} ·{" "}
+        <span className="compare-add">+{formatCount(stat.additions)}</span>{" "}
+        <span className="compare-del">−{formatCount(stat.deletions)}</span>
+      </span>
+    </div>
+  );
+}
+
 interface PaletteDialogProps extends BranchComparePaletteProps {
   overlayState: OverlayVisualState | undefined;
   onTransitionEnd: (event: { propertyName: string }) => void;
@@ -253,8 +522,6 @@ function PaletteDialog({
 
   const headMeta = metaMap.get(head);
   const baseMeta = metaMap.get(base);
-  const commits = headMeta?.ahead;
-  const otherSlotBranch = slot === "head" ? base : head;
 
   return (
     <dialog
@@ -279,168 +546,48 @@ function PaletteDialog({
         }}
       />
       <div ref={paletteRef} className="compare-sheet overlay-surface" onKeyDown={onKeyDown}>
-        <div className="compare-slots">
-          <button
-            type="button"
-            className={`compare-slot ${slot === "head" ? "is-active" : ""}`}
-            aria-pressed={slot === "head"}
-            disabled={noBranches}
-            onClick={() => {
-              setSlot("head");
-              inputRef.current?.focus();
-            }}
-          >
-            <span className="compare-slot-tag">HEAD</span>
-            <span className="compare-slot-name" title={head || "Working tree"}>
-              {truncateBranchLabel(head || "Working tree", 22)}
-            </span>
-            <DivergenceChips meta={headMeta} />
-          </button>
-          <button
-            type="button"
-            className="compare-swap"
-            onClick={swap}
-            disabled={!canSwap}
-            title="Swap head and base"
-            aria-label="Swap head and base"
-          >
-            ⇄
-          </button>
-          <button
-            type="button"
-            className={`compare-slot ${slot === "base" ? "is-active" : ""}`}
-            aria-pressed={slot === "base"}
-            disabled={noBranches}
-            onClick={() => {
-              setSlot("base");
-              inputRef.current?.focus();
-            }}
-          >
-            <span className="compare-slot-tag">BASE</span>
-            <span className="compare-slot-name" title={base || undefined}>
-              {truncateBranchLabel(base || "-", 22)}
-            </span>
-            <DivergenceChips meta={baseMeta} />
-          </button>
-        </div>
-
-        <div className="compare-search">
-          <span className="compare-search-icon" aria-hidden="true">
-            ⌕
-          </span>
-          <input
-            ref={inputRef}
-            type="text"
-            role="combobox"
-            aria-expanded="true"
-            aria-controls="compare-results"
-            aria-activedescendant={
-              results.length ? `compare-opt-${active}` : undefined
-            }
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={
-              noBranches
-                ? "No branches yet"
-                : `Filter ${slot} branches…`
-            }
-            aria-label={
-              noBranches ? "No branches yet" : `Set ${slot} branch`
-            }
-            disabled={noBranches}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {metadataLoading && (
-            <span className="compare-loading" aria-live="polite">
-              loading…
-            </span>
-          )}
-        </div>
-
-        <ul className="compare-results" id="compare-results" role="listbox">
-          {noBranches ? (
-            <li className="compare-empty" role="presentation">
-              No commits yet. Nothing to compare.
-            </li>
-          ) : (
-            <>
-              {results.map((name, i) => {
-                const meta = metaMap.get(name);
-                const swaps = name === otherSlotBranch && name !== "";
-                return (
-                  <li key={name} role="presentation">
-                    <button
-                      type="button"
-                      id={`compare-opt-${i}`}
-                      role="option"
-                      aria-selected={i === active}
-                      className={`compare-row ${i === active ? "is-active" : ""}`}
-                      onMouseEnter={() => setActive(i)}
-                      onClick={() => pick(name)}
-                    >
-                      <span className="compare-avatar" aria-hidden="true">
-                        {meta?.authorInitials ?? "?"}
-                      </span>
-                      <span className="compare-row-main">
-                        <span className="compare-row-top">
-                          <span className="compare-row-name">{name}</span>
-                          {meta?.isDefault && (
-                            <span className="compare-badge">default</span>
-                          )}
-                          {meta?.isCurrent && (
-                            <span className="compare-badge compare-badge-current">
-                              checked out
-                            </span>
-                          )}
-                          {swaps && (
-                            <span className="compare-badge compare-badge-swap">
-                              swap
-                            </span>
-                          )}
-                        </span>
-                        {meta && (meta.lastSubject || meta.author) && (
-                          <span className="compare-row-sub">
-                            {[
-                              meta.lastSubject,
-                              meta.author,
-                              formatRelativeTime(meta.lastCommitTime),
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </span>
-                        )}
-                      </span>
-                      <DivergenceChips meta={meta} />
-                    </button>
-                  </li>
-                );
-              })}
-              {results.length === 0 && (
-                <li className="compare-empty" role="presentation">
-                  No match for “{query}”
-                </li>
-              )}
-            </>
-          )}
-        </ul>
-
-        <div className="compare-footer">
-          <span className="compare-footer-pair">
-            {truncateBranchLabel(head || "Working tree", 20)}{" "}
-            <span className="compare-footer-arrow" aria-hidden="true">
-              →
-            </span>{" "}
-            {truncateBranchLabel(base || "-", 20)}
-          </span>
-          <span className="compare-footer-stat">
-            {commits != null &&
-              `${commits} ${commits === 1 ? "commit" : "commits"} · `}
-            {stat.files} {stat.files === 1 ? "file" : "files"} ·{" "}
-            <span className="compare-add">+{formatCount(stat.additions)}</span>{" "}
-            <span className="compare-del">−{formatCount(stat.deletions)}</span>
-          </span>
-        </div>
+        <PaletteSlots
+          slot={slot}
+          head={head}
+          base={base}
+          headMeta={headMeta}
+          baseMeta={baseMeta}
+          noBranches={noBranches}
+          canSwap={canSwap}
+          onSlot={(next) => {
+            setSlot(next);
+            inputRef.current?.focus();
+          }}
+          onSwap={swap}
+        />
+        <PaletteSearch
+          inputRef={inputRef}
+          query={query}
+          slot={slot}
+          active={active}
+          resultCount={results.length}
+          noBranches={noBranches}
+          metadataLoading={metadataLoading}
+          onQuery={setQuery}
+        />
+        <PaletteResults
+          results={results}
+          active={active}
+          query={query}
+          noBranches={noBranches}
+          slot={slot}
+          head={head}
+          base={base}
+          metaMap={metaMap}
+          onActive={setActive}
+          onPick={pick}
+        />
+        <PaletteFooter
+          head={head}
+          base={base}
+          commits={headMeta?.ahead}
+          stat={stat}
+        />
       </div>
     </dialog>
   );

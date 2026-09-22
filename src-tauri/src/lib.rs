@@ -3,10 +3,10 @@ pub mod settings;
 mod startup;
 
 use git::{
-    branch_metadata, close, list_branch_names, open, read_working_file, resolve_comparison_stamp,
-    with_repo, with_slot, write_working_file, BranchMetadata, BranchOverview,
-    ComparisonFileContents, ComparisonSpec, ComparisonStamp, FileDiffResult, OpenRepoResult,
-    RepoRegistry,
+    branch_metadata, close, history_lane, list_branch_names, open, read_working_file,
+    resolve_comparison_stamp, with_repo, with_slot, write_working_file, BranchMetadata,
+    BranchOverview, ComparisonFileContents, ComparisonSpec, ComparisonStamp, FileDiffResult,
+    HistoryLane, OpenRepoResult, RepoRegistry,
 };
 use settings::AppSettings;
 use startup::{
@@ -203,6 +203,18 @@ async fn write_working_file_contents(
 }
 
 #[tauri::command(async)]
+async fn get_history_lane(
+    repo_path: String,
+    base_branch: String,
+    head_branch: String,
+    state: State<'_, RepoRegistry>,
+) -> Result<HistoryLane, String> {
+    with_repo(&state, &repo_path, |repo| {
+        history_lane(repo, &base_branch, &head_branch)
+    })
+}
+
+#[tauri::command(async)]
 async fn get_comparison_stamp(
     repo_path: String,
     base_branch: String,
@@ -244,6 +256,7 @@ pub fn run() {
             get_branch_metadata,
             list_branches,
             get_branch_file_diffs,
+            get_history_lane,
             read_working_file_contents,
             read_comparison_file_contents,
             write_working_file_contents,

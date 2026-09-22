@@ -1,11 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import type { OpenRepoResult, RepoInfo } from "@/shared/types/app";
 import { DEFAULT_SETTINGS, type AppSettings } from "@/shared/types/app";
-import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
+import {
+  makeComparisonKey,
+  sliceComparisonKey,
+} from "@/features/branch-compare/comparisonKey";
+import type { HistorySlice } from "@/features/history/historyModel";
 import {
   buildInitialState,
   mergeOpenedIntoTree,
+  stateToWorkspaceTree,
 } from "./workspaceTreeCodec";
+import { emptyComparisonRow, emptyMultiSessionState } from "./types";
 
 const repoA: RepoInfo = {
   path: "/repos/a/",
@@ -412,5 +418,43 @@ describe("mergeOpenedIntoTree", () => {
     expect(next.groups[repoA.path]?.branches).toContain("new-branch");
     expect(next.workspaceOrder).toEqual([repoA.path, repoB.path]);
     expect(next.activeKey).toBe(base.activeKey);
+  });
+});
+
+describe("stateToWorkspaceTree", () => {
+  test("omits a history slice and restores the branch comparison", () => {
+    const sliceKey = sliceComparisonKey(keyA);
+    const source = emptyComparisonRow(keyA, repoA.path, "main", "feature");
+    const history: HistorySlice = {
+      sourceBase: "main",
+      sourceHead: "feature",
+      specBase: "main",
+      specHead: "abc",
+      kind: "range",
+      label: "Keep the lane schematic",
+      short: "abcdef0",
+      detail: "Through abcdef0. 1 later commit hidden.",
+      baseLabel: "main",
+    };
+    const slice = {
+      ...emptyComparisonRow(sliceKey, repoA.path, "main", "feature"),
+      history,
+    };
+    const tree = stateToWorkspaceTree({
+      ...emptyMultiSessionState,
+      workspaceOrder: [repoA.path],
+      groups: {
+        [repoA.path]: {
+          collapsed: false,
+          comparisonKeys: [keyA, sliceKey],
+        },
+      },
+      comparisons: { [keyA]: source, [sliceKey]: slice },
+      activeKey: sliceKey,
+    });
+    expect(tree.workspaces[0]?.comparisons).toEqual([
+      { baseBranch: "main", headBranch: "feature" },
+    ]);
+    expect(tree.activeComparisonKey).toBe(keyA);
   });
 });

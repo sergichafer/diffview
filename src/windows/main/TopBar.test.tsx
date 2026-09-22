@@ -4,12 +4,16 @@ mock.module("@/features/branch-compare/BranchComparePalette", () => ({
   BranchComparePalette({
     open,
     onOpenChange,
+    head,
+    base,
   }: {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
+    head?: string;
+    base?: string;
   }) {
     return (
-      <div data-open={String(open)}>
+      <div data-open={String(open)} data-head={head} data-base={base}>
         <button type="button" onClick={() => onOpenChange?.(false)}>
           Close palette
         </button>
@@ -22,8 +26,13 @@ const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { TopBar } = await import("./TopBar");
 const { RepoSessionContext } = await import("@/features/repo-session/context");
+import { historyLaneClient } from "@/features/history/useHistoryLane";
+import type { HistorySlice } from "@/features/history/historyModel";
+import type { ComparisonRow } from "@/features/repo-session/types";
 import type { RepoSessionValue } from "@/features/repo-session/useRepoSession";
 import type { RepoInfo } from "@/shared/types/app";
+
+const originalHistoryLoad = historyLaneClient.load;
 
 const repo: RepoInfo = {
   path: "/repos/demo",
@@ -87,6 +96,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  historyLaneClient.load = originalHistoryLoad;
   act(() => root.unmount());
   container.remove();
 });
@@ -163,15 +173,71 @@ describe("TopBar graph", () => {
     ).toBeNull();
   });
 
-  test("Graph click asks the session for branch metadata", () => {
-    const loadBranchMetadata = mock(() => Promise.resolve());
-    renderTopBar(0, session({ loadBranchMetadata }));
+  test("a history slice titles the bar and keeps branch names on the palette", () => {
+    const history: HistorySlice = {
+      sourceBase: "main",
+      sourceHead: "feature",
+      specBase: "parent-oid",
+      specHead: "commit-oid",
+      kind: "commit",
+      label: "Anchor the popover",
+      short: "midoid1",
+      detail: "Only midoid1.",
+      baseLabel: "main",
+    };
+    const sliceKey = "slice-key";
+    const slice = {
+      key: sliceKey,
+      repoPath: repo.path,
+      baseBranch: "main",
+      headBranch: "feature",
+      history,
+    } as ComparisonRow;
+    const load = mock(() => new Promise<never>(() => {}));
+    historyLaneClient.load = load;
+    renderTopBar(
+      0,
+      session({
+        baseBranch: "main",
+        headBranch: "feature",
+        activeKey: sliceKey,
+        comparisons: { [sliceKey]: slice },
+      }),
+    );
+    expect(container.querySelector(".topbar-title")?.textContent).toBe(
+      "Anchor the popover",
+    );
+    expect(container.querySelector(".topbar-lead")?.textContent).toBe(
+      "Only midoid1.",
+    );
+    expect(container.querySelector("[data-head]")?.getAttribute("data-head")).toBe(
+      "feature",
+    );
+    expect(container.querySelector("[data-base]")?.getAttribute("data-base")).toBe(
+      "main",
+    );
     const graph = container.querySelector(
       'button.icon-btn[aria-label="Graph"]',
     ) as HTMLButtonElement;
     act(() => {
       graph.click();
     });
-    expect(loadBranchMetadata).toHaveBeenCalled();
+    expect(load).toHaveBeenCalledWith(repo.path, "main", "feature");
+    expect(load.mock.calls.some((call) => call.includes("parent-oid"))).toBe(false);
+    expect(load.mock.calls.some((call) => call.includes("commit-oid"))).toBe(false);
+  });
+
+  test("Graph opens history for the source branches", () => {
+    const load = mock(() => new Promise<never>(() => {}));
+    historyLaneClient.load = load;
+    renderTopBar(0);
+    const graph = container.querySelector(
+      'button.icon-btn[aria-label="Graph"]',
+    ) as HTMLButtonElement;
+    act(() => {
+      graph.click();
+    });
+    expect(load).toHaveBeenCalledWith("/repos/demo", "main", "feature");
+    expect(container.textContent).toContain("Loading history.");
   });
 });
