@@ -37,6 +37,7 @@ import {
 import {
   activeGroupFromState,
   activeMergeBaseFromState,
+  activeReviewStampFromState,
   activeRowFromState,
   lruHotKeyToDemote,
   sessionReducer,
@@ -632,6 +633,7 @@ export function useRepoSessionState(
     branchMetadata: activeGroup?.branchMetadata ?? [],
     metadataLoading: activeGroup?.metadataLoading ?? false,
     activeMergeBase: activeMergeBaseFromState(state),
+    activeReviewStamp: activeReviewStampFromState(state),
     activeKey: state.activeKey,
     comparisons: state.comparisons,
     columnCollapsed: state.columnCollapsed,

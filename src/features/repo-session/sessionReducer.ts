@@ -86,6 +86,18 @@ export function activeMergeBaseFromState(state: MultiSessionState): string {
   return row?.mergeBaseOid ?? row?.overview?.mergeBase ?? "";
 }
 
+/**
+ * Stamp that resets review and comment state for the active row. Branch rows
+ * use the merge-base. A history slot reuses one key for every slice, so it
+ * adds the slice spec.
+ */
+export function activeReviewStampFromState(state: MultiSessionState): string {
+  const mergeBase = activeMergeBaseFromState(state);
+  const history = activeRowFromState(state)?.history;
+  if (!history) return mergeBase;
+  return [history.kind, history.specBase, history.specHead, mergeBase].join("\0");
+}
+
 export function activeGroupFromState(
   state: MultiSessionState,
 ): WorkspaceGroup | null {

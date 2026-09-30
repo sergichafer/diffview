@@ -10,6 +10,7 @@ import type { HistorySlice } from "@/features/history/historyModel";
 import { mergeFileDiffs } from "./mergeFileDiffs";
 import { buildInitialState } from "./workspaceTreeCodec";
 import {
+  activeReviewStampFromState,
   activeRowFromState,
   sessionReducer,
 } from "./sessionReducer";
@@ -394,6 +395,44 @@ describe("sessionReducer", () => {
     });
     expect(again.comparisons[sliceKey]?.residency).toBe("hot");
     expect(again.comparisons[sliceKey]?.fileDiffs).toHaveLength(1);
+  });
+
+  test("review stamp is the merge-base for branch rows and adds the spec for slices", () => {
+    const branch = sessionReducer(openedState(), {
+      type: "comparison-overview",
+      key,
+      overview: overview("base0"),
+    });
+    expect(activeReviewStampFromState(branch)).toBe("base0");
+
+    const slice = (specHead: string): HistorySlice => ({
+      sourceBase: "main",
+      sourceHead: "feature",
+      specBase: "main",
+      specHead,
+      kind: "range",
+      label: specHead,
+      short: specHead,
+      detail: `Through ${specHead}.`,
+      baseLabel: "main",
+    });
+    const stampThrough = (specHead: string) => {
+      const sliced = sessionReducer(branch, {
+        type: "set-history-slice",
+        workspaceId: repo.path,
+        sourceKey: key,
+        slice: slice(specHead),
+      });
+      return activeReviewStampFromState(
+        sessionReducer(sliced, {
+          type: "comparison-overview",
+          key: sliceComparisonKey(key),
+          overview: overview("base0"),
+        }),
+      );
+    };
+    expect(stampThrough("c3")).not.toBe(stampThrough("c1"));
+    expect(stampThrough("c3")).toBe(stampThrough("c3"));
   });
 
   test("branches recovery keeps a slice whose source names are real branches", () => {
