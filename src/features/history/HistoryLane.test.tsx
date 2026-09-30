@@ -186,6 +186,28 @@ describe("HistoryLane", () => {
     expect(segmentChecked("This commit")).toBe("false");
   });
 
+  test("arrow keys on the slice radios switch mode and keep the commit", () => {
+    const onSelect = mock(() => {});
+    renderLane(onSelect, { selectedHead: "mid-oid" });
+    const radio = (label: string) =>
+      [...container.querySelectorAll<HTMLElement>('[role="radio"]')].find(
+        (entry) => entry.textContent?.includes(label),
+      )!;
+    expect(radio("Through here").getAttribute("tabindex")).toBe("0");
+    expect(radio("This commit").getAttribute("tabindex")).toBe("-1");
+    radio("Through here").focus();
+    act(() => {
+      radio("Through here").dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(2, "commit");
+    expect(segmentChecked("This commit")).toBe("true");
+    expect(document.activeElement).toBe(radio("This commit"));
+    expect(radio("This commit").getAttribute("tabindex")).toBe("0");
+  });
+
   test("the selected commit is the only tab stop", () => {
     renderLane(mock(() => {}), { selectedHead: "mid-oid" });
     const tabs = [...container.querySelectorAll('[role="option"]')].map((row) =>

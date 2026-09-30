@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { isTypingTarget } from "@/design/isTypingTarget";
@@ -31,6 +32,8 @@ interface HistoryLaneProps {
   onSelect: (index: number, mode: HistoryMode) => void;
   captionId?: string;
 }
+
+const MODES: readonly HistoryMode[] = ["range", "commit"];
 
 function clampIndex(index: number, count: number): number {
   return Math.max(0, Math.min(count - 1, index));
@@ -85,6 +88,7 @@ export function HistoryLane({
   const suppressClick = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const segmentRef = useRef<HTMLDivElement>(null);
 
   const commit = useCallback(
     (nextIndex: number, nextMode: HistoryMode = mode) => {
@@ -118,6 +122,12 @@ export function HistoryLane({
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
       if (isTypingTarget(event.target)) return;
+      if (
+        event.target instanceof Node &&
+        segmentRef.current?.contains(event.target)
+      ) {
+        return;
+      }
       event.preventDefault();
       const delta = event.key === "ArrowDown" ? 1 : -1;
       const track = trackRef.current;
@@ -132,6 +142,23 @@ export function HistoryLane({
     dialog.addEventListener("keydown", onKey);
     return () => dialog.removeEventListener("keydown", onKey);
   }, [commit]);
+
+  function onSegmentKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const step =
+      event.key === "ArrowRight" || event.key === "ArrowDown"
+        ? 1
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? -1
+          : 0;
+    if (step === 0) return;
+    event.preventDefault();
+    const at = MODES.indexOf(mode);
+    const next = MODES[(at + step + MODES.length) % MODES.length]!;
+    commit(indexRef.current, next);
+    segmentRef.current
+      ?.querySelector<HTMLElement>(`[data-history-mode="${next}"]`)
+      ?.focus();
+  }
 
   function localY(clientY: number): number {
     const rect = trackRef.current?.getBoundingClientRect();
@@ -208,7 +235,13 @@ export function HistoryLane({
     <div className="history-lane" ref={rootRef}>
       <div className="history-head">
         <p className="compare-graph-head">History</p>
-        <div className="history-segment" role="radiogroup" aria-label="Slice">
+        <div
+          ref={segmentRef}
+          className="history-segment"
+          role="radiogroup"
+          aria-label="Slice"
+          onKeyDown={onSegmentKeyDown}
+        >
           <div
             className="history-segment-thumb"
             style={{ transform: `translateX(${mode === "commit" ? 100 : 0}%)` }}
@@ -217,6 +250,8 @@ export function HistoryLane({
             type="button"
             role="radio"
             aria-checked={mode === "range"}
+            tabIndex={mode === "range" ? 0 : -1}
+            data-history-mode="range"
             onClick={() => commit(indexRef.current, "range")}
           >
             Through here
@@ -225,6 +260,8 @@ export function HistoryLane({
             type="button"
             role="radio"
             aria-checked={mode === "commit"}
+            tabIndex={mode === "commit" ? 0 : -1}
+            data-history-mode="commit"
             onClick={() => commit(indexRef.current, "commit")}
           >
             This commit
