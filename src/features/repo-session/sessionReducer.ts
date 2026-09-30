@@ -40,22 +40,30 @@ function removeComparisonFromState(
   const row = state.comparisons[key];
   if (!row) return state;
 
+  // A source comparison takes its history slot with it.
+  const sliceKey = row.history ? null : sliceComparisonKey(key);
+  const removed = new Set<ComparisonKey>([key]);
+  if (sliceKey != null && state.comparisons[sliceKey]) removed.add(sliceKey);
+
   const group = state.groups[row.repoPath];
   const comparisons = { ...state.comparisons };
-  delete comparisons[key];
+  for (const k of removed) delete comparisons[k];
 
   const nextGroups = group
     ? {
         ...state.groups,
         [row.repoPath]: {
           ...group,
-          comparisonKeys: group.comparisonKeys.filter((k) => k !== key),
+          comparisonKeys: group.comparisonKeys.filter((k) => !removed.has(k)),
         },
       }
     : state.groups;
 
-  const mruKeys = state.mruKeys.filter((k) => k !== key);
-  let activeKey = state.activeKey === key ? null : state.activeKey;
+  const mruKeys = state.mruKeys.filter((k) => !removed.has(k));
+  let activeKey =
+    state.activeKey != null && removed.has(state.activeKey)
+      ? null
+      : state.activeKey;
   if (activeKey == null) {
     const sameGroup = nextGroups[row.repoPath]?.comparisonKeys[0];
     activeKey =

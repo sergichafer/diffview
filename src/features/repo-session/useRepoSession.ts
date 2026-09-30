@@ -423,10 +423,10 @@ export function useRepoSessionState(
   }, []);
 
   const closeComparison = useCallback((key: ComparisonKey) => {
-    refreshGenByKey.current.set(
-      key,
-      (refreshGenByKey.current.get(key) ?? 0) + 1,
-    );
+    // The reducer also closes the source's history slot, so its loads go stale too.
+    for (const k of [key, sliceComparisonKey(key)]) {
+      refreshGenByKey.current.set(k, (refreshGenByKey.current.get(k) ?? 0) + 1);
+    }
     dispatch({ type: "close-comparison", key });
   }, []);
 

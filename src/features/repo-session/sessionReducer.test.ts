@@ -54,6 +54,39 @@ function openedState(): MultiSessionState {
   return buildInitialState(opened, [opened], DEFAULT_SETTINGS);
 }
 
+function withComparison(
+  state: MultiSessionState,
+  base: string,
+  head: string,
+): MultiSessionState {
+  const comparisonKey = makeComparisonKey(repo.path, base, head);
+  return sessionReducer(state, {
+    type: "spawn-comparison",
+    workspaceId: repo.path,
+    key: comparisonKey,
+    row: emptyComparisonRow(comparisonKey, repo.path, base, head),
+  });
+}
+
+function withSlice(state: MultiSessionState): MultiSessionState {
+  return sessionReducer(state, {
+    type: "set-history-slice",
+    workspaceId: repo.path,
+    sourceKey: key,
+    slice: {
+      sourceBase: "main",
+      sourceHead: "feature",
+      specBase: "main",
+      specHead: "abc",
+      kind: "range",
+      label: "First",
+      short: "abcdef0",
+      detail: "Through abcdef0. 1 later commit hidden.",
+      baseLabel: "main",
+    },
+  });
+}
+
 describe("sessionReducer", () => {
   test("patch-overview updates badges without clearing fileDiffs", () => {
     let state = openedState();
@@ -211,6 +244,59 @@ describe("sessionReducer", () => {
     state = sessionReducer(state, { type: "close-comparison", key: newKey });
     expect(state.comparisons[newKey]).toBeUndefined();
     expect(state.activeKey).toBe(key);
+  });
+
+  test("close-comparison on an active slice's source removes both", () => {
+    const sliceKey = sliceComparisonKey(key);
+    const otherKey = makeComparisonKey(repo.path, "develop", "feature");
+    let state = withSlice(withComparison(openedState(), "develop", "feature"));
+    expect(state.activeKey).toBe(sliceKey);
+
+    state = sessionReducer(state, { type: "close-comparison", key });
+    expect(state.comparisons[key]).toBeUndefined();
+    expect(state.comparisons[sliceKey]).toBeUndefined();
+    expect(state.groups[repo.path]?.comparisonKeys).toEqual([otherKey]);
+    expect(state.activeKey).toBe(otherKey);
+    expect(state.mruKeys).not.toContain(key);
+    expect(state.mruKeys).not.toContain(sliceKey);
+  });
+
+  test("close-comparison on an inactive source removes its slice and keeps the active row", () => {
+    const sliceKey = sliceComparisonKey(key);
+    const otherKey = makeComparisonKey(repo.path, "develop", "feature");
+    let state = withSlice(withComparison(openedState(), "develop", "feature"));
+    state = sessionReducer(state, { type: "activate", key: otherKey });
+
+    state = sessionReducer(state, { type: "close-comparison", key });
+    expect(state.comparisons[sliceKey]).toBeUndefined();
+    expect(state.groups[repo.path]?.comparisonKeys).toEqual([otherKey]);
+    expect(state.activeKey).toBe(otherKey);
+    expect(state.mruKeys).toEqual([otherKey]);
+  });
+
+  test("close-comparison on a slice keeps its source", () => {
+    const sliceKey = sliceComparisonKey(key);
+    let state = withSlice(openedState());
+
+    state = sessionReducer(state, { type: "close-comparison", key: sliceKey });
+    expect(state.comparisons[sliceKey]).toBeUndefined();
+    expect(state.comparisons[key]?.headBranch).toBe("feature");
+    expect(state.groups[repo.path]?.comparisonKeys).toEqual([key]);
+    expect(state.activeKey).toBe(key);
+  });
+
+  test("close-workspace removes a source and its slice", () => {
+    let state = withSlice(openedState());
+
+    state = sessionReducer(state, {
+      type: "close-workspace",
+      workspaceId: repo.path,
+    });
+    expect(state.comparisons).toEqual({});
+    expect(state.groups[repo.path]).toBeUndefined();
+    expect(state.workspaceOrder).toEqual([]);
+    expect(state.activeKey).toBeNull();
+    expect(state.mruKeys).toEqual([]);
   });
 
   test("demote-hot-to-warm keeps overview and drops diffs", () => {
