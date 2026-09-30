@@ -14,6 +14,7 @@ Built with **Tauri 2**, **React**, **libgit2**, [@pierre/trees](https://trees.so
 - Split / unified diff toggle
 - Rendered preview window for `.html` and `.markdown` (working tree)
 - Recent repos, startup preference, base branch override per repo
+- Acknowledgments in Settings for the open source projects Diffview is built on
 - Manual refresh
 - CLI: `diffview /path/to/repo`, `diffview .`, or `diffview repo1 repo2 repo3`
 

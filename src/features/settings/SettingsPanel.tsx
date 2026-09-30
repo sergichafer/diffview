@@ -15,6 +15,7 @@ import {
   useOverlayPresence,
 } from "@/design/useOverlayPresence";
 import type { AppSettings, DiffStyle, ThemeId, ThemeMode } from "@/shared/types/app";
+import { AcknowledgmentsPane } from "./AcknowledgmentsPane";
 
 interface SettingsPanelProps {
   settings: AppSettings;
@@ -22,7 +23,7 @@ interface SettingsPanelProps {
   onChange: (patch: Partial<AppSettings>) => void;
 }
 
-type SettingsPaneId = "look" | "type" | "review" | "startup";
+type SettingsPaneId = "look" | "type" | "review" | "startup" | "acknowledgments";
 
 const PANES: readonly {
   id: SettingsPaneId;
@@ -48,6 +49,11 @@ const PANES: readonly {
     id: "startup",
     label: "Startup",
     icon: "M8 5v14l11-7z",
+  },
+  {
+    id: "acknowledgments",
+    label: "Acknowledgments",
+    icon: "M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z",
   },
 ];
 
@@ -215,7 +221,14 @@ export function SettingsPanel({ settings, onClose, onChange }: SettingsPanelProp
               title="Close settings"
             />
           </header>
-          <div key={pane} className="settings-pane-body">
+          <div
+            key={pane}
+            className={
+              pane === "acknowledgments"
+                ? "settings-pane-body settings-ack"
+                : "settings-pane-body"
+            }
+          >
             {pane === "look" ? (
               <LookPane settings={settings} onChange={onChange} />
             ) : null}
@@ -228,6 +241,7 @@ export function SettingsPanel({ settings, onClose, onChange }: SettingsPanelProp
             {pane === "startup" ? (
               <StartupPane settings={settings} onChange={onChange} />
             ) : null}
+            {pane === "acknowledgments" ? <AcknowledgmentsPane /> : null}
           </div>
         </div>
       </div>

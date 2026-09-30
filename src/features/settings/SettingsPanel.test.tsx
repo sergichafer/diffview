@@ -175,6 +175,37 @@ describe("SettingsPanel", () => {
     });
   });
 
+  test("Acknowledgments names the open source stack without changing settings", () => {
+    const { onChange } = renderPanel();
+    act(() => {
+      navButton("Acknowledgments")!.click();
+    });
+    expect(container.querySelector("#settings-pane-title")?.textContent).toBe(
+      "Acknowledgments",
+    );
+    expect(container.textContent).toContain(
+      "Proudly built on open source. Each name opens the project.",
+    );
+    expect(container.textContent).toContain("Tauri");
+    expect(container.textContent).toContain("libgit2");
+    expect(container.textContent).toContain("Pierre Diffs");
+    expect(container.textContent).toContain("Catppuccin");
+    const tauri = container.querySelector(
+      'a[href="https://github.com/tauri-apps/tauri"]',
+    );
+    expect(tauri?.getAttribute("rel")).toBe("noreferrer");
+    expect(navButton("Acknowledgments")?.getAttribute("aria-current")).toBe(
+      "page",
+    );
+    expect(onChange).not.toHaveBeenCalled();
+
+    act(() => {
+      navButton("Look")!.click();
+    });
+    expect(container.textContent).not.toContain("Proudly built on open source");
+    expect(container.querySelector('a[href="https://github.com/tauri-apps/tauri"]')).toBeNull();
+  });
+
   test("only one nav item has aria-current=page", () => {
     renderPanel();
     expect(container.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
