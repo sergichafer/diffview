@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   decideAfterStamp,
   decideBeforeStamp,
+  hasLoadedStamp,
   type StalenessInput,
 } from "./staleness";
 import type { Residency } from "./types";
@@ -14,6 +15,7 @@ function input(
     outdated: false,
     hasFileDiffs: false,
     isActive: false,
+    hasLoaded: true,
     ...overrides,
   };
 }
@@ -127,6 +129,17 @@ describe("decideAfterStamp", () => {
     }
   });
 
+  test("never loaded + mismatch → load without marking outdated", () => {
+    for (const residency of ["cold", "warm", "hot"] as const) {
+      expect(
+        decideAfterStamp({
+          ...input({ residency, hasLoaded: false }),
+          stampsMatch: false,
+        }),
+      ).toBe("load");
+    }
+  });
+
   // otherwise → load (cold+match, warm+outdated+match)
   test("cold + match → load", () => {
     expect(
@@ -159,5 +172,16 @@ describe("decideAfterStamp", () => {
         stampsMatch: true,
       }),
     ).toBe("load");
+  });
+});
+
+describe("hasLoadedStamp", () => {
+  test("empty OIDs → never loaded", () => {
+    expect(hasLoadedStamp({ mergeBaseOid: "", headOid: "" })).toBe(false);
+  });
+
+  test("any OID → loaded", () => {
+    expect(hasLoadedStamp({ mergeBaseOid: "base0", headOid: "head0" })).toBe(true);
+    expect(hasLoadedStamp({ mergeBaseOid: "", headOid: "head0" })).toBe(true);
   });
 });

@@ -6,10 +6,19 @@ export type StalenessInput = {
   residency: Residency;
   hasFileDiffs: boolean;
   isActive: boolean;
+  hasLoaded: boolean;
 };
 
 export type PreStampDecision = "load" | "skip" | "check-stamp";
 export type PostStampDecision = "load" | "skip" | "mark-outdated-load";
+
+/** A row without OIDs has never loaded, so a stamp mismatch says nothing about staleness. */
+export function hasLoadedStamp(row: {
+  mergeBaseOid: string;
+  headOid: string;
+}): boolean {
+  return row.mergeBaseOid !== "" || row.headOid !== "";
+}
 
 export function decideBeforeStamp(input: StalenessInput): PreStampDecision {
   if (input.isLive || input.outdated) return "load";
@@ -24,6 +33,8 @@ export function decideAfterStamp(
     return input.residency === "warm" || input.isActive ? "load" : "skip";
   }
   if (input.stampsMatch && input.residency === "hot") return "skip";
-  if (!input.stampsMatch) return "mark-outdated-load";
+  if (!input.stampsMatch) {
+    return input.hasLoaded ? "mark-outdated-load" : "load";
+  }
   return "load";
 }
