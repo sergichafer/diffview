@@ -18,6 +18,7 @@ import {
   type CompareSlot,
 } from "./branchCompare";
 import { truncateBranchLabel } from "./branchLabel";
+import { PaletteFooter } from "./PaletteFooter";
 import {
   formatCount,
   formatRelativeTime,
@@ -32,6 +33,8 @@ interface BranchComparePaletteProps {
   metadata: BranchMetadata[];
   metadataLoading: boolean;
   stat: AppliedStat;
+  /** A history slice is active. The footer drops the branch commit count. */
+  sliced?: boolean;
   onChange: (next: { head: string; base: string }) => void;
   onOpen: () => void;
   /** Parent-owned open (workspaces "+" and similar). */
@@ -383,40 +386,6 @@ function PaletteResults({
   );
 }
 
-function PaletteFooter({
-  head,
-  base,
-  commits,
-  stat,
-}: {
-  head: string;
-  base: string;
-  commits: number | undefined;
-  stat: AppliedStat;
-}) {
-  const commitLabel =
-    commits == null
-      ? ""
-      : `${commits} ${commits === 1 ? "commit" : "commits"} · `;
-  return (
-    <div className="compare-footer">
-      <span className="compare-footer-pair">
-        {truncateBranchLabel(head || "Working tree", 20)}{" "}
-        <span className="compare-footer-arrow" aria-hidden="true">
-          →
-        </span>{" "}
-        {truncateBranchLabel(base || "-", 20)}
-      </span>
-      <span className="compare-footer-stat">
-        {commitLabel}
-        {stat.files} {stat.files === 1 ? "file" : "files"} ·{" "}
-        <span className="compare-add">+{formatCount(stat.additions)}</span>{" "}
-        <span className="compare-del">−{formatCount(stat.deletions)}</span>
-      </span>
-    </div>
-  );
-}
-
 interface PaletteDialogProps extends BranchComparePaletteProps {
   overlayState: OverlayVisualState | undefined;
   onTransitionEnd: (event: { propertyName: string }) => void;
@@ -431,6 +400,7 @@ function PaletteDialog({
   metadata,
   metadataLoading,
   stat,
+  sliced = false,
   onChange,
   overlayState,
   onTransitionEnd,
@@ -586,6 +556,7 @@ function PaletteDialog({
           head={head}
           base={base}
           commits={headMeta?.ahead}
+          sliced={sliced}
           stat={stat}
         />
       </div>

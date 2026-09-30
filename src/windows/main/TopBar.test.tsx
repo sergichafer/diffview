@@ -6,14 +6,21 @@ mock.module("@/features/branch-compare/BranchComparePalette", () => ({
     onOpenChange,
     head,
     base,
+    sliced,
   }: {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     head?: string;
     base?: string;
+    sliced?: boolean;
   }) {
     return (
-      <div data-open={String(open)} data-head={head} data-base={base}>
+      <div
+        data-open={String(open)}
+        data-head={head}
+        data-base={base}
+        data-sliced={String(Boolean(sliced))}
+      >
         <button type="button" onClick={() => onOpenChange?.(false)}>
           Close palette
         </button>
@@ -216,6 +223,9 @@ describe("TopBar graph", () => {
     expect(container.querySelector("[data-base]")?.getAttribute("data-base")).toBe(
       "main",
     );
+    expect(
+      container.querySelector("[data-sliced]")?.getAttribute("data-sliced"),
+    ).toBe("true");
     const graph = container.querySelector(
       'button.icon-btn[aria-label="Graph"]',
     ) as HTMLButtonElement;

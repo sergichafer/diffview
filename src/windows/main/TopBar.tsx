@@ -154,6 +154,7 @@ export function TopBar({
             metadata={branchMetadata}
             metadataLoading={metadataLoading}
             stat={stat}
+            sliced={activeRow?.history != null}
             open={paletteOpen}
             onOpenChange={setPaletteOpen}
             onChange={(next) => void handleComparisonChange(next)}
