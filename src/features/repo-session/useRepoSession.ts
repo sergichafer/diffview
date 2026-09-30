@@ -201,15 +201,22 @@ export function useRepoSessionState(
         return;
       }
       if (pre === "skip") return;
+      const spec = specOf(row);
+      // A history scrub retargets this key while the stamp is in flight.
+      const specMoved = () => {
+        const current = stateRef.current.comparisons[key];
+        if (!current) return true;
+        const latest = specOf(current);
+        return latest.base !== spec.base || latest.head !== spec.head;
+      };
       try {
-        const spec = specOf(row);
         const stamp = await api.getComparisonStamp(
           row.repoPath,
           spec.base,
           spec.head,
         );
         const current = stateRef.current.comparisons[key];
-        if (!current) return;
+        if (!current || specMoved()) return;
         const decision = decideAfterStamp({
           ...snapshotOf(current, key, stateRef.current.activeKey),
           stampsMatch: stampsMatch(current, stamp),
@@ -220,6 +227,7 @@ export function useRepoSessionState(
         if (decision !== "skip") await loadComparison(key, "hot");
       } catch (e) {
         console.error("ensureLoaded stamp check failed:", e);
+        if (specMoved()) return;
         await loadComparison(key, "hot");
       }
     },
