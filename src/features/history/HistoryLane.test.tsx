@@ -130,6 +130,32 @@ describe("HistoryLane", () => {
     expect(onSelect).toHaveBeenCalledWith(3, "range");
   });
 
+  test("a cancelled drag restores the prior row without selecting", () => {
+    const onSelect = mock(() => {});
+    renderLane(onSelect, { selectedHead: "tip-oid" });
+    const track = container.querySelector(".history-track") as HTMLElement;
+    const selected = () =>
+      track.querySelector('[aria-selected="true"]')?.getAttribute("data-history-index");
+    expect(selected()).toBe("1");
+    act(() => {
+      track.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, pointerId: 1, clientY: 70 }),
+      );
+      track.dispatchEvent(
+        new PointerEvent("pointermove", { bubbles: true, pointerId: 1, clientY: 180 }),
+      );
+    });
+    expect(selected()).toBe("3");
+    act(() => {
+      track.dispatchEvent(
+        new PointerEvent("pointercancel", { bubbles: true, pointerId: 1, clientY: 0 }),
+      );
+    });
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(selected()).toBe("1");
+    expect(track.classList.contains("is-dragging")).toBe(false);
+  });
+
   test("arrow keys move the lane from the dialog and ignore the window", () => {
     const onSelect = mock(() => {});
     renderLane(onSelect);

@@ -85,6 +85,7 @@ export function HistoryLane({
   const draggingRef = useRef(false);
   const pointerId = useRef<number | null>(null);
   const downY = useRef(0);
+  const downIndex = useRef(initial);
   const suppressClick = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -178,6 +179,7 @@ export function HistoryLane({
     pointerId.current = event.pointerId;
     draggingRef.current = false;
     downY.current = localY(event.clientY);
+    downIndex.current = indexRef.current;
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -212,6 +214,15 @@ export function HistoryLane({
       return;
     }
     commit(Math.round(yToIndex(localY(event.clientY), HISTORY_ROW)));
+  }
+
+  function onPointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
+    if (pointerId.current !== event.pointerId) return;
+    pointerId.current = null;
+    draggingRef.current = false;
+    setDragging(false);
+    indexRef.current = downIndex.current;
+    setIndex(downIndex.current);
   }
 
   const node = nodes[index];
@@ -277,7 +288,7 @@ export function HistoryLane({
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerCancel={onPointerCancel}
         >
           <div className="history-track-line" />
           <div
