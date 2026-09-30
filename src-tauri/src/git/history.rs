@@ -69,7 +69,9 @@ pub fn history_lane(
     let mut walk = repo.revwalk().map_err(|e| e.to_string())?;
     walk.push(head_oid).map_err(|e| e.to_string())?;
     walk.hide(merge_oid).map_err(|e| e.to_string())?;
-    walk.set_sorting(Sort::TIME).map_err(|e| e.to_string())?;
+    // Topological order follows the parent chain. Committer time can repeat or run backwards.
+    walk.set_sorting(Sort::TOPOLOGICAL)
+        .map_err(|e| e.to_string())?;
     walk.simplify_first_parent().map_err(|e| e.to_string())?;
 
     let mut commits = Vec::new();
@@ -294,5 +296,50 @@ mod tests {
             .expect("merge");
         assert_eq!(merge.parent.as_deref(), Some(one.to_string().as_str()));
         assert!(!lane.truncated);
+    }
+
+    fn chain_lane(tag: &str, times: &[i64]) -> (TestRepo, Oid, Vec<Oid>) {
+        let fixture = TestRepo::init(tag);
+        let base = fixture.commit("initial", 1_700_000_000);
+        let repo = fixture.open();
+        repo.branch("feature", &repo.find_commit(base).unwrap(), false)
+            .unwrap();
+        repo.set_head("refs/heads/feature").unwrap();
+        let chain = times
+            .iter()
+            .enumerate()
+            .map(|(index, seconds)| fixture.commit(&format!("c{index}"), *seconds))
+            .collect();
+        (fixture, base, chain)
+    }
+
+    fn assert_head_first_chain(lane: &HistoryLane, base: Oid, chain: &[Oid]) {
+        let expected: Vec<String> = chain.iter().rev().map(|oid| oid.to_string()).collect();
+        let actual: Vec<String> = lane.commits.iter().map(|c| c.oid.clone()).collect();
+        assert_eq!(actual, expected);
+        assert_eq!(lane.commits[0].oid, lane.head_oid);
+        for pair in lane.commits.windows(2) {
+            assert_eq!(pair[0].parent.as_deref(), Some(pair[1].oid.as_str()));
+        }
+        assert_eq!(
+            lane.commits.last().and_then(|c| c.parent.as_deref()),
+            Some(base.to_string().as_str())
+        );
+    }
+
+    #[test]
+    fn same_second_commits_follow_the_parent_chain() {
+        let times = [1_700_000_500; 12];
+        let (fixture, base, chain) = chain_lane("same-second", &times);
+        let lane = history_lane(&fixture.open(), "main", "feature").expect("lane");
+        assert_head_first_chain(&lane, base, &chain);
+    }
+
+    #[test]
+    fn skewed_commit_times_follow_the_parent_chain() {
+        let times = [500, 100, 900, 1_600_000_000];
+        let (fixture, base, chain) = chain_lane("skewed", &times);
+        let lane = history_lane(&fixture.open(), "main", "feature").expect("lane");
+        assert_head_first_chain(&lane, base, &chain);
     }
 }
