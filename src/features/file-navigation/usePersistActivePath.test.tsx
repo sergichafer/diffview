@@ -54,6 +54,19 @@ function mountPersist(args: PersistArgs): {
 }
 
 describe("usePersistActivePath", () => {
+  test("a null comparison key does not write", () => {
+    const update = mock((_patch: Partial<AppSettings>) => Promise.resolve());
+    const h = mountPersist({
+      comparisonKey: null,
+      selectedPath: "a.ts",
+      activePathByComparison: {},
+      update,
+    });
+    h.setArgs({ selectedPath: "b.ts" });
+    expect(update).not.toHaveBeenCalled();
+    h.unmount();
+  });
+
   test("does not update when the selected path is already in the map", () => {
     const update = mock((_patch: Partial<AppSettings>) => Promise.resolve());
     const h = mountPersist({

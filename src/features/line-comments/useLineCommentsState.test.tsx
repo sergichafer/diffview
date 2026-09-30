@@ -3,6 +3,18 @@ import { describe, expect, test } from "bun:test";
 const { act, useEffect, useState } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { useLineCommentsState } = await import("./LineCommentsProvider");
+const { makeComparisonKey } = await import(
+  "@/features/branch-compare/comparisonKey"
+);
+const { DEFAULT_SETTINGS } = await import("@/shared/types/app");
+const { buildInitialState } = await import(
+  "@/features/repo-session/workspaceTreeCodec"
+);
+const { activeReviewStampFromState, sessionReducer } = await import(
+  "@/features/repo-session/sessionReducer"
+);
+
+type SessionState = ReturnType<typeof buildInitialState>;
 
 type HookApi = ReturnType<typeof useLineCommentsState>;
 
@@ -11,7 +23,7 @@ const KEY_B = "/repo|main|b";
 
 type CommentsArgs = {
   activeKey: string | null;
-  mergeBaseOid: string;
+  reviewStamp: string;
   openKeys: ReadonlySet<string>;
 };
 
@@ -65,7 +77,7 @@ describe("useLineCommentsState", () => {
   test("evicts comments when the active key leaves openKeys", () => {
     const h = mountComments({
       activeKey: KEY_A,
-      mergeBaseOid: "stamp",
+      reviewStamp: "stamp",
       openKeys: new Set([KEY_A, KEY_B]),
     });
 
@@ -82,7 +94,7 @@ describe("useLineCommentsState", () => {
   test("dropping another key does not clear the active comments", () => {
     const h = mountComments({
       activeKey: KEY_A,
-      mergeBaseOid: "stamp",
+      reviewStamp: "stamp",
       openKeys: new Set([KEY_A, KEY_B]),
     });
 
@@ -99,7 +111,7 @@ describe("useLineCommentsState", () => {
   test("resets comments when the active merge-base stamp changes", () => {
     const h = mountComments({
       activeKey: KEY_A,
-      mergeBaseOid: "stamp-1",
+      reviewStamp: "stamp-1",
       openKeys: new Set([KEY_A]),
     });
 
@@ -108,7 +120,68 @@ describe("useLineCommentsState", () => {
     });
     expect(h.get().pathComments["src/a.ts"]?.length).toBe(1);
 
-    h.setArgs({ mergeBaseOid: "stamp-2" });
+    h.setArgs({ reviewStamp: "stamp-2" });
+    expect(Object.keys(h.get().pathComments)).toHaveLength(0);
+    h.unmount();
+  });
+
+  test("scrubbing a history slice resets its comments under one merge-base", () => {
+    const repo = {
+      path: "/repos/demo",
+      name: "demo",
+      headBranch: "feature",
+      defaultBase: "main",
+    };
+    const opened = { repo, branches: ["main", "feature"] };
+    const sourceKey = makeComparisonKey(repo.path, "main", "feature");
+    const throughCommit = (state: SessionState, oid: string) => {
+      const sliced = sessionReducer(state, {
+        type: "set-history-slice",
+        workspaceId: repo.path,
+        sourceKey,
+        slice: {
+          sourceBase: "main",
+          sourceHead: "feature",
+          specBase: "main",
+          specHead: oid,
+          kind: "range",
+          label: oid,
+          short: oid,
+          detail: `Through ${oid}.`,
+          baseLabel: "main",
+        },
+      });
+      return sessionReducer(sliced, {
+        type: "comparison-overview",
+        key: sliced.activeKey!,
+        overview: {
+          repoPath: repo.path,
+          currentBranch: "feature",
+          baseBranch: "main",
+          mergeBase: "base0",
+          headOid: oid,
+          isLive: false,
+          files: [{ path: "a.ts", badges: ["committed"], isBinary: false }],
+        },
+      });
+    };
+    const argsOf = (state: SessionState): CommentsArgs => ({
+      activeKey: state.activeKey,
+      reviewStamp: activeReviewStampFromState(state),
+      openKeys: new Set(Object.keys(state.comparisons)),
+    });
+
+    const initial = buildInitialState(opened, [opened], DEFAULT_SETTINGS);
+    const c3 = throughCommit(initial, "c3");
+    const h = mountComments(argsOf(c3));
+    act(() => {
+      h.get().startDraft("a.ts", { start: 42, end: 42, side: "additions" });
+    });
+    expect(h.get().pathComments["a.ts"]?.length).toBe(1);
+
+    const c1 = throughCommit(c3, "c1");
+    expect(c1.activeKey).toBe(c3.activeKey);
+    h.setArgs(argsOf(c1));
     expect(Object.keys(h.get().pathComments)).toHaveLength(0);
     h.unmount();
   });

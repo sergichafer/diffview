@@ -1,7 +1,10 @@
 import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
 import type { WorkspaceTree } from "@/shared/types/generated/types";
 import { resolveComparisonPrefs } from "@/features/settings/comparisonPrefs";
-import { makeComparisonKey } from "@/features/branch-compare/comparisonKey";
+import {
+  makeComparisonKey,
+  sourceKeyOfSlice,
+} from "@/features/branch-compare/comparisonKey";
 import {
   emptyComparisonRow,
   emptyMultiSessionState,
@@ -28,27 +31,40 @@ export function stateToWorkspaceTree(state: {
   >;
   comparisons: Record<
     string,
-    { baseBranch: string; headBranch: string }
+    {
+      baseBranch: string;
+      headBranch: string;
+      history?: unknown;
+    }
   >;
   activeKey: string | null;
   columnCollapsed: boolean;
 }) {
+  const activeComparisonKey = state.activeKey
+    ? (sourceKeyOfSlice(state.activeKey) ?? state.activeKey)
+    : undefined;
   return {
     workspaces: state.workspaceOrder.map((repoPath) => {
       const group = state.groups[repoPath];
       return {
         repoPath,
         collapsed: group?.collapsed ?? false,
-        comparisons: (group?.comparisonKeys ?? []).map((key) => {
-          const row = state.comparisons[key];
-          return {
-            baseBranch: row?.baseBranch ?? "",
-            headBranch: row?.headBranch ?? "",
-          };
-        }),
+        comparisons: (group?.comparisonKeys ?? [])
+          .filter(
+            (key) =>
+              sourceKeyOfSlice(key) == null &&
+              state.comparisons[key]?.history == null,
+          )
+          .map((key) => {
+            const row = state.comparisons[key];
+            return {
+              baseBranch: row?.baseBranch ?? "",
+              headBranch: row?.headBranch ?? "",
+            };
+          }),
       };
     }),
-    activeComparisonKey: state.activeKey ?? undefined,
+    activeComparisonKey,
     columnCollapsed: state.columnCollapsed,
   };
 }

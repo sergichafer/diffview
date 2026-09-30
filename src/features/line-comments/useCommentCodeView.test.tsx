@@ -76,7 +76,7 @@ function mountView(args: {
     }, []);
     const comments = useLineCommentsState({
       activeKey,
-      mergeBaseOid: "stamp",
+      reviewStamp: "stamp",
       openKeys: new Set([KEY]),
     });
     const view = useCommentCodeView({

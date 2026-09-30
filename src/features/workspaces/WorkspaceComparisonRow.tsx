@@ -1,5 +1,6 @@
 import { IconGlyph } from "@/design/IconButton";
 import { computeAppliedStat } from "@/features/branch-compare/compareStat";
+import { historySliceChip } from "@/features/history/historyModel";
 import type { ComparisonRow } from "@/features/repo-session/types";
 import { WIP_LABEL, WIP_TITLE } from "@/shared/wipCopy";
 import { repoInitial } from "./labels";
@@ -44,6 +45,26 @@ function HangDelta({ row }: { row: ComparisonRow }) {
   );
 }
 
+function comparisonRowLabels(row: ComparisonRow): {
+  headLabel: string;
+  baseLabel: string;
+  chip: string | null;
+  title: string;
+} {
+  const headLabel = row.history
+    ? row.history.short || row.history.label || row.headBranch || "Working tree"
+    : row.headBranch || "Working tree";
+  const baseLabel = row.history?.baseLabel || row.baseBranch;
+  const chip = row.history ? historySliceChip(row.history.kind) : null;
+  const marker = chip ? ` · ${chip}` : row.isLive ? ` (${WIP_LABEL})` : "";
+  return {
+    headLabel,
+    baseLabel,
+    chip,
+    title: `${headLabel} → ${baseLabel}${marker}`,
+  };
+}
+
 interface WorkspaceComparisonRowProps {
   row: ComparisonRow;
   repoName: string;
@@ -65,7 +86,7 @@ export function WorkspaceComparisonRow({
   onClose,
   onFocus,
 }: WorkspaceComparisonRowProps) {
-  const headLabel = row.headBranch || "Working tree";
+  const { headLabel, baseLabel, chip, title } = comparisonRowLabels(row);
   return (
     <div
       className={[
@@ -78,7 +99,7 @@ export function WorkspaceComparisonRow({
       role="treeitem"
       aria-selected={selected}
       tabIndex={tabIndex}
-      title={`${headLabel} → ${row.baseBranch}${row.isLive ? ` (${WIP_LABEL})` : ""}`}
+      title={title}
       data-ws-key={row.key}
       data-press=""
       onClick={onActivate}
@@ -93,8 +114,15 @@ export function WorkspaceComparisonRow({
           <span className="workspaces-arrow" aria-hidden="true">
             →
           </span>
-          <span className="workspaces-base">{row.baseBranch}</span>
-          {row.isLive && (
+          <span className="workspaces-base">{baseLabel}</span>
+          {chip ? (
+            <>
+              <span className="workspaces-dot" aria-hidden="true">
+                ·
+              </span>
+              <span className="workspaces-wip">{chip}</span>
+            </>
+          ) : row.isLive ? (
             <>
               <span className="workspaces-dot" aria-hidden="true">
                 ·
@@ -103,7 +131,7 @@ export function WorkspaceComparisonRow({
                 {WIP_LABEL}
               </span>
             </>
-          )}
+          ) : null}
           {row.outdated && (
             <span
               className="workspaces-chip workspaces-chip-stale"
@@ -120,7 +148,7 @@ export function WorkspaceComparisonRow({
         type="button"
         className="workspaces-icon"
         data-press=""
-        aria-label={`Close comparison ${headLabel} to ${row.baseBranch}`}
+        aria-label={`Close comparison ${headLabel} to ${baseLabel}`}
         title="Close comparison"
         onClick={(e) => {
           e.stopPropagation();

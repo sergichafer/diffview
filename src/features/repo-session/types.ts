@@ -1,4 +1,5 @@
 import type { ComparisonKey } from "@/features/branch-compare/comparisonKey";
+import type { HistorySlice } from "@/features/history/historyModel";
 import type {
   AppSettings,
   BranchMetadata,
@@ -25,7 +26,21 @@ export type ComparisonRow = {
   headOid: string;
   isLive: boolean;
   outdated: boolean;
+  /** History slot for this row. Omitted from the persisted workspace tree. */
+  history?: HistorySlice;
 };
+
+export type ComparisonSpec = { base: string; head: string };
+
+/** Git spec for overview, file diffs, and stamps. Branch rows use their branch pair. */
+export function specOf(
+  row: Pick<ComparisonRow, "baseBranch" | "headBranch" | "history">,
+): ComparisonSpec {
+  if (row.history) {
+    return { base: row.history.specBase, head: row.history.specHead };
+  }
+  return { base: row.baseBranch, head: row.headBranch };
+}
 
 export type WorkspaceGroup = {
   repo: RepoInfo;
@@ -75,7 +90,13 @@ export type MultiSessionAction =
     }
   | { type: "branch-metadata-loading"; workspaceId: WorkspaceId; loading: boolean }
   | { type: "branch-metadata"; workspaceId: WorkspaceId; metadata: BranchMetadata[] }
-  | { type: "update-repo"; workspaceId: WorkspaceId; repo: RepoInfo };
+  | { type: "update-repo"; workspaceId: WorkspaceId; repo: RepoInfo }
+  | {
+      type: "set-history-slice";
+      workspaceId: WorkspaceId;
+      sourceKey: ComparisonKey;
+      slice: HistorySlice | null;
+    };
 
 export const emptyMultiSessionState: MultiSessionState = {
   workspaceOrder: [],

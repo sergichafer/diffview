@@ -121,6 +121,25 @@ export interface FileDiffResult {
 	oldPath?: string;
 }
 
+/** One commit on the head side of the merge-base. Newest commits come first. */
+export interface HistoryCommit {
+	oid: string;
+	short: string;
+	subject: string;
+	/** First parent. Absent when the commit has none. */
+	parent?: string;
+	/** Commit time, Unix seconds (UTC). */
+	time: number;
+}
+
+/** First-parent commits reachable from head and not from the merge-base. */
+export interface HistoryLane {
+	mergeBase: string;
+	headOid: string;
+	commits: HistoryCommit[];
+	truncated: boolean;
+}
+
 export interface RepoInfo {
 	path: string;
 	name: string;

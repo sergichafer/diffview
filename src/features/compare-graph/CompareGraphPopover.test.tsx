@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import type { HistorySlice } from "@/features/history/historyModel";
+import { historyLaneClient } from "@/features/history/useHistoryLane";
 
 const { act } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { CompareGraphPopover } = await import("./CompareGraphPopover");
-import type { BranchMetadata, BranchOverview } from "@/shared/types/app";
-import { WIP_LABEL } from "@/shared/wipCopy";
+
+const originalLoad = historyLaneClient.load;
 
 let showCalls = 0;
 let showModalCalls = 0;
@@ -17,31 +19,27 @@ const DialogProto = (globalThis as any).HTMLDialogElement?.prototype as
 const originalShow = DialogProto?.show;
 const originalShowModal = DialogProto?.showModal;
 
-const overview = (
-  overrides: Partial<BranchOverview> = {},
-): BranchOverview =>
-  ({
-    repoPath: "/repos/demo",
-    currentBranch: "feature",
-    baseBranch: "main",
-    mergeBase: "mb",
-    headOid: "hd",
-    isLive: false,
-    files: [],
-    ...overrides,
-  }) as BranchOverview;
-
-const row = (name: string, ahead: number, behind: number): BranchMetadata => ({
-  name,
-  ahead,
-  behind,
-  lastSubject: "",
-  author: "",
-  authorInitials: "",
-  lastCommitTime: 0,
-  isDefault: false,
-  isCurrent: name === "feature",
-});
+const lane = {
+  mergeBase: "base-oid",
+  headOid: "tip-oid",
+  truncated: false,
+  commits: [
+    {
+      oid: "tip-oid",
+      short: "tipoid1",
+      subject: "Keep the lane schematic",
+      parent: "mid-oid",
+      time: 1_700_000_300,
+    },
+    {
+      oid: "mid-oid",
+      short: "midoid1",
+      subject: "Anchor the popover",
+      parent: "base-oid",
+      time: 1_700_000_200,
+    },
+  ],
+};
 
 let container: HTMLElement;
 let root: ReturnType<typeof createRoot>;
@@ -75,6 +73,7 @@ beforeEach(() => {
   showModalCalls = 0;
   rafId = 0;
   rafPending.clear();
+  historyLaneClient.load = () => new Promise(() => {});
   const request = globalThis.requestAnimationFrame;
   const cancel = globalThis.cancelAnimationFrame;
   restoreRaf = () => {
@@ -109,6 +108,7 @@ afterEach(() => {
   container.remove();
   restoreRaf();
   rafPending.clear();
+  historyLaneClient.load = originalLoad;
   if (DialogProto) {
     if (originalShow) DialogProto.show = originalShow;
     else delete (DialogProto as { show?: () => void }).show;
@@ -119,21 +119,23 @@ afterEach(() => {
 
 function renderPopover(
   props: Partial<{
-    head: string;
-    base: string;
-    overview: BranchOverview | null;
-    metadata: BranchMetadata[];
-    onNeedMetadata: () => void;
+    repoPath: string;
+    sourceBase: string;
+    sourceHead: string;
+    sourceIsLive: boolean;
+    selectedHead: string | null;
+    onSlice: (slice: HistorySlice | null) => void;
   }> = {},
 ) {
   act(() => {
     root.render(
       <CompareGraphPopover
-        head={props.head ?? "feature"}
-        base={props.base ?? "main"}
-        overview={props.overview === undefined ? overview() : props.overview}
-        metadata={props.metadata ?? []}
-        onNeedMetadata={props.onNeedMetadata}
+        repoPath={props.repoPath ?? "/repos/demo"}
+        sourceBase={props.sourceBase ?? "main"}
+        sourceHead={props.sourceHead ?? "feature"}
+        sourceIsLive={props.sourceIsLive ?? false}
+        selectedHead={props.selectedHead}
+        onSlice={props.onSlice ?? (() => {})}
       />,
     );
   });
@@ -157,8 +159,7 @@ function host() {
 
 describe("CompareGraphPopover", () => {
   test("opens with show(), not showModal()", () => {
-    const onNeedMetadata = mock(() => {});
-    renderPopover({ onNeedMetadata });
+    renderPopover();
     act(() => {
       graphButton().click();
     });
@@ -168,26 +169,31 @@ describe("CompareGraphPopover", () => {
     expect(dialog?.getAttribute("aria-modal")).toBeNull();
     expect(showModalCalls).toBe(0);
     expect(showCalls).toBeGreaterThan(0);
-    expect(onNeedMetadata).toHaveBeenCalled();
   });
 
-  test("unknown caption when counts have not loaded", () => {
-    renderPopover({ metadata: [] });
+  test("opening fetches the source branch pair and shows loading, not the schematic", () => {
+    const load = mock(() => new Promise(() => {}));
+    historyLaneClient.load = load;
+    renderPopover({ sourceBase: "main", sourceHead: "feature" });
     act(() => {
       graphButton().click();
     });
-    expect(panel()?.textContent).toContain("Graph. Waiting for branch counts.");
-    expect(panel()?.textContent).not.toContain("In sync");
+    expect(load).toHaveBeenCalledWith("/repos/demo", "main", "feature");
+    expect(panel()?.textContent).toContain("Loading history.");
+    expect(panel()?.querySelector("svg")).toBeNull();
+    expect(panel()?.querySelector(".compare-graph-legend")).toBeNull();
+    expect(panel()?.getAttribute("aria-label")).toBe("History");
   });
 
-  test("sync caption when head metadata is 0/0", () => {
-    renderPopover({
-      metadata: [row("feature", 0, 0)],
-    });
-    act(() => {
+  test("a failed fetch shows an error and not the schematic", async () => {
+    historyLaneClient.load = () => Promise.reject(new Error("nope"));
+    renderPopover();
+    await act(async () => {
       graphButton().click();
     });
-    expect(panel()?.textContent).toContain("In sync. 0 ahead, 0 behind.");
+    expect(panel()?.textContent).toContain("Could not load history.");
+    expect(panel()?.querySelector("svg")).toBeNull();
+    expect(panel()?.querySelector(".history-lane")).toBeNull();
   });
 
   test("wires aria-haspopup and aria-controls to the dialog", () => {
@@ -275,69 +281,6 @@ describe("CompareGraphPopover", () => {
     outside.remove();
   });
 
-  test("unstaged files on a live head legend WIP past HEAD", () => {
-    renderPopover({
-      head: "feature",
-      overview: overview({
-        isLive: true,
-        currentBranch: "feature",
-        files: [{ path: "a.ts", badges: ["unstaged"], isBinary: false }],
-      }),
-      metadata: [row("feature", 2, 0)],
-    });
-    act(() => {
-      graphButton().click();
-    });
-    const legend = panel()?.querySelector(".compare-graph-legend")?.textContent;
-    expect(legend).toContain(WIP_LABEL);
-    expect(legend).not.toContain("Working tree");
-    const svg = panel()?.querySelector("svg");
-    const wip = svg?.querySelector('[data-graph-node="wip"]');
-    const head = svg?.querySelector('[data-graph-node="head"]');
-    expect(wip).toBeTruthy();
-    expect(head).toBeTruthy();
-    expect(Number(wip?.getAttribute("cy"))).toBeLessThan(
-      Number(head?.getAttribute("cy")),
-    );
-  });
-
-  test("live comparison with only committed files does not legend WIP", () => {
-    renderPopover({
-      head: "feature",
-      overview: overview({
-        isLive: true,
-        currentBranch: "feature",
-        files: [{ path: "a.ts", badges: ["committed"], isBinary: false }],
-      }),
-      metadata: [row("feature", 2, 0)],
-    });
-    act(() => {
-      graphButton().click();
-    });
-    expect(
-      panel()?.querySelector(".compare-graph-legend")?.textContent,
-    ).not.toContain(WIP_LABEL);
-    expect(panel()?.querySelector('[data-graph-node="wip"]')).toBeNull();
-  });
-
-  test("a named head other than currentBranch does not legend WIP", () => {
-    renderPopover({
-      head: "release/1.4",
-      overview: overview({
-        isLive: true,
-        currentBranch: "feature",
-        files: [{ path: "a.ts", badges: ["unstaged"], isBinary: false }],
-      }),
-      metadata: [row("release/1.4", 2, 0)],
-    });
-    act(() => {
-      graphButton().click();
-    });
-    expect(
-      panel()?.querySelector(".compare-graph-legend")?.textContent,
-    ).not.toContain(WIP_LABEL);
-  });
-
   test("places overlay origin from the Graph trigger", () => {
     renderPopover();
     const triggerRect = {
@@ -386,5 +329,54 @@ describe("CompareGraphPopover", () => {
     } finally {
       proto.getBoundingClientRect = originalRect;
     }
+  });
+
+  test("a loaded lane selects the range through that commit once", async () => {
+    historyLaneClient.load = () => Promise.resolve(lane);
+    const onSlice = mock((_slice: HistorySlice | null) => {});
+    renderPopover({ sourceIsLive: true, onSlice });
+    await act(async () => {
+      graphButton().click();
+    });
+    expect(panel()?.textContent).toContain("Anchor the popover");
+    const row = container.querySelector('[data-history-index="2"]');
+    await act(async () => {
+      row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onSlice).toHaveBeenCalledTimes(1);
+    expect(onSlice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "range",
+        sourceBase: "main",
+        sourceHead: "feature",
+        specBase: "main",
+        specHead: "mid-oid",
+        detail: "Through midoid1. 1 later commit and uncommitted changes hidden.",
+      }),
+    );
+  });
+
+  test("This commit is the same selection event", async () => {
+    historyLaneClient.load = () => Promise.resolve(lane);
+    const onSlice = mock((_slice: HistorySlice | null) => {});
+    renderPopover({ sourceIsLive: true, selectedHead: "mid-oid", onSlice });
+    await act(async () => {
+      graphButton().click();
+    });
+    const button = [...container.querySelectorAll("button")].find((entry) =>
+      entry.textContent?.includes("This commit"),
+    );
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onSlice).toHaveBeenCalledTimes(1);
+    expect(onSlice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "commit",
+        specBase: "base-oid",
+        specHead: "mid-oid",
+        sourceHead: "feature",
+      }),
+    );
   });
 });

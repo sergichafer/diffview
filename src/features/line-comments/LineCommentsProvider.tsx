@@ -25,22 +25,22 @@ import {
 
 export interface UseLineCommentsOptions {
   activeKey: ComparisonKey | null;
-  /** Merge-base OID for the active row. Reset comments when it changes. */
-  mergeBaseOid: string;
+  /** Review stamp for the active row. Reset comments when it changes. */
+  reviewStamp: string;
   /** Comparison keys currently open. Evict comments for closed rows. */
   openKeys: ReadonlySet<ComparisonKey>;
 }
 
 export function useLineCommentsState({
   activeKey,
-  mergeBaseOid,
+  reviewStamp,
   openKeys,
 }: UseLineCommentsOptions) {
   const [store, dispatch] = useReducer(commentsReducer, emptyCommentsStore);
   const nextKeyRef = useRef(0);
   const keyedAction = useKeyedRowLifecycle(
     activeKey,
-    mergeBaseOid,
+    reviewStamp,
     openKeys,
     Object.keys(store.map),
   );
@@ -138,14 +138,14 @@ interface LineCommentsProviderProps {
 
 /**
  * Owns session line comments keyed by ComparisonKey. Resets the active row
- * when its merge-base stamp changes; evicts closed comparisons.
+ * when its review stamp changes; evicts closed comparisons.
  */
 export function LineCommentsProvider({ children }: LineCommentsProviderProps) {
-  const { activeKey, activeMergeBase } = useRepoSession();
+  const { activeKey, activeReviewStamp } = useRepoSession();
   const openKeys = useOpenComparisonKeys();
   const comments = useLineCommentsState({
     activeKey,
-    mergeBaseOid: activeMergeBase,
+    reviewStamp: activeReviewStamp,
     openKeys,
   });
   return (

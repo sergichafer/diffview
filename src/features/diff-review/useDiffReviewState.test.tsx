@@ -11,7 +11,7 @@ const KEY_B = "/repo|main|b";
 
 type ReviewArgs = {
   activeKey: string | null;
-  mergeBaseOid: string;
+  reviewStamp: string;
   openKeys: ReadonlySet<string>;
 };
 
@@ -65,7 +65,7 @@ describe("useDiffReviewState", () => {
   test("evicts viewed paths when the active key leaves openKeys", () => {
     const h = mountReview({
       activeKey: KEY_A,
-      mergeBaseOid: "stamp",
+      reviewStamp: "stamp",
       openKeys: new Set([KEY_A, KEY_B]),
     });
 
@@ -82,7 +82,7 @@ describe("useDiffReviewState", () => {
   test("dropping another key does not clear the active viewed set", () => {
     const h = mountReview({
       activeKey: KEY_A,
-      mergeBaseOid: "stamp",
+      reviewStamp: "stamp",
       openKeys: new Set([KEY_A, KEY_B]),
     });
 

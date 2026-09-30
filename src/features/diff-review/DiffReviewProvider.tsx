@@ -19,21 +19,21 @@ import {
 
 export interface UseDiffReviewOptions {
   activeKey: ComparisonKey | null;
-  /** Merge-base OID for the active row. Reset review when it changes. */
-  mergeBaseOid: string;
+  /** Review stamp for the active row. Reset review when it changes. */
+  reviewStamp: string;
   /** Comparison keys currently open. Evict review state for closed rows. */
   openKeys: ReadonlySet<ComparisonKey>;
 }
 
 export function useDiffReviewState({
   activeKey,
-  mergeBaseOid,
+  reviewStamp,
   openKeys,
 }: UseDiffReviewOptions) {
   const [map, dispatch] = useReducer(reviewReducer, {} as DiffReviewMap);
   const keyedAction = useKeyedRowLifecycle(
     activeKey,
-    mergeBaseOid,
+    reviewStamp,
     openKeys,
     Object.keys(map),
   );
@@ -86,14 +86,14 @@ interface DiffReviewProviderProps {
 
 /**
  * Owns viewed/collapse review state keyed by ComparisonKey. Resets the active
- * row when its merge-base stamp changes; evicts closed comparisons.
+ * row when its review stamp changes; evicts closed comparisons.
  */
 export function DiffReviewProvider({ children }: DiffReviewProviderProps) {
-  const { activeKey, activeMergeBase } = useRepoSession();
+  const { activeKey, activeReviewStamp } = useRepoSession();
   const openKeys = useOpenComparisonKeys();
   const review = useDiffReviewState({
     activeKey,
-    mergeBaseOid: activeMergeBase,
+    reviewStamp: activeReviewStamp,
     openKeys,
   });
   return (

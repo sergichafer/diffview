@@ -19,7 +19,7 @@ export function useOpenComparisonKeys(): ReadonlySet<ComparisonKey> {
  */
 export function useKeyedRowLifecycle(
   activeKey: ComparisonKey | null,
-  mergeBaseOid: string,
+  stamp: string,
   openKeys: ReadonlySet<ComparisonKey>,
   storedKeys: readonly string[],
 ): KeyedRowAction | null {
@@ -28,13 +28,11 @@ export function useKeyedRowLifecycle(
     stamp: string;
   }>({ key: null, stamp: "" });
 
-  if (activeKey && mergeBaseOid) {
-    if (seen.key !== activeKey || seen.stamp !== mergeBaseOid) {
+  if (activeKey && stamp) {
+    if (seen.key !== activeKey || seen.stamp !== stamp) {
       const reset =
-        seen.key === activeKey &&
-        seen.stamp !== mergeBaseOid &&
-        seen.stamp !== "";
-      setSeen({ key: activeKey, stamp: mergeBaseOid });
+        seen.key === activeKey && seen.stamp !== stamp && seen.stamp !== "";
+      setSeen({ key: activeKey, stamp });
       if (reset) return { type: "reset-key", key: activeKey };
     }
   }

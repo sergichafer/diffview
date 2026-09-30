@@ -106,6 +106,7 @@ function session(overrides: Partial<RepoSessionValue> = {}): RepoSessionValue {
     branchMetadata: [],
     metadataLoading: false,
     activeMergeBase: "abc",
+    activeReviewStamp: "abc",
     workspaces: [{ id: repo.path, group: group([liveKey]) }],
     refreshOverview: asyncNoop,
     refreshOverviewMeta: asyncNoop,
