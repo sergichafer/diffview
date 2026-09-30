@@ -45,6 +45,7 @@ import {
 import {
   decideAfterStamp,
   decideBeforeStamp,
+  hasLoadedStamp,
   type StalenessInput,
 } from "./staleness";
 import {
@@ -80,6 +81,7 @@ function snapshotOf(
     residency: row.residency,
     hasFileDiffs: row.fileDiffs.length > 0,
     isActive: key === activeKey,
+    hasLoaded: hasLoadedStamp(row),
   };
 }
 
@@ -363,7 +365,7 @@ export function useRepoSessionState(
             if (!latest || latest.isLive) return;
             const latestSpec = specOf(latest);
             if (latestSpec.base !== spec.base || latestSpec.head !== spec.head) return;
-            if (!stampsMatch(latest, stamp)) {
+            if (hasLoadedStamp(latest) && !stampsMatch(latest, stamp)) {
               dispatch({ type: "mark-outdated", key: row.key, outdated: true });
             }
           })
