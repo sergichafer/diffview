@@ -32,6 +32,9 @@ export type ComparisonRow = {
 
 export type ComparisonSpec = { base: string; head: string };
 
+/** A remote URL being cloned or fetched, or the error it left behind. */
+export type RemoteOpen = { url: string; error: string | null };
+
 /** Git spec for overview, file diffs, and stamps. Branch rows use their branch pair. */
 export function specOf(
   row: Pick<ComparisonRow, "baseBranch" | "headBranch" | "history">,
@@ -62,7 +65,13 @@ export type MultiSessionState = {
 
 export type MultiSessionAction =
   | { type: "reset" }
-  | { type: "add-workspace"; workspaceId: WorkspaceId; group: WorkspaceGroup }
+  | {
+      type: "add-workspace";
+      workspaceId: WorkspaceId;
+      group: WorkspaceGroup;
+      /** Insert before this workspace when it is open; append otherwise. */
+      before?: WorkspaceId;
+    }
   | { type: "close-workspace"; workspaceId: WorkspaceId }
   | {
       type: "spawn-comparison";

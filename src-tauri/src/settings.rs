@@ -45,6 +45,10 @@ pub struct PersistedWorkspace {
     pub repo_path: String,
     pub collapsed: bool,
     pub comparisons: Vec<PersistedComparison>,
+    /// URL a remote workspace was opened from, so a missing clone can be
+    /// fetched again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remote_url: Option<String>,
 }
 
 #[typeshare]
@@ -103,5 +107,40 @@ impl Default for AppSettings {
             ui_font: "inter".to_string(),
             code_font: "system".to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn persisted_workspace_reads_with_and_without_remote_url() {
+        let local: PersistedWorkspace = serde_json::from_value(json!({
+            "repoPath": "/repo",
+            "collapsed": true,
+            "comparisons": [{ "baseBranch": "main", "headBranch": "feat" }],
+        }))
+        .unwrap();
+        assert_eq!(local.repo_path, "/repo");
+        assert!(local.collapsed);
+        assert_eq!(local.comparisons.len(), 1);
+        assert_eq!(local.remote_url, None);
+        assert!(serde_json::to_value(&local)
+            .unwrap()
+            .get("remoteUrl")
+            .is_none());
+
+        let remote: PersistedWorkspace = serde_json::from_value(json!({
+            "repoPath": "/cache/remotes/github.com~a~b.git",
+            "remoteUrl": "https://github.com/a/b",
+        }))
+        .unwrap();
+        assert_eq!(remote.remote_url.as_deref(), Some("https://github.com/a/b"));
+        assert_eq!(
+            serde_json::to_value(&remote).unwrap()["remoteUrl"],
+            json!("https://github.com/a/b")
+        );
     }
 }

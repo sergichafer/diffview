@@ -9,6 +9,8 @@ pub struct RepoInfo {
     pub name: String,
     pub head_branch: String,
     pub default_base: String,
+    /// Clone URL without credentials when the workspace is a remote clone.
+    pub remote_url: Option<String>,
 }
 
 #[typeshare]

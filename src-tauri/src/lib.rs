@@ -1,18 +1,23 @@
 pub mod git;
+pub mod remote;
 pub mod settings;
 mod startup;
 
 use git::{
     branch_metadata, close, history_lane, list_branch_names, open, read_working_file,
-    resolve_comparison_stamp, with_repo, with_slot, write_working_file, BranchMetadata,
+    require_working_tree, resolve_comparison_stamp, with_repo, with_slot, write_working_file,
+    BranchMetadata,
     BranchOverview, ComparisonFileContents, ComparisonSpec, ComparisonStamp, FileDiffResult,
     HistoryLane, OpenRepoResult, RepoRegistry,
 };
+use remote::RemoteOpenResult;
 use settings::AppSettings;
 use startup::{
-    extract_cli_repo_paths, join_open_errors, plan_startup_opens, read_stored_settings,
-    resolve_bootstrap_paths, StartupSnapshot,
+    extract_cli_repo_paths, join_open_errors, partition_cli_args, plan_startup_opens,
+    read_stored_settings, resolve_bootstrap_paths, StartupSnapshot,
 };
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_cli::CliExt;
 
@@ -25,17 +30,55 @@ fn push_unique_open(opened_workspaces: &mut Vec<OpenRepoResult>, result: OpenRep
     }
 }
 
+/// Bare clones for remote workspaces live here, one directory per repository.
+/// Symlinks resolved, matching the paths libgit2 reports for the clones.
+fn remotes_root(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?;
+    remote::prepare_root(&dir.join("remotes"))
+}
+
+/// Drop clones no persisted workspace or CLI argument still needs, unless
+/// another instance is running. The instance lock lives in managed state so
+/// later instances skip pruning while this one runs.
+fn prune_remote_clones(app: &AppHandle, settings: &AppSettings, cli_remote_urls: &[String]) {
+    let Ok(root) = remotes_root(app) else {
+        return;
+    };
+    let mut keep: HashSet<PathBuf> = HashSet::new();
+    for ws in &settings.workspace_tree.workspaces {
+        keep.insert(PathBuf::from(ws.repo_path.trim()));
+        // The clone the URL maps to today, in case the cache root moved.
+        let target = ws.remote_url.as_deref().map(remote::parse_remote);
+        if let Some(Ok(target)) = target {
+            keep.insert(root.join(target.cache_name()));
+        }
+    }
+    for url in cli_remote_urls {
+        if let Ok(target) = remote::parse_remote(url) {
+            keep.insert(root.join(target.cache_name()));
+        }
+    }
+    match remote::lock_and_prune(&root, &keep) {
+        Ok((lock, _)) => {
+            app.manage(lock);
+        }
+        Err(e) => eprintln!("Remote clone pruning skipped: {e}"),
+    }
+}
+
 fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
-    let cli_paths = match app.cli().matches() {
+    let cli_args = match app.cli().matches() {
         Ok(matches) => extract_cli_repo_paths(&matches),
         Err(e) => {
             eprintln!("CLI matches unavailable: {e}");
             Vec::new()
         }
     };
+    let (cli_paths, cli_remote_urls) = partition_cli_args(&cli_args);
     let opened_from_cli = !cli_paths.is_empty();
 
     let settings = read_stored_settings(app)?;
+    prune_remote_clones(app, &settings, &cli_remote_urls);
     let paths = resolve_bootstrap_paths(&cli_paths, &settings);
 
     let mut opened = None;
@@ -88,6 +131,7 @@ fn prepare_startup(app: &AppHandle) -> Result<StartupSnapshot, String> {
         opened_workspaces,
         open_error: join_open_errors(&open_errors),
         cli_opened_paths,
+        cli_remote_urls,
     })
 }
 
@@ -102,6 +146,46 @@ async fn open_repository(
     state: State<'_, RepoRegistry>,
 ) -> Result<OpenRepoResult, String> {
     open(&state, &path)
+}
+
+/// Clone or fetch a remote URL into the cache, then open the clone. A pull or
+/// merge request URL also returns the comparison to show.
+#[tauri::command(async)]
+async fn open_remote_repository(
+    url: String,
+    app: AppHandle,
+    state: State<'_, RepoRegistry>,
+) -> Result<RemoteOpenResult, String> {
+    let target = remote::parse_remote(&url)?;
+    let root = remotes_root(&app)?;
+    let registry = app.clone();
+    let in_use = move |dir: &Path| registry.state::<RepoRegistry>().is_open(dir);
+    let synced = tauri::async_runtime::spawn_blocking(move || remote::sync(&root, &target, &in_use))
+        .await
+        .map_err(|e| e.to_string())??;
+    let opened = open(&state, &synced.dir.to_string_lossy())?;
+    Ok(RemoteOpenResult {
+        opened,
+        review: synced.review,
+    })
+}
+
+/// Fetch a remote workspace's clone and reopen it so branch lists refresh.
+/// A bare repository outside the cache is the user's own: reopen, no fetch.
+#[tauri::command(async)]
+async fn fetch_remote_repository(
+    repo_path: String,
+    app: AppHandle,
+    state: State<'_, RepoRegistry>,
+) -> Result<OpenRepoResult, String> {
+    let root = remotes_root(&app)?;
+    if remote::is_managed(&root, &repo_path) {
+        let dir = PathBuf::from(&repo_path);
+        tauri::async_runtime::spawn_blocking(move || remote::fetch(&dir))
+            .await
+            .map_err(|e| e.to_string())??;
+    }
+    open(&state, &repo_path)
 }
 
 #[tauri::command(async)]
@@ -164,7 +248,8 @@ async fn read_working_file_contents(
     path: String,
     state: State<'_, RepoRegistry>,
 ) -> Result<String, String> {
-    with_repo(&state, &repo_path, |_repo| {
+    with_repo(&state, &repo_path, |repo| {
+        require_working_tree(repo)?;
         read_working_file(&repo_path, &path)
     })
 }
@@ -197,7 +282,8 @@ async fn write_working_file_contents(
     expected: Option<String>,
     state: State<'_, RepoRegistry>,
 ) -> Result<(), String> {
-    with_repo(&state, &repo_path, |_repo| {
+    with_repo(&state, &repo_path, |repo| {
+        require_working_tree(repo)?;
         write_working_file(&repo_path, &path, &contents, expected.as_deref())
     })
 }
@@ -243,6 +329,7 @@ pub fn run() {
                     opened_workspaces: Vec::new(),
                     open_error: Some(e),
                     cli_opened_paths: Vec::new(),
+                    cli_remote_urls: Vec::new(),
                 }
             });
             app.manage(snapshot);
@@ -251,6 +338,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_startup_state,
             open_repository,
+            open_remote_repository,
+            fetch_remote_repository,
             close_repository,
             get_branch_overview,
             get_branch_metadata,

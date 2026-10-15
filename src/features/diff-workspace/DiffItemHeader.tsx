@@ -13,7 +13,7 @@ interface DiffItemHeaderProps<T = undefined> {
   editAllowed: boolean;
   getSaveState: (path: string) => FileSaveState | undefined;
   subscribeSaveState: (path: string, cb: () => void) => () => void;
-  onPreview: (path: string) => void;
+  onPreview: ((path: string) => void) | null;
   onViewedChange: (path: string, viewed: boolean) => void;
   onToggleDiffCollapsed: (path: string) => void;
   onStartEdit: (path: string) => void;
@@ -50,7 +50,7 @@ function DiffHeaderActionsSubscribed({
   editing: boolean;
   getSaveState: (path: string) => FileSaveState | undefined;
   subscribeSaveState: (path: string, cb: () => void) => () => void;
-  onPreview: (path: string) => void;
+  onPreview: ((path: string) => void) | null;
   onViewedChange: (path: string, viewed: boolean) => void;
   onToggleDiffCollapsed: (path: string) => void;
   onStartEdit: (path: string) => void;

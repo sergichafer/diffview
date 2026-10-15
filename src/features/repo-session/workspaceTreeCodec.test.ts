@@ -9,7 +9,9 @@ import type { HistorySlice } from "@/features/history/historyModel";
 import {
   buildInitialState,
   mergeOpenedIntoTree,
+  pendingRemoteWorkspaces,
   stateToWorkspaceTree,
+  withPendingWorkspaces,
 } from "./workspaceTreeCodec";
 import { emptyComparisonRow, emptyMultiSessionState } from "./types";
 
@@ -456,5 +458,94 @@ describe("stateToWorkspaceTree", () => {
       { baseBranch: "main", headBranch: "feature" },
     ]);
     expect(tree.activeComparisonKey).toBe(keyA);
+  });
+
+  test("writes remoteUrl for remote workspaces only", () => {
+    const remote: RepoInfo = { ...repoB, remoteUrl: "https://github.com/a/b" };
+    const state = buildInitialState(
+      null,
+      [opened(repoA, ["main", "feature"]), opened(remote, ["main", "dev"])],
+      settingsWithTree(),
+    );
+    const tree = stateToWorkspaceTree(state);
+    expect(tree.workspaces[0]).not.toHaveProperty("remoteUrl");
+    expect(tree.workspaces[1]?.remoteUrl).toBe("https://github.com/a/b");
+
+    const reloaded = buildInitialState(
+      null,
+      [opened(repoA, ["main", "feature"]), opened(remote, ["main", "dev"])],
+      { ...DEFAULT_SETTINGS, workspaceTree: tree },
+    );
+    expect(stateToWorkspaceTree(reloaded)).toEqual(tree);
+  });
+});
+
+describe("pending remote workspaces", () => {
+  const remoteUrl = "https://github.com/a/b";
+  const keyRemote = makeComparisonKey(repoB.path, "main", "dev");
+
+  function treeWithRemote(): AppSettings["workspaceTree"] {
+    const tree = settingsWithTree().workspaceTree!;
+    return {
+      ...tree,
+      workspaces: tree.workspaces.map((ws) =>
+        ws.repoPath === repoB.path ? { ...ws, remoteUrl } : ws,
+      ),
+    };
+  }
+
+  test("an old tree without remoteUrl loads unchanged and has none pending", () => {
+    const settings = settingsWithTree();
+    const state = buildInitialState(
+      null,
+      [opened(repoA, ["main", "feature"]), opened(repoB, ["main", "dev"])],
+      settings,
+    );
+    expect(stateToWorkspaceTree(state)).toEqual(settings.workspaceTree!);
+    expect(pendingRemoteWorkspaces(settings.workspaceTree, new Set())).toEqual([]);
+  });
+
+  test("lists remote workspaces whose clone did not open", () => {
+    const pending = pendingRemoteWorkspaces(treeWithRemote(), new Set([repoA.path]));
+    expect(pending).toEqual([
+      {
+        workspace: {
+          repoPath: repoB.path,
+          collapsed: true,
+          comparisons: [{ baseBranch: "main", headBranch: "dev" }],
+          remoteUrl,
+        },
+        index: 1,
+        followers: [],
+        active: { baseBranch: "main", headBranch: "dev" },
+      },
+    ]);
+    expect(
+      pendingRemoteWorkspaces(treeWithRemote(), new Set([repoA.path, repoB.path])),
+    ).toEqual([]);
+  });
+
+  test("writes pending workspaces back in place with their active comparison", () => {
+    const tree = treeWithRemote()!;
+    const pending = pendingRemoteWorkspaces(tree, new Set([repoA.path]));
+    const state = buildInitialState(
+      null,
+      [opened(repoA, ["main", "feature"])],
+      { ...DEFAULT_SETTINGS, workspaceTree: tree },
+    );
+    expect(state.workspaceOrder).toEqual([repoA.path]);
+
+    const live = stateToWorkspaceTree(state);
+    expect(withPendingWorkspaces(live, pending, true)).toEqual(tree);
+    expect(withPendingWorkspaces(live, pending, false).activeComparisonKey).toBe(
+      keyA,
+    );
+    expect(tree.activeComparisonKey).toBe(keyRemote);
+  });
+
+  test("a pending path already in the tree is not written twice", () => {
+    const tree = treeWithRemote()!;
+    const pending = pendingRemoteWorkspaces(tree, new Set([repoA.path]));
+    expect(withPendingWorkspaces(tree, pending, true).workspaces).toHaveLength(2);
   });
 });

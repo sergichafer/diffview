@@ -39,7 +39,7 @@
       "requireLiteralLeadingDot": false
     },
     "cli": {
-      "description": "Local branch diffs.",
+      "description": "Branch diffs for local and remote repositories.",
       "args": [
         {
           "name": "repo",
@@ -47,7 +47,7 @@
           "takesValue": true,
           "multiple": true,
           "minValues": 0,
-          "description": "Repositories to open as workspaces."
+          "description": "Workspaces to open: local paths, remote repository URLs, or pull request URLs."
         }
       ]
     }

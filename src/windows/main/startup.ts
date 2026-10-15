@@ -17,6 +17,8 @@ export interface StartupSnapshot {
   openError: string | null;
   /** Canonical paths of CLI-opened repos in argument order. Empty when launch was not from CLI. */
   cliOpenedPaths: string[];
+  /** Remote and pull request URLs from the CLI, opened after first paint. */
+  cliRemoteUrls: string[];
 }
 
 async function fetchStartup(): Promise<StartupSnapshot> {
@@ -27,6 +29,7 @@ async function fetchStartup(): Promise<StartupSnapshot> {
       openedWorkspaces: [],
       openError: null,
       cliOpenedPaths: [],
+      cliRemoteUrls: [],
     };
   }
 
@@ -37,6 +40,7 @@ async function fetchStartup(): Promise<StartupSnapshot> {
     openedWorkspaces: seam.openedWorkspaces ?? [],
     openError: seam.openError ?? null,
     cliOpenedPaths: seam.cliOpenedPaths ?? [],
+    cliRemoteUrls: seam.cliRemoteUrls ?? [],
   };
 }
 

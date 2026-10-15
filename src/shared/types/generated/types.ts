@@ -16,6 +16,11 @@ export interface PersistedWorkspace {
 	repoPath: string;
 	collapsed: boolean;
 	comparisons: PersistedComparison[];
+	/**
+	 * URL a remote workspace was opened from, so a missing clone can be
+	 * fetched again.
+	 */
+	remoteUrl?: string;
 }
 
 export interface WorkspaceTree {
@@ -145,11 +150,25 @@ export interface RepoInfo {
 	name: string;
 	headBranch: string;
 	defaultBase: string;
+	/** Clone URL without credentials when the workspace is a remote clone. */
+	remoteUrl?: string;
 }
 
 export interface OpenRepoResult {
 	repo: RepoInfo;
 	branches: string[];
+}
+
+/** Requested comparison for a review URL. */
+export interface ReviewComparison {
+	baseBranch: string;
+	headBranch: string;
+}
+
+export interface RemoteOpenResult {
+	opened: OpenRepoResult;
+	/** Set when the URL named a pull request or merge request. */
+	review?: ReviewComparison;
 }
 
 export interface StartupSnapshot {
@@ -160,5 +179,10 @@ export interface StartupSnapshot {
 	openError?: string;
 	/** Canonical paths of CLI-opened repos in argument order. Empty when launch was not from CLI. */
 	cliOpenedPaths: string[];
+	/**
+	 * Remote and pull request URLs from the CLI, in argument order. The
+	 * frontend opens them after first paint because a clone can take a while.
+	 */
+	cliRemoteUrls: string[];
 }
 

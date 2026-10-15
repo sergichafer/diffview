@@ -583,3 +583,48 @@ describe("mergeFileDiffs", () => {
     expect(merged).not.toBe(existing);
   });
 });
+
+describe("add-workspace position", () => {
+  function group(path: string) {
+    return {
+      repo: { ...repo, path },
+      branches: ["main"],
+      collapsed: false,
+      comparisonKeys: [],
+      branchMetadata: [],
+      metadataLoading: false,
+    };
+  }
+
+  function add(
+    state: MultiSessionState,
+    workspaceId: string,
+    before?: string,
+  ): MultiSessionState {
+    return sessionReducer(state, {
+      type: "add-workspace",
+      workspaceId,
+      group: group(workspaceId),
+      before,
+    });
+  }
+
+  const ab = add(add(emptyMultiSessionState, "/a"), "/b");
+
+  test("appends without a before id", () => {
+    expect(add(ab, "/c").workspaceOrder).toEqual(["/a", "/b", "/c"]);
+  });
+
+  test("inserts before an open workspace", () => {
+    expect(add(ab, "/r", "/b").workspaceOrder).toEqual(["/a", "/r", "/b"]);
+    expect(add(ab, "/r", "/a").workspaceOrder).toEqual(["/r", "/a", "/b"]);
+  });
+
+  test("appends when the before id is no longer open", () => {
+    expect(add(ab, "/r", "/gone").workspaceOrder).toEqual(["/a", "/b", "/r"]);
+  });
+
+  test("leaves an open workspace where it is", () => {
+    expect(add(ab, "/b", "/a")).toBe(ab);
+  });
+});

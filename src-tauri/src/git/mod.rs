@@ -9,7 +9,7 @@ mod types;
 
 pub use comparison::{resolve_comparison_stamp, ComparisonSpec, ResolutionCache};
 pub use history::{history_lane, HistoryLane};
-pub use diff::{read_working_file, write_working_file};
+pub use diff::{read_working_file, require_working_tree, write_working_file};
 pub use metadata::branch_metadata;
 pub use repo::{discover_repo, list_branch_names, normalize_base_branch, repo_info};
 pub use session::{close, open, with_repo, with_slot, RepoRegistry};

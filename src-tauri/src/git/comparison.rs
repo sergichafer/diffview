@@ -3,7 +3,8 @@
 //! # Live-mode invariant
 //! `head == current_branch_name` (or empty head): live working-tree mode
 //! (untracked included). Any other resolvable head: committed ref-to-ref;
-//! working tree ignored. Base is always `normalize_base_branch`.
+//! working tree ignored. Base is always `normalize_base_branch`. A bare
+//! repository (remote workspace) is never live.
 
 use git2::{Oid, Repository, Tree};
 use std::collections::HashMap;
@@ -248,11 +249,18 @@ pub(crate) fn resolve_comparison<'repo>(
         None
     };
 
+    // Bare clones (remote workspaces) have no working tree: HEAD's commit is
+    // compared ref-to-ref, never live.
+    let fallback_kind = if repo.is_bare() {
+        HeadKind::Committed
+    } else {
+        HeadKind::WorkingTree
+    };
     let (head_commit, kind) = match head_commit {
         Some(commit) => (Some(commit), HeadKind::Committed),
         None => (
             repo.head().ok().and_then(|r| r.peel_to_commit().ok()),
-            HeadKind::WorkingTree,
+            fallback_kind,
         ),
     };
 

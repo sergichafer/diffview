@@ -111,6 +111,9 @@ function session(overrides: Partial<RepoSessionValue> = {}): RepoSessionValue {
     refreshOverview: asyncNoop,
     refreshOverviewMeta: asyncNoop,
     openRepo: asyncNoop,
+    openRemote: asyncNoop,
+    remoteOpens: [],
+    dismissRemoteOpen: noop,
     closeRepo: noop,
     closeWorkspace: asyncNoop,
     closeComparison: noop,
@@ -483,5 +486,44 @@ describe("WorkspacesPanel empty group", () => {
       "feature/panels-seams",
     );
     expect(onRequestPalette).toHaveBeenCalled();
+  });
+});
+
+describe("WorkspacesPanel remote footer", () => {
+  test("Add remote… opens a URL field and Escape closes it", () => {
+    renderPanel(twoKeySession());
+    const toggle = container.querySelector(
+      'button[aria-label="Add remote workspace"]',
+    ) as HTMLButtonElement;
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => {
+      toggle.click();
+    });
+    const input = container.querySelector(
+      'input[aria-label="Remote repository or pull request URL"]',
+    ) as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    act(() => {
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    });
+    expect(
+      container.querySelector('input[aria-label="Remote repository or pull request URL"]'),
+    ).toBeNull();
+  });
+
+  test("syncing remotes are listed above the add rows", () => {
+    renderPanel(
+      twoKeySession({
+        remoteOpens: [{ url: "https://github.com/a/b/pull/4", error: null }],
+      }),
+    );
+    const foot = container.querySelector(".workspaces-foot")!;
+    expect(foot.textContent).toContain("a/b #4");
+    expect(foot.textContent).toContain("Syncing from remote…");
   });
 });

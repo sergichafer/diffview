@@ -1,5 +1,9 @@
 import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
-import type { WorkspaceTree } from "@/shared/types/generated/types";
+import type {
+  PersistedComparison,
+  PersistedWorkspace,
+  WorkspaceTree,
+} from "@/shared/types/generated/types";
 import { resolveComparisonPrefs } from "@/features/settings/comparisonPrefs";
 import {
   makeComparisonKey,
@@ -25,6 +29,7 @@ export function stateToWorkspaceTree(state: {
   groups: Record<
     string,
     {
+      repo?: { remoteUrl?: string };
       collapsed: boolean;
       comparisonKeys: string[];
     }
@@ -39,15 +44,17 @@ export function stateToWorkspaceTree(state: {
   >;
   activeKey: string | null;
   columnCollapsed: boolean;
-}) {
+}): WorkspaceTree {
   const activeComparisonKey = state.activeKey
     ? (sourceKeyOfSlice(state.activeKey) ?? state.activeKey)
     : undefined;
   return {
-    workspaces: state.workspaceOrder.map((repoPath) => {
+    workspaces: state.workspaceOrder.map((repoPath): PersistedWorkspace => {
       const group = state.groups[repoPath];
+      const remoteUrl = group?.repo?.remoteUrl;
       return {
         repoPath,
+        ...(remoteUrl ? { remoteUrl } : {}),
         collapsed: group?.collapsed ?? false,
         comparisons: (group?.comparisonKeys ?? [])
           .filter(
@@ -67,6 +74,89 @@ export function stateToWorkspaceTree(state: {
     activeComparisonKey,
     columnCollapsed: state.columnCollapsed,
   };
+}
+
+/**
+ * A persisted remote workspace whose clone did not open at startup. It stays
+ * in the persisted tree until a re-clone restores it or the user drops it.
+ */
+export interface PendingRemoteWorkspace {
+  workspace: PersistedWorkspace & { remoteUrl: string };
+  /** Position in the persisted tree, so it is written back in place. */
+  index: number;
+  /**
+   * Persisted paths that followed it in the tree, nearest first. Recovery
+   * inserts it before the first of these that is open, which holds when
+   * other workspaces open, close or recover in the meantime.
+   */
+  followers: string[];
+  /** The tree's active comparison, when it belonged to this workspace. */
+  active: PersistedComparison | null;
+}
+
+export function pendingRemoteWorkspaces(
+  tree: WorkspaceTree | undefined,
+  openedPaths: ReadonlySet<string>,
+): PendingRemoteWorkspace[] {
+  const normalized = normalizeTree(tree);
+  const pending: PendingRemoteWorkspace[] = [];
+  normalized.workspaces.forEach((ws, index) => {
+    const { repoPath, remoteUrl } = ws;
+    if (typeof repoPath !== "string" || repoPath === "") return;
+    if (typeof remoteUrl !== "string" || remoteUrl === "") return;
+    if (openedPaths.has(repoPath)) return;
+    const comparisons = (Array.isArray(ws.comparisons) ? ws.comparisons : []).filter(
+      (c) => typeof c.baseBranch === "string" && typeof c.headBranch === "string",
+    );
+    const active =
+      comparisons.find(
+        (c) =>
+          makeComparisonKey(repoPath, c.baseBranch, c.headBranch) ===
+          normalized.activeComparisonKey,
+      ) ?? null;
+    pending.push({
+      workspace: { ...ws, remoteUrl, comparisons, collapsed: ws.collapsed ?? false },
+      index,
+      followers: normalized.workspaces
+        .slice(index + 1)
+        .flatMap((next) =>
+          typeof next.repoPath === "string" && next.repoPath !== ""
+            ? [next.repoPath]
+            : [],
+        ),
+      active,
+    });
+  });
+  return pending;
+}
+
+/**
+ * Write pending remote workspaces back into a tree built from session state.
+ * `keepActive` keeps a pending workspace's active comparison as the tree's.
+ */
+export function withPendingWorkspaces(
+  tree: WorkspaceTree,
+  pending: readonly PendingRemoteWorkspace[],
+  keepActive: boolean,
+): WorkspaceTree {
+  if (pending.length === 0) return tree;
+  const workspaces = [...tree.workspaces];
+  const present = new Set(workspaces.map((ws) => ws.repoPath));
+  let { activeComparisonKey } = tree;
+  for (const entry of [...pending].sort((a, b) => a.index - b.index)) {
+    const ws = entry.workspace;
+    if (present.has(ws.repoPath)) continue;
+    present.add(ws.repoPath);
+    workspaces.splice(Math.min(entry.index, workspaces.length), 0, ws);
+    if (keepActive && entry.active) {
+      activeComparisonKey = makeComparisonKey(
+        ws.repoPath,
+        entry.active.baseBranch,
+        entry.active.headBranch,
+      );
+    }
+  }
+  return { ...tree, workspaces, activeComparisonKey };
 }
 
 /** Restored rows are cold. */
