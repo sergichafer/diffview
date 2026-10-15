@@ -195,7 +195,7 @@ export function BranchWorkspace({
                     themeId={settings.themeId}
                     uiFont={settings.uiFont}
                     codeFont={settings.codeFont}
-                    onPreview={handlePreview}
+                    onPreview={repo?.remoteUrl ? null : handlePreview}
                   />
                 </div>
               </>

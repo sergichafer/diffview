@@ -22,7 +22,9 @@ export type {
   HistoryCommit,
   HistoryLane,
   OpenRepoResult,
+  RemoteOpenResult,
   RepoInfo,
+  ReviewComparison,
 } from "./generated/types";
 
 /** Wire badge labels: string union from the Rust/typeshare enum. */

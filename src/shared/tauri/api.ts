@@ -8,11 +8,17 @@ import type {
   FileDiffResult,
   HistoryLane,
   OpenRepoResult,
+  RemoteOpenResult,
 } from "@/shared/types/app";
 
 export const api = {
   openRepository: (path: string) =>
     invoke<OpenRepoResult>("open_repository", { path }),
+  /** Clone or fetch into the app cache, then open. Slow on first clone. */
+  openRemoteRepository: (url: string) =>
+    invoke<RemoteOpenResult>("open_remote_repository", { url }),
+  fetchRemoteRepository: (repoPath: string) =>
+    invoke<OpenRepoResult>("fetch_remote_repository", { repoPath }),
   closeRepository: (repoPath: string) =>
     invoke<void>("close_repository", { repoPath }),
   getBranchOverview: (repoPath: string, baseBranch: string, headBranch: string) =>

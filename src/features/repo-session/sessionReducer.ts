@@ -121,13 +121,18 @@ export function sessionReducer(
   switch (action.type) {
     case "reset":
       return { ...emptyMultiSessionState };
-    case "add-workspace":
+    case "add-workspace": {
       if (state.workspaceOrder.includes(action.workspaceId)) return state;
+      const at =
+        action.before == null ? -1 : state.workspaceOrder.indexOf(action.before);
+      const workspaceOrder = [...state.workspaceOrder];
+      workspaceOrder.splice(at < 0 ? workspaceOrder.length : at, 0, action.workspaceId);
       return {
         ...state,
-        workspaceOrder: [...state.workspaceOrder, action.workspaceId],
+        workspaceOrder,
         groups: { ...state.groups, [action.workspaceId]: action.group },
       };
+    }
     case "close-workspace": {
       const group = state.groups[action.workspaceId];
       if (!group) return state;

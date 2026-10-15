@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { RepoSessionContext } from "@/features/repo-session/context";
 import type { RepoSessionValue } from "@/features/repo-session/useRepoSession";
+import type { RemoteOpen } from "@/features/repo-session/types";
 
 const openDialog = mock(async (_opts?: unknown) => null as string | null);
 const openRepo = mock(async (_path: string) => {});
+const openRemote = mock(async (_url: string) => {});
+const dismissRemoteOpen = mock((_url: string) => {});
 
 mock.module("@tauri-apps/plugin-dialog", () => ({
   open: (opts: unknown) => openDialog(opts),
@@ -30,6 +33,17 @@ function buttonContaining(text: string) {
   ) as HTMLButtonElement | undefined;
 }
 
+function typeInto(input: HTMLInputElement, value: string) {
+  const setValue = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )!.set!;
+  act(() => {
+    setValue.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
 function renderWelcome(
   settings: AppSettings = DEFAULT_SETTINGS,
   handlers: {
@@ -37,13 +51,21 @@ function renderWelcome(
     onOpenSettings?: () => void;
   } = {},
   openError: string | null = null,
+  remoteOpens: RemoteOpen[] = [],
 ) {
   const onSetLaunchMode = mock(handlers.onSetLaunchMode ?? (() => {}));
   const onOpenSettings = mock(handlers.onOpenSettings ?? (() => {}));
   act(() => {
     root.render(
       <RepoSessionContext.Provider
-        value={{ openRepo } as unknown as RepoSessionValue}
+        value={
+          {
+            openRepo,
+            openRemote,
+            remoteOpens,
+            dismissRemoteOpen,
+          } as unknown as RepoSessionValue
+        }
       >
         <WelcomeScreen
           settings={settings}
@@ -62,6 +84,9 @@ beforeEach(() => {
   openDialog.mockImplementation(async () => null);
   openRepo.mockReset();
   openRepo.mockImplementation(async () => {});
+  openRemote.mockReset();
+  openRemote.mockImplementation(async () => {});
+  dismissRemoteOpen.mockReset();
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -113,6 +138,100 @@ describe("WelcomeScreen", () => {
       buttonContaining("/home/me/projects/diffview")!.click();
     });
     expect(openRepo).toHaveBeenCalledWith("/home/me/projects/diffview");
+  });
+
+  test("a remote URL opens through openRemote", async () => {
+    renderWelcome();
+    const input = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Remote repository or pull request URL"]',
+    )!;
+    typeInto(input, "  https://github.com/sergichafer/diffview/pull/31 ");
+    await act(async () => {
+      input.form!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(openRemote).toHaveBeenCalledWith(
+      "https://github.com/sergichafer/diffview/pull/31",
+    );
+    expect(input.value).toBe("");
+  });
+
+  test("a local path in the remote field shows a hint instead", async () => {
+    renderWelcome();
+    const input = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Remote repository or pull request URL"]',
+    )!;
+    typeInto(input, "/home/me/repo");
+    await act(async () => {
+      input.form!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(openRemote).not.toHaveBeenCalled();
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "git@host:owner/repo",
+    );
+  });
+
+  test("an scp-style URL submits through the Open button", async () => {
+    renderWelcome();
+    const input = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Remote repository or pull request URL"]',
+    )!;
+    // A native url input rejects scp syntax and blocks submit in the webview.
+    typeInto(input, "git@github.com:sergichafer/diffview.git");
+    await act(async () => {
+      buttonNamed("Open")!.click();
+    });
+    expect(openRemote).toHaveBeenCalledWith("git@github.com:sergichafer/diffview.git");
+  });
+
+  test("lists syncing and failed remotes; either can be dismissed", () => {
+    renderWelcome(DEFAULT_SETTINGS, {}, null, [
+      { url: "https://github.com/a/b", error: null },
+      { url: "https://github.com/c/d/pull/2", error: "Repository not found." },
+    ]);
+    expect(container.textContent).toContain("a/b");
+    expect(container.textContent).toContain("Syncing from remote…");
+    expect(container.textContent).toContain("c/d #2");
+    expect(container.textContent).toContain("Repository not found.");
+
+    const dismiss = container.querySelectorAll<HTMLButtonElement>(
+      'button[aria-label="Dismiss"]',
+    );
+    expect(dismiss).toHaveLength(2);
+    act(() => {
+      dismiss[0]!.click();
+      dismiss[1]!.click();
+    });
+    expect(dismissRemoteOpen).toHaveBeenCalledWith("https://github.com/a/b");
+    expect(dismissRemoteOpen).toHaveBeenCalledWith("https://github.com/c/d/pull/2");
+  });
+
+  test("a remote row never shows credentials from the URL", () => {
+    renderWelcome(DEFAULT_SETTINGS, {}, null, [
+      { url: "https://me:ghp_secret@github.com/a/b", error: null },
+    ]);
+    const row = container.querySelector(".remote-open")!;
+    expect(row.textContent).toContain("a/b");
+    expect(row.getAttribute("title")).toBe("https://github.com/a/b");
+    expect(container.innerHTML).not.toContain("ghp_secret");
+  });
+
+  test("a remote recent shows owner/repo and reopens by URL", async () => {
+    renderWelcome({
+      ...DEFAULT_SETTINGS,
+      recentRepos: ["https://github.com/sergichafer/diffview"],
+    });
+    expect(container.querySelector(".recent-name")?.textContent).toBe(
+      "sergichafer/diffview",
+    );
+    await act(async () => {
+      buttonContaining("https://github.com/sergichafer/diffview")!.click();
+    });
+    expect(openRepo).toHaveBeenCalledWith("https://github.com/sergichafer/diffview");
   });
 
   test("first-run launch sentence calls onSetLaunchMode", () => {

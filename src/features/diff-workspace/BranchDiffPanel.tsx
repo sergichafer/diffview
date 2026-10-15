@@ -39,7 +39,7 @@ interface BranchDiffPanelProps {
   themeId: ThemeId;
   uiFont: UiFontId;
   codeFont: CodeFontId;
-  onPreview: (path: string) => void;
+  onPreview: ((path: string) => void) | null;
 }
 
 export function BranchDiffPanel({

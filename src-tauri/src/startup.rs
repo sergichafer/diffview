@@ -18,6 +18,9 @@ pub struct StartupSnapshot {
     pub open_error: Option<String>,
     /// Canonical paths of CLI-opened repos in argument order. Empty when launch was not from CLI.
     pub cli_opened_paths: Vec<String>,
+    /// Remote and pull request URLs from the CLI, in argument order. The
+    /// frontend opens them after first paint because a clone can take a while.
+    pub cli_remote_urls: Vec<String>,
 }
 
 fn unique_nonempty_paths<I, S>(paths: I) -> Vec<String>
@@ -55,6 +58,13 @@ pub fn extract_cli_repo_paths(matches: &tauri_plugin_cli::Matches) -> Vec<String
         .get("repo")
         .map(|arg| cli_repo_paths_from_value(&arg.value))
         .unwrap_or_default()
+}
+
+/// Split CLI arguments into local paths and remote URLs, each in order.
+pub fn partition_cli_args(args: &[String]) -> (Vec<String>, Vec<String>) {
+    args.iter()
+        .cloned()
+        .partition(|arg| !crate::remote::is_remote_spec(arg))
 }
 
 /// CLI paths win (all of them); otherwise reopen the persisted active
@@ -255,6 +265,24 @@ mod tests {
     }
 
     #[test]
+    fn cli_args_split_into_paths_and_remotes() {
+        let (paths, remotes) = partition_cli_args(&[
+            "/repo/a".into(),
+            "https://github.com/sergichafer/diffview/pull/31".into(),
+            ".".into(),
+            "git@github.com:a/b.git".into(),
+        ]);
+        assert_eq!(paths, vec!["/repo/a".to_string(), ".".to_string()]);
+        assert_eq!(
+            remotes,
+            vec![
+                "https://github.com/sergichafer/diffview/pull/31".to_string(),
+                "git@github.com:a/b.git".to_string()
+            ]
+        );
+    }
+
+    #[test]
     fn reopen_uses_first_recent() {
         let settings = settings_from(json!({
             "launchMode": "reopen",
@@ -368,6 +396,7 @@ mod tests {
                 name: "n".into(),
                 head_branch: "main".into(),
                 default_base: "main".into(),
+                remote_url: None,
             },
             branches: vec!["main".into()],
         }

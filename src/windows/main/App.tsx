@@ -20,6 +20,7 @@ import { useAppTheme, useResolvedTheme } from "@/design/theme/useResolvedTheme";
 import { useSettings } from "@/features/settings/useSettings";
 import { useSplitResize } from "@/shared/split-layout/useSplitResize";
 import { loadStartup } from "./startup";
+import { withoutPathErrors } from "./openError";
 import {
   WORKSPACES_MAX_WIDTH,
   WORKSPACES_MIN_WIDTH,
@@ -92,9 +93,10 @@ function AppBody({
   workspacesSplitterSettling,
   onWorkspacesSplitterPointerDown,
   onWorkspacesSplitterKeyDown,
-  openError,
+  openError: startupError,
 }: AppBodyProps) {
-  const { workspaces } = useRepoSession();
+  const { workspaces, recoveryPaths } = useRepoSession();
+  const openError = withoutPathErrors(startupError, recoveryPaths);
   const [showSettings, setShowSettings] = useState(false);
   const [paletteOpenRequest, setPaletteOpenRequest] = useState(0);
   const appRef = useRef<HTMLDivElement>(null);
@@ -224,6 +226,7 @@ function AppReady() {
       opened={startup.opened}
       openedWorkspaces={startup.openedWorkspaces}
       cliOpenedPaths={startup.cliOpenedPaths}
+      cliRemoteUrls={startup.cliRemoteUrls}
     >
       <DiffReviewProvider>
         <LineCommentsProvider>

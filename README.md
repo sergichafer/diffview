@@ -16,8 +16,9 @@ Built with **Tauri 2**, **React**, **libgit2**, [@pierre/trees](https://trees.so
 - Rendered preview window for `.html` and `.markdown` (working tree)
 - Recent repos, startup preference, base branch override per repo
 - Acknowledgments in Settings for the open source projects Diffview is built on
-- Manual refresh
-- CLI: `diffview /path/to/repo`, `diffview .`, or `diffview repo1 repo2 repo3`
+- Remote workspaces from a repository URL, and pull request URLs that open the review against its base
+- Manual refresh (fetches first for remote workspaces)
+- CLI: `diffview /path/to/repo`, `diffview .`, `diffview repo1 repo2 repo3`, or mix in remote and pull request URLs
 
 ## Install
 
@@ -116,6 +117,24 @@ Installers appear under `src-tauri/target/release/bundle/`.
 2. Choose a **base** branch if the default is wrong.
 3. Browse files in the tree; diffs update in the main pane.
 4. For HTML/Markdown outputs, click **Preview** to open a rendered window.
+
+### Remote workspaces
+
+Paste a repository URL into **Add remote…** (sidebar footer) or the welcome screen, or pass it on the command line:
+
+```bash
+diffview https://github.com/sergichafer/diffview
+diffview https://github.com/sergichafer/diffview/pull/31
+diffview . git@github.com:sergichafer/diffview.git
+```
+
+- Accepted forms: `https://`, `http://`, `ssh://`, `git://`, and `git@host:owner/repo`.
+- Browser links such as `/tree/main/src` or `/commits` open the repository.
+- A pull request URL opens `pr/N` (or `mr/N`) against the branch the review targets: `/pull/N` on GitHub and GitHub Enterprise, `/pulls/N` on Gitea, Forgejo, and Codeberg, `/-/merge_requests/N` or `/merge_requests/N` on GitLab. That branch comes from the forge's test merge ref; when there is none (merged, closed, or conflicting), the default branch is used.
+- Diffview keeps a bare clone per repository in the app cache directory under `remotes/`. Opening the same repository again, or **Refresh**, fetches into that clone. A clone no open workspace uses is removed at the next launch, unless another Diffview window is running.
+- If a clone goes missing (for example, the cache was cleared), the workspace is cloned again at launch with its comparisons, including pull requests.
+- Clone and fetch run the system `git`, so your SSH agent and credential helpers apply to private repositories. Git must be on `PATH`. SSH runs in batch mode, so it never waits for a prompt; load your key into the agent first. A clone gives up after 10 minutes and a fetch after 5.
+- Remote comparisons are read-only: no Edit, Preview, or Open file, since there is no working tree.
 
 ## Release
 

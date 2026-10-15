@@ -135,6 +135,15 @@ fn display_patch_for_empty_file(path: &str) -> String {
 
 const CONFLICT_MSG: &str = "conflict: working-tree file changed since hydration";
 
+/// Working-file reads and writes need a checkout. A bare repository's path is
+/// its git dir, so a write there would land among refs and objects.
+pub fn require_working_tree(repo: &Repository) -> Result<(), String> {
+    if repo.is_bare() || repo.workdir().is_none() {
+        return Err("Remote workspaces have no working tree".into());
+    }
+    Ok(())
+}
+
 pub fn read_working_file(repo_path: &str, path: &str) -> Result<String, String> {
     let full = resolve_repo_relative_path(repo_path, path)?;
     let bytes =
@@ -545,6 +554,25 @@ mod tests {
         );
         let _ = fs::remove_dir_all(&root);
         let _ = fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn require_working_tree_refuses_a_bare_repository() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let bare_dir = std::env::temp_dir().join(format!("diffview-bare-{stamp}"));
+        let work_dir = std::env::temp_dir().join(format!("diffview-work-{stamp}"));
+        let bare = Repository::init_bare(&bare_dir).unwrap();
+        let work = Repository::init(&work_dir).unwrap();
+        assert_eq!(
+            require_working_tree(&bare).unwrap_err(),
+            "Remote workspaces have no working tree"
+        );
+        assert!(require_working_tree(&work).is_ok());
+        let _ = fs::remove_dir_all(&bare_dir);
+        let _ = fs::remove_dir_all(&work_dir);
     }
 
     #[test]

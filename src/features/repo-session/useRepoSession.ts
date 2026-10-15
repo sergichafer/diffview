@@ -5,6 +5,7 @@ import {
   useMemo,
   useReducer,
   useRef,
+  useState,
 } from "react";
 import { api } from "@/shared/tauri/api";
 import {
@@ -18,7 +19,17 @@ import {
   loadAllFileDiffs,
 } from "@/features/branch-compare/loadAllFileDiffs";
 import { pushRecent } from "@/features/settings/settings";
-import type { AppSettings, OpenRepoResult } from "@/shared/types/app";
+import {
+  isRemoteUrl,
+  redactUrl,
+  reviewUrlFor,
+} from "@/features/remote/remoteUrl";
+import type {
+  AppSettings,
+  OpenRepoResult,
+  RemoteOpenResult,
+  RepoInfo,
+} from "@/shared/types/app";
 import {
   makeComparisonKey,
   sliceComparisonKey,
@@ -52,14 +63,76 @@ import {
   emptyComparisonRow,
   specOf,
   type ComparisonRow,
+  type ComparisonSpec,
   type MultiSessionState,
+  type RemoteOpen,
   type Residency,
   type WorkspaceGroup,
+  type WorkspaceId,
 } from "./types";
 import {
   buildInitialState,
+  pendingRemoteWorkspaces,
   stateToWorkspaceTree,
+  withPendingWorkspaces,
+  type PendingRemoteWorkspace,
 } from "./workspaceTreeCodec";
+
+function errorMessage(e: unknown): string {
+  if (typeof e === "string") return e;
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
+type RemoteRecovery = PendingRemoteWorkspace & { failed: boolean };
+
+/**
+ * The first persisted follower that is open now, so a restored workspace lands
+ * back in its persisted place. `recovered` maps persisted clone paths to the
+ * paths their recoveries landed at.
+ */
+function persistedSuccessor(
+  followers: readonly string[],
+  groups: MultiSessionState["groups"],
+  recovered: ReadonlyMap<string, WorkspaceId>,
+): WorkspaceId | undefined {
+  return followers
+    .map((path) => recovered.get(path) ?? path)
+    .find((id) => groups[id] != null);
+}
+
+/**
+ * A fresh clone has branches only. Fetch the reviews (`pr/N`, `mr/N`) that
+ * persisted comparisons use, one at a time since they share the clone.
+ * Failures are skipped; that comparison shows its own load error.
+ */
+async function refetchReviews(
+  repoUrl: string,
+  comparisons: { baseBranch: string; headBranch: string }[],
+  branches: string[],
+): Promise<string[]> {
+  const known = new Set(branches);
+  const urls = new Set<string>();
+  for (const { baseBranch, headBranch } of comparisons) {
+    for (const label of [baseBranch, headBranch]) {
+      const url = reviewUrlFor(repoUrl, label);
+      if (url && !known.has(label)) urls.add(url);
+    }
+  }
+  return [...urls].reduce<Promise<string[]>>(
+    (prev, url) =>
+      prev.then((latest) =>
+        api.openRemoteRepository(url).then(
+          (result) => result.opened.branches,
+          (e: unknown) => {
+            console.error("review re-fetch failed:", redactUrl(url), errorMessage(e));
+            return latest;
+          },
+        ),
+      ),
+    Promise.resolve(branches),
+  );
+}
 
 function loadTokenFor(state: MultiSessionState): string | null {
   const key = state.activeKey;
@@ -91,6 +164,7 @@ export function useRepoSessionState(
   opened: OpenRepoResult | null = null,
   openedWorkspaces: OpenRepoResult[] = [],
   cliOpenedPaths: string[] = [],
+  cliRemoteUrls: string[] = [],
 ) {
   const [state, dispatch] = useReducer(
     sessionReducer,
@@ -104,12 +178,41 @@ export function useRepoSessionState(
       ),
   );
 
+  const [remoteOpens, setRemoteOpens] = useState<RemoteOpen[]>([]);
+  // Persisted remote workspaces whose clone did not open. Each is re-cloned
+  // after first paint and stays persisted until it is restored or dismissed.
+  const [launchRecoveries] = useState(() => {
+    const openedPaths = new Set(openedWorkspaces.map((o) => o.repo.path));
+    if (opened) openedPaths.add(opened.repo.path);
+    return pendingRemoteWorkspaces(settings.workspaceTree, openedPaths);
+  });
+  const [recoveries, setRecoveries] = useState<RemoteRecovery[]>(() =>
+    launchRecoveries.map((entry) => ({ ...entry, failed: false })),
+  );
+  // Persisted clone paths handed to recovery. Their startup open errors are
+  // reported through `remoteOpens` instead.
+  const recoveryPaths = useMemo(
+    () => launchRecoveries.map((entry) => entry.workspace.repoPath),
+    [launchRecoveries],
+  );
+  const remoteInFlight = useRef(new Set<string>());
+  // Persisted clone path to the path a recovery restored it under.
+  const recoveredPaths = useRef(new Map<string, WorkspaceId>());
   const refreshGenByKey = useRef(new Map<ComparisonKey, number>());
   const inFlightLoads = useRef(0);
   const metadataInFlight = useRef(new Set<string>());
   const stateRef = useRef(state);
+  const launchActiveKey = useRef(state.activeKey);
+  const recoveriesRef = useRef(recoveries);
   useLayoutEffect(() => {
     stateRef.current = state;
+    recoveriesRef.current = recoveries;
+  });
+  // Async work (a clone can take minutes) reads settings when it applies
+  // results, so it never writes back a snapshot from when it started.
+  const settingsRef = useRef(settings);
+  useLayoutEffect(() => {
+    settingsRef.current = settings;
   });
 
   const activeRow = activeRowFromState(state);
@@ -236,14 +339,51 @@ export function useRepoSessionState(
     [loadComparison],
   );
 
+  /** `remoteOpens` rows are keyed by the redacted URL. */
+  const setRemoteError = useCallback((url: string, error: string | null) => {
+    setRemoteOpens((list) => {
+      const rest = list.filter((r) => r.url !== url);
+      return error == null ? rest : [...rest, { url, error }];
+    });
+  }, []);
+
+  /** Fetch a remote workspace's clone so refresh sees new commits. */
+  const fetchRemote = useCallback(
+    async (repo: RepoInfo) => {
+      const url = redactUrl(repo.remoteUrl ?? repo.path);
+      try {
+        const opened = await api.fetchRemoteRepository(repo.path);
+        dispatch({ type: "update-repo", workspaceId: repo.path, repo: opened.repo });
+        dispatch({
+          type: "branches",
+          workspaceId: repo.path,
+          branches: opened.branches,
+          settings: settingsRef.current,
+        });
+        setRemoteError(url, null);
+      } catch (e) {
+        const message = errorMessage(e);
+        console.error(`remote fetch failed for ${url}:`, message);
+        setRemoteError(url, `Could not fetch: ${message}`);
+      }
+    },
+    [setRemoteError],
+  );
+
   const refreshOverview = useCallback(
     async (key?: ComparisonKey) => {
       const targetKey = key ?? stateRef.current.activeKey;
       if (!targetKey) return;
       dispatch({ type: "mark-outdated", key: targetKey, outdated: true });
+      const row = stateRef.current.comparisons[targetKey];
+      const repo = row ? stateRef.current.groups[row.repoPath]?.repo : undefined;
+      if (repo?.remoteUrl) {
+        dispatch({ type: "comparison-loading", key: targetKey, loading: true });
+        await fetchRemote(repo);
+      }
       await loadComparison(targetKey, "hot");
     },
-    [loadComparison],
+    [fetchRemote, loadComparison],
   );
 
   /** Trailing-debounce (~1s) meta refresh: single in-flight + dirty flag. */
@@ -312,12 +452,17 @@ export function useRepoSessionState(
   // JSON stringify guard: skip persist on every append-file-diffs batch.
   const persistedTreeJson = useRef<string | null>(null);
   useEffect(() => {
-    const tree = stateToWorkspaceTree(state);
+    // A pending workspace keeps its active comparison until the user picks another.
+    const tree = withPendingWorkspaces(
+      stateToWorkspaceTree(state),
+      recoveries,
+      state.activeKey === launchActiveKey.current,
+    );
     const json = JSON.stringify(tree);
     if (json === persistedTreeJson.current) return;
     persistedTreeJson.current = json;
     void update({ workspaceTree: tree });
-  }, [state, update]);
+  }, [state, recoveries, update]);
 
   const seededCliRecents = useRef(false);
   useEffect(() => {
@@ -376,14 +521,24 @@ export function useRepoSessionState(
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  const openRepo = useCallback(
-    async (path: string) => {
-      const { repo: info, branches } = await api.openRepository(path);
+  /**
+   * Add the workspace if new, then spawn and activate one comparison: the
+   * requested one, or the saved base/head preferences.
+   */
+  const admitWorkspace = useCallback(
+    async (
+      info: RepoInfo,
+      branches: string[],
+      recent: string,
+      requested?: ComparisonSpec,
+      before?: WorkspaceId,
+    ) => {
       // Canonical identity: RepoInfo.path is the backend map key. The picker
       // path is only a discovery hint; never use it as a workspace/row key
       // (it can differ, e.g. trailing slash, subdirectory of the workdir).
       const workspaceId = info.path;
-      const { base, head } = resolveComparisonPrefs(settings, info, branches);
+      const { base, head } =
+        requested ?? resolveComparisonPrefs(settingsRef.current, info, branches);
       const key = makeComparisonKey(workspaceId, base, head);
 
       const current = stateRef.current;
@@ -396,7 +551,7 @@ export function useRepoSessionState(
           branchMetadata: [],
           metadataLoading: false,
         };
-        dispatch({ type: "add-workspace", workspaceId, group });
+        dispatch({ type: "add-workspace", workspaceId, group, before });
       }
       if (!current.comparisons[key]) {
         dispatch({
@@ -408,12 +563,225 @@ export function useRepoSessionState(
       }
       dispatch({ type: "activate", key });
       // Narrow {recentRepos} patch composes with the effect's {workspaceTree}
-      // patch because `update` merges.
-      await update({ recentRepos: pushRecent(settings, workspaceId).recentRepos });
+      // patch because `update` merges. The ref takes the new list at once so
+      // a second admit before the next render builds on it.
+      const next = pushRecent(settingsRef.current, recent);
+      settingsRef.current = next;
+      await update({ recentRepos: next.recentRepos });
       void ensureLoaded(key);
     },
-    [settings, update, ensureLoaded],
+    [update, ensureLoaded],
   );
+
+  /**
+   * Clone or fetch a remote URL and hand the result to `apply`. Progress and
+   * failures land in `remoteOpens`; this never throws. Resolves to false on
+   * failure and null when the same URL is already syncing.
+   */
+  const syncRemote = useCallback(
+    async (
+      input: string,
+      apply: (result: RemoteOpenResult) => Promise<void>,
+    ): Promise<boolean | null> => {
+      // The raw input goes to the backend only. Rows, dedupe, and logs use
+      // the redacted form so a token in the URL never reaches the UI.
+      const raw = input.trim();
+      const url = redactUrl(raw);
+      const showSyncing = () =>
+        setRemoteOpens((list) => [
+          ...list.filter((r) => r.url !== url),
+          { url, error: null },
+        ]);
+      if (remoteInFlight.current.has(url)) {
+        // A retry while syncing brings back a dismissed row.
+        showSyncing();
+        return null;
+      }
+      remoteInFlight.current.add(url);
+      showSyncing();
+      try {
+        const result = await api.openRemoteRepository(raw);
+        const { repo: info, branches } = result.opened;
+        if (stateRef.current.groups[info.path]) {
+          dispatch({ type: "update-repo", workspaceId: info.path, repo: info });
+          dispatch({
+            type: "branches",
+            workspaceId: info.path,
+            branches,
+            settings: settingsRef.current,
+          });
+        }
+        await apply(result);
+        const canonical = info.remoteUrl ? redactUrl(info.remoteUrl) : url;
+        setRemoteOpens((list) =>
+          list.filter((r) => r.url !== url && r.url !== canonical),
+        );
+        return true;
+      } catch (e) {
+        const message = errorMessage(e);
+        console.error(`remote open failed for ${url}:`, message);
+        setRemoteError(url, message);
+        return false;
+      } finally {
+        remoteInFlight.current.delete(url);
+      }
+    },
+    [setRemoteError],
+  );
+
+  /**
+   * Clone or fetch a remote URL, then show it. A pull or merge request URL
+   * opens that review against its base.
+   */
+  const openRemote = useCallback(
+    async (input: string) => {
+      const url = redactUrl(input.trim());
+      await syncRemote(input, async ({ opened, review }) => {
+        const { repo: info, branches } = opened;
+        // An explicit open supersedes a failed recovery of the same remote
+        // and takes its persisted place.
+        const canonical = info.remoteUrl ? redactUrl(info.remoteUrl) : url;
+        const matches = (r: RemoteRecovery) => {
+          const recovered = redactUrl(r.workspace.remoteUrl);
+          return recovered === url || recovered === canonical;
+        };
+        const superseded = recoveriesRef.current.find(matches);
+        if (superseded) {
+          recoveredPaths.current.set(superseded.workspace.repoPath, info.path);
+        }
+        setRecoveries((list) => list.filter((r) => !matches(r)));
+        await admitWorkspace(
+          info,
+          branches,
+          info.remoteUrl ?? url,
+          review ? { base: review.baseBranch, head: review.headBranch } : undefined,
+          superseded &&
+            persistedSuccessor(
+              superseded.followers,
+              stateRef.current.groups,
+              recoveredPaths.current,
+            ),
+        );
+      });
+    },
+    [admitWorkspace, syncRemote],
+  );
+
+  /**
+   * Re-clone a persisted remote workspace and restore its comparisons, re-keyed
+   * onto the clone's path, which can differ from the persisted one.
+   */
+  const recoverRemote = useCallback(
+    async (entry: PendingRemoteWorkspace) => {
+      const { workspace, active } = entry;
+      const ok = await syncRemote(workspace.remoteUrl, async ({ opened }) => {
+        const { repo: info } = opened;
+        const branches = await refetchReviews(
+          workspace.remoteUrl,
+          workspace.comparisons,
+          opened.branches,
+        );
+        const workspaceId = info.path;
+        recoveredPaths.current.set(workspace.repoPath, workspaceId);
+        if (!stateRef.current.groups[workspaceId]) {
+          dispatch({
+            type: "add-workspace",
+            workspaceId,
+            before: persistedSuccessor(
+              entry.followers,
+              stateRef.current.groups,
+              recoveredPaths.current,
+            ),
+            group: {
+              repo: info,
+              branches,
+              collapsed: workspace.collapsed,
+              comparisonKeys: [],
+              branchMetadata: [],
+              metadataLoading: false,
+            },
+          });
+        }
+        for (const { baseBranch, headBranch } of workspace.comparisons) {
+          const key = makeComparisonKey(workspaceId, baseBranch, headBranch);
+          dispatch({
+            type: "spawn-comparison",
+            workspaceId,
+            key,
+            row: emptyComparisonRow(key, workspaceId, baseBranch, headBranch),
+          });
+        }
+        // Take focus only when nothing else is shown, or when this held the
+        // persisted active comparison and the user has not moved since launch.
+        const { activeKey } = stateRef.current;
+        const target = active ?? workspace.comparisons[0];
+        if (
+          target &&
+          (activeKey == null ||
+            (active != null && activeKey === launchActiveKey.current))
+        ) {
+          dispatch({
+            type: "activate",
+            key: makeComparisonKey(workspaceId, target.baseBranch, target.headBranch),
+          });
+        }
+        setRecoveries((list) =>
+          list.filter((r) => r.workspace.repoPath !== workspace.repoPath),
+        );
+      });
+      if (ok === false) {
+        setRecoveries((list) =>
+          list.map((r) =>
+            r.workspace.repoPath === workspace.repoPath ? { ...r, failed: true } : r,
+          ),
+        );
+      }
+    },
+    [syncRemote],
+  );
+
+  /**
+   * Hides a row. A pending open keeps running and still lands or reports.
+   * Dismissing a failed recovery also drops that workspace from the tree.
+   */
+  const dismissRemoteOpen = useCallback((url: string) => {
+    setRemoteOpens((list) => list.filter((r) => r.url !== url));
+    setRecoveries((list) =>
+      list.filter((r) => !(r.failed && redactUrl(r.workspace.remoteUrl) === url)),
+    );
+  }, []);
+
+  /** Local folder path or remote URL. */
+  const openRepo = useCallback(
+    async (pathOrUrl: string) => {
+      if (isRemoteUrl(pathOrUrl)) {
+        await openRemote(pathOrUrl);
+        return;
+      }
+      const { repo: info, branches } = await api.openRepository(pathOrUrl);
+      await admitWorkspace(info, branches, info.path);
+    },
+    [admitWorkspace, openRemote],
+  );
+
+  // Recoveries and CLI remote URLs open after first paint; a clone can take
+  // a while. One chain, so a CLI URL for the same remote waits for its
+  // recovery instead of colliding with it.
+  const startedLaunchRemotes = useRef(false);
+  useEffect(() => {
+    if (startedLaunchRemotes.current) return;
+    if (launchRecoveries.length === 0 && cliRemoteUrls.length === 0) return;
+    startedLaunchRemotes.current = true;
+    const steps = [
+      ...launchRecoveries.map((entry) => () => recoverRemote(entry)),
+      // In argument order, so the last URL ends up active.
+      ...cliRemoteUrls.map((url) => () => openRemote(url)),
+    ];
+    void steps.reduce<Promise<void>>(
+      (prev, step) => prev.then(step),
+      Promise.resolve(),
+    );
+  }, [cliRemoteUrls, launchRecoveries, openRemote, recoverRemote]);
 
   const closeWorkspace = useCallback(async (workspaceId: string) => {
     const keys = stateRef.current.groups[workspaceId]?.comparisonKeys ?? [];
@@ -456,7 +824,7 @@ export function useRepoSessionState(
             type: "branches",
             workspaceId: row.repoPath,
             branches: opened.branches,
-            settings,
+            settings: settingsRef.current,
           });
         } catch (e) {
           console.error("activateComparison open failed:", e);
@@ -464,7 +832,7 @@ export function useRepoSessionState(
         void ensureLoaded(key);
       })();
     },
-    [ensureLoaded, settings],
+    [ensureLoaded],
   );
 
   const spawnComparison = useCallback(
@@ -513,12 +881,12 @@ export function useRepoSessionState(
         type: "branches",
         workspaceId: active.repoPath,
         branches,
-        settings,
+        settings: settingsRef.current,
       });
     } catch (e) {
       console.error("loadBranches failed:", e);
     }
-  }, [settings]);
+  }, []);
 
   const loadBranchMetadata = useCallback(async () => {
     const active = activeRowFromState(stateRef.current);
@@ -651,6 +1019,10 @@ export function useRepoSessionState(
     refreshOverview,
     refreshOverviewMeta,
     openRepo,
+    openRemote,
+    remoteOpens,
+    recoveryPaths,
+    dismissRemoteOpen,
     closeRepo,
     closeWorkspace,
     closeComparison,

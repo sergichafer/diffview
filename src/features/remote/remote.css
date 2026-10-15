@@ -1,0 +1,134 @@
+.remote-form {
+  display: grid;
+  gap: 6px;
+}
+
+.remote-form-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-size);
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  background-color: var(--control-fill);
+  transition: border-color 160ms ease;
+}
+
+.remote-form-field:focus-within {
+  border-color: var(--border-focus);
+}
+
+.remote-form-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--fg-base);
+  font: inherit;
+  font-size: 13px;
+}
+
+.remote-form-field input::placeholder {
+  color: var(--fg-muted);
+}
+
+.remote-form-field input[aria-invalid="true"] {
+  color: var(--state-danger);
+}
+
+.remote-form-submit {
+  flex-shrink: 0;
+  height: calc(var(--control-size) - 8px);
+  padding: 0 10px;
+  border: none;
+  border-radius: calc(var(--control-radius) - 2px);
+  background: var(--control-fill-press);
+  color: var(--fg-accent-bright);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.remote-form-submit:not(:disabled):hover {
+  background: color-mix(in srgb, var(--fg-base) 14%, var(--bg-elevated));
+}
+
+.remote-form-submit:disabled {
+  color: var(--fg-muted);
+  cursor: default;
+}
+
+.remote-form-submit:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.remote-form-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--state-danger);
+}
+
+.remote-opens {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.remote-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 4px 6px 10px;
+  border-radius: 10px;
+}
+
+.remote-open-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.remote-open-name,
+.remote-open-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-open-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-base);
+}
+
+.remote-open-status {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.remote-open.is-error .remote-open-status {
+  color: var(--state-danger);
+  white-space: normal;
+}
+
+/* Welcome screen placement */
+.welcome-remote {
+  display: grid;
+  gap: 10px;
+  max-width: 28rem;
+  margin-top: 14px;
+}
+
+/* Workspaces footer placement */
+.workspaces-remote {
+  display: grid;
+  gap: 6px;
+  padding: 4px 0 2px;
+}

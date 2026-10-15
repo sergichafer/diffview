@@ -9,6 +9,7 @@ interface RepoSessionProviderProps {
   opened?: OpenRepoResult | null;
   openedWorkspaces?: OpenRepoResult[];
   cliOpenedPaths?: string[];
+  cliRemoteUrls?: string[];
   children: ReactNode;
 }
 
@@ -18,6 +19,7 @@ export function RepoSessionProvider({
   opened = null,
   openedWorkspaces = [],
   cliOpenedPaths = [],
+  cliRemoteUrls = [],
   children,
 }: RepoSessionProviderProps) {
   const session = useRepoSessionState(
@@ -26,6 +28,7 @@ export function RepoSessionProvider({
     opened,
     openedWorkspaces,
     cliOpenedPaths,
+    cliRemoteUrls,
   );
   return (
     <RepoSessionContext.Provider value={session}>

@@ -16,7 +16,11 @@ export interface DiffHeaderActionsProps {
   /** Live working tree; ref-to-ref stays read-only. */
   editAllowed: boolean;
   editing: boolean;
-  onPreview: (path: string) => void;
+  /**
+   * Null when the workspace has no working tree (a remote clone). Hides
+   * Preview and Open file, which both read from disk.
+   */
+  onPreview: ((path: string) => void) | null;
   onViewedChange: (path: string, viewed: boolean) => void;
   onToggleDiffCollapsed: (path: string) => void;
   onStartEdit?: (path: string) => void;
@@ -39,6 +43,35 @@ function saveLabel(state: FileSaveState | undefined): string | null {
   return null;
 }
 
+function WorkingTreeActions({
+  repoPath,
+  path,
+  onPreview,
+}: {
+  repoPath: string;
+  path: string;
+  onPreview: (path: string) => void;
+}) {
+  return (
+    <>
+      {isPreviewable(path) ? (
+        <IconButton name="preview" size="sm" onClick={() => onPreview(path)} />
+      ) : (
+        <span className="diff-header-actions-slot" aria-hidden="true" />
+      )}
+      <IconButton
+        name="open"
+        size="sm"
+        onClick={() => {
+          void openPath(resolveWorkingRepoPath(repoPath, path)).catch((err) =>
+            console.error("Open failed:", err),
+          );
+        }}
+      />
+    </>
+  );
+}
+
 export function DiffHeaderActions({
   repoPath,
   path,
@@ -56,7 +89,7 @@ export function DiffHeaderActions({
   onDiscardEdit,
   onRetrySave,
 }: DiffHeaderActionsProps) {
-  const previewable = isPreviewable(path);
+
   const label = saveLabel(saveState);
   const isError = saveState?.status === "error";
   const canEdit = editable && editAllowed;
@@ -118,20 +151,9 @@ export function DiffHeaderActions({
           title={diffCollapsed ? "Expand diff" : "Collapse diff"}
           onClick={() => onToggleDiffCollapsed(path)}
         />
-        {previewable ? (
-          <IconButton name="preview" size="sm" onClick={() => onPreview(path)} />
-        ) : (
-          <span className="diff-header-actions-slot" aria-hidden="true" />
-        )}
-        <IconButton
-          name="open"
-          size="sm"
-          onClick={() => {
-            void openPath(resolveWorkingRepoPath(repoPath, path)).catch((err) =>
-              console.error("Open failed:", err),
-            );
-          }}
-        />
+        {onPreview ? (
+          <WorkingTreeActions repoPath={repoPath} path={path} onPreview={onPreview} />
+        ) : null}
       </div>
       <ViewedToggle
         path={path}

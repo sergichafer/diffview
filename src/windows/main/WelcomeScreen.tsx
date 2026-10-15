@@ -2,6 +2,9 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { IconButton } from "@/design/IconButton";
 import type { AppSettings } from "@/shared/types/app";
 import { useRepoSession } from "@/features/repo-session/context";
+import { RemoteOpenForm } from "@/features/remote/RemoteOpenForm";
+import { RemoteOpensList } from "@/features/remote/RemoteOpensList";
+import { isRemoteUrl, remoteLabel } from "@/features/remote/remoteUrl";
 
 interface WelcomeScreenProps {
   settings: AppSettings;
@@ -11,11 +14,12 @@ interface WelcomeScreenProps {
 }
 
 function folderName(path: string): string {
+  if (isRemoteUrl(path)) return remoteLabel(path);
   return path.split(/[/\\]/).pop() || path;
 }
 
 function folderInitial(path: string): string {
-  const name = folderName(path).trim();
+  const name = (folderName(path).split("/").pop() ?? "").trim();
   return (name[0] ?? "?").toUpperCase();
 }
 
@@ -25,7 +29,8 @@ export function WelcomeScreen({
   onOpenSettings,
   openError = null,
 }: WelcomeScreenProps) {
-  const { openRepo } = useRepoSession();
+  const { openRepo, openRemote, remoteOpens, dismissRemoteOpen } =
+    useRepoSession();
   const hasRecents = settings.recentRepos.length > 0;
 
   async function pickFolder() {
@@ -62,6 +67,10 @@ export function WelcomeScreen({
           >
             {hasRecents ? "Open another folder…" : "Open repository…"}
           </button>
+          <div className="welcome-remote">
+            <RemoteOpenForm onOpen={(url) => void openRemote(url)} />
+            <RemoteOpensList opens={remoteOpens} onDismiss={dismissRemoteOpen} />
+          </div>
           {hasRecents && (
             <ul className="welcome-recents">
               {settings.recentRepos.map((path) => (

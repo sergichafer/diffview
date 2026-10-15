@@ -45,7 +45,7 @@ export function WorkspaceGroupBlock({
         role="treeitem"
         aria-expanded={!group.collapsed}
         tabIndex={columnCollapsed ? -1 : focusKey === workspaceId ? 0 : -1}
-        title={group.repo.path}
+        title={group.repo.remoteUrl ?? group.repo.path}
         data-ws-key={workspaceId}
         data-press=""
         onClick={onToggleCollapsed}

@@ -1,5 +1,6 @@
 use git2::Repository;
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use super::comparison::ResolutionCache;
@@ -20,6 +21,13 @@ impl RepoRegistry {
         Self {
             repos: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// True when the repository at `dir` is open. Keys are libgit2 paths with
+    /// a trailing slash, which `Path` equality ignores.
+    pub fn is_open(&self, dir: &Path) -> bool {
+        let repos = self.repos.lock().unwrap_or_else(|e| e.into_inner());
+        repos.keys().any(|key| Path::new(key) == dir)
     }
 }
 
@@ -81,7 +89,7 @@ pub fn close(state: &RepoRegistry, repo_path: &str) -> Result<(), String> {
 mod tests {
     use super::*;
     use std::fs;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     struct TestRepo {
         path: PathBuf,
