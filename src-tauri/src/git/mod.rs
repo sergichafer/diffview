@@ -1,3 +1,4 @@
+mod attributes;
 mod comparison;
 mod diff;
 mod history;

@@ -22,6 +22,7 @@ import { useDiffItemHeader } from "./DiffItemHeader";
 interface BranchDiffPanelProps {
   codeViewRef: RefObject<CodeViewHandle<CommentMeta> | null>;
   displayItems: CodeViewDiffItem<CommentMeta>[];
+  attributeCollapsedPaths: ReadonlySet<string>;
   itemCount: number;
   setPanelRef: (node: HTMLElement | null) => void;
   onScroll: (
@@ -45,6 +46,7 @@ interface BranchDiffPanelProps {
 export function BranchDiffPanel({
   codeViewRef,
   displayItems,
+  attributeCollapsedPaths,
   itemCount,
   setPanelRef,
   onScroll,
@@ -130,6 +132,7 @@ export function BranchDiffPanel({
     repoPath: repo?.path ?? "",
     viewedPaths,
     expandedWhileViewed,
+    attributeCollapsedPaths,
     editablePaths,
     editingPaths,
     editAllowed,

@@ -1,5 +1,6 @@
 import type { DiffLineAnnotation } from "@pierre/diffs";
 import type { CodeViewDiffItem } from "@pierre/diffs/react";
+import { normalizeChangedFilePath } from "@/features/changed-files/identity";
 import type { CommentMeta } from "@/features/line-comments/commentMeta";
 
 /**
@@ -16,29 +17,42 @@ export function itemViewVersion(
 }
 
 /**
- * Collapse is the viewed default, flipped by `expandedWhileViewed`:
- * viewed files start collapsed; unviewed files start expanded. Membership
- * in the set inverts that so expand/collapse works without marking viewed.
+ * A file starts collapsed when it is viewed or `.gitattributes` folds it
+ * (`attributeCollapsedPaths`). Membership in `expandedWhileViewed` inverts
+ * that so expand/collapse works without marking viewed.
  *
- * Version 0 = default expanded. Version 1 = collapsed. Version 2 = viewed
- * and expanded (`collapsed: false` so a prior collapse unfolds).
- * Unviewed expand also uses version 0 with `collapsed: false`.
+ * Version 0 = default expanded. Version 1 = collapsed. Version 2 = folded by
+ * default and expanded (`collapsed: false` so a prior collapse unfolds).
+ * Unfolded expand also uses version 0 with `collapsed: false`.
  */
 export function collapseItemVersion(
   path: string,
   viewedPaths: ReadonlySet<string>,
   expandedWhileViewed: ReadonlySet<string>,
+  attributeCollapsedPaths: ReadonlySet<string>,
 ): number {
-  const viewed = viewedPaths.has(path);
+  const folded = viewedPaths.has(path) || attributeCollapsedPaths.has(path);
   const flipped = expandedWhileViewed.has(path);
-  if (!viewed && !flipped) return 0;
-  if (viewed && flipped) return 2;
+  if (!folded && !flipped) return 0;
+  if (folded && flipped) return 2;
   return 1;
+}
+
+/** Item ids whose `.gitattributes` fold them by default. */
+export function attributeCollapsedIds(
+  files: readonly { path: string; collapsed: boolean }[],
+): Set<string> {
+  const ids = new Set<string>();
+  for (const file of files) {
+    if (file.collapsed) ids.add(normalizeChangedFilePath(file.path));
+  }
+  return ids;
 }
 
 export type DisplayItemView = {
   viewedPaths: ReadonlySet<string>;
   expandedWhileViewed: ReadonlySet<string>;
+  attributeCollapsedPaths: ReadonlySet<string>;
   editablePaths: ReadonlySet<string>;
   editEnabledPaths: ReadonlySet<string>;
   annotationsById: Readonly<Record<string, DiffLineAnnotation<CommentMeta>[]>>;
@@ -59,6 +73,7 @@ export function applyDisplayItems(
       item.id,
       view.viewedPaths,
       view.expandedWhileViewed,
+      view.attributeCollapsedPaths,
     );
     const editing =
       view.editablePaths.has(item.id) && view.editEnabledPaths.has(item.id);

@@ -2,12 +2,14 @@ import type { CodeViewItem } from "@pierre/diffs/react";
 import { useCallback, useSyncExternalStore } from "react";
 import type { FileSaveState } from "@/features/diff-edit/saveStatus";
 import { DiffHeaderActions } from "./DiffHeaderActions";
+import { collapseItemVersion } from "./displayItems";
 
 interface DiffItemHeaderProps<T = undefined> {
   repoPath: string;
   item: CodeViewItem<T>;
   viewedPaths: ReadonlySet<string>;
   expandedWhileViewed: ReadonlySet<string>;
+  attributeCollapsedPaths: ReadonlySet<string>;
   editablePaths: ReadonlySet<string>;
   editingPaths: ReadonlySet<string>;
   editAllowed: boolean;
@@ -92,6 +94,7 @@ export function useDiffItemHeader<T = undefined>({
   repoPath,
   viewedPaths,
   expandedWhileViewed,
+  attributeCollapsedPaths,
   editablePaths,
   editingPaths,
   editAllowed,
@@ -109,8 +112,13 @@ export function useDiffItemHeader<T = undefined>({
     (item: CodeViewItem<T>) => {
       if (item.type !== "diff") return null;
       const viewed = viewedPaths.has(item.id);
-      const flipped = expandedWhileViewed.has(item.id);
-      const diffCollapsed = viewed ? !flipped : flipped;
+      const diffCollapsed =
+        collapseItemVersion(
+          item.id,
+          viewedPaths,
+          expandedWhileViewed,
+          attributeCollapsedPaths,
+        ) === 1;
       return (
         <DiffHeaderActionsSubscribed
           repoPath={repoPath}
@@ -143,6 +151,7 @@ export function useDiffItemHeader<T = undefined>({
       onRetrySave,
       viewedPaths,
       expandedWhileViewed,
+      attributeCollapsedPaths,
       editablePaths,
       editingPaths,
       editAllowed,

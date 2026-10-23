@@ -3,9 +3,9 @@ import type { ComparisonKey } from "@/features/branch-compare/comparisonKey";
 export type DiffReviewState = {
   viewedPaths: Set<string>;
   /**
-   * Flips collapse off the viewed default (viewed → collapsed, unviewed →
-   * expanded). Listed viewed files stay expanded; listed unviewed files are
-   * collapsed.
+   * Flips collapse off the default (viewed or `.gitattributes`-folded →
+   * collapsed, otherwise expanded). Listed folded files stay expanded; listed
+   * unfolded files are collapsed.
    */
   expandedWhileViewed: Set<string>;
 };

@@ -9,6 +9,7 @@ Built with **Tauri 2**, **React**, **libgit2**, [@pierre/trees](https://trees.so
 - Full branch overview from merge-base → working tree
 - History lane on the graph: scrub commits, then open the range through that commit or that commit alone
 - Per-file badges: `committed`, `staged`, `unstaged`, `untracked` (respects `.gitignore`)
+- Files that `.gitattributes` marks `linguist-generated`, `-diff`, or `binary` start collapsed, read from the compared head (nested `.gitattributes` files included)
 - File tree ([@pierre/trees](https://trees.software)) + syntax-highlighted diffs ([@pierre/diffs](https://diffs.com))
 - In-pane edit on live comparisons: **Edit** in the file header, then **Save** (working tree) or **Discard**. Typing does not write until Save.
 - Line comments on the diff, exported as a review prompt on the clipboard
