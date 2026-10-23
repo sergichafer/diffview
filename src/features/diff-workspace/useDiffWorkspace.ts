@@ -20,7 +20,7 @@ import {
 import type { ChangedFile, FileDiffResult } from "@/shared/types/app";
 import { resolveActiveDiffPathFromScroll } from "./activePath";
 import { appendCodeViewItems, buildCodeViewItems } from "./buildItems";
-import { applyDisplayItems } from "./displayItems";
+import { applyDisplayItems, attributeCollapsedIds } from "./displayItems";
 import {
   armRestore,
   cancelRestore as cancelRestoreState,
@@ -191,6 +191,8 @@ export interface DiffWorkspaceInputs {
 
 export interface DiffWorkspacePanelBindings {
   displayItems: CodeViewDiffItem<CommentMeta>[];
+  /** Item ids that `.gitattributes` collapses by default. */
+  attributeCollapsedPaths: ReadonlySet<string>;
   /** Pre-collapse build count (`codeViewItems.length`). */
   itemCount: number;
   setPanelRef: (node: HTMLElement | null) => void;
@@ -348,11 +350,17 @@ export function useDiffWorkspace({
     setEditEnabledPaths((prev) => removePath(prev, id));
   }, []);
 
+  const attributeCollapsedPaths = useMemo(
+    () => attributeCollapsedIds(files),
+    [files],
+  );
+
   const displayItems = useMemo(
     () =>
       applyDisplayItems(items, {
         viewedPaths,
         expandedWhileViewed,
+        attributeCollapsedPaths,
         editablePaths,
         editEnabledPaths,
         annotationsById: itemAnnotations,
@@ -362,6 +370,7 @@ export function useDiffWorkspace({
       items,
       viewedPaths,
       expandedWhileViewed,
+      attributeCollapsedPaths,
       editablePaths,
       editEnabledPaths,
       itemAnnotations,
@@ -572,6 +581,7 @@ export function useDiffWorkspace({
 
   return {
     displayItems,
+    attributeCollapsedPaths,
     itemCount: items.length,
     setPanelRef,
     handleScroll,

@@ -1,6 +1,7 @@
 use git2::{Diff, DiffDelta, DiffOptions, Repository, StatusOptions};
 use std::collections::{HashMap, HashSet};
 
+use super::attributes::mark_collapsed;
 use super::comparison::ResolvedComparison;
 use super::repo::current_branch_name;
 use super::types::{BranchOverview, ChangedFile, FileBadge};
@@ -58,6 +59,7 @@ pub(crate) fn build_branch_overview(
         }
     }
     files.sort_by(|a, b| a.path.cmp(&b.path));
+    mark_collapsed(repo, comparison, &mut files);
 
     Ok(BranchOverview {
         repo_path,
@@ -151,6 +153,7 @@ fn insert_file(
         path,
         badges: Vec::new(),
         is_binary: false,
+        collapsed: false,
     });
     if let Some(badge) = badge {
         push_badge(&mut record.badges, badge);

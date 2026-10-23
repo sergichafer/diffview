@@ -38,6 +38,8 @@ pub struct ChangedFile {
     pub path: String,
     pub badges: Vec<FileBadge>,
     pub is_binary: bool,
+    /// `.gitattributes` marks it `linguist-generated`, `-diff`, or `binary`.
+    pub collapsed: bool,
 }
 
 #[typeshare]

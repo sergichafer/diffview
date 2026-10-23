@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyDisplayItems,
+  attributeCollapsedIds,
   collapseItemVersion,
   itemViewVersion,
   type DisplayItemView,
@@ -22,6 +23,7 @@ function view(extra: Partial<DisplayItemView> = {}): DisplayItemView {
   return {
     viewedPaths: new Set(),
     expandedWhileViewed: new Set(),
+    attributeCollapsedPaths: new Set(),
     editablePaths: new Set(),
     editEnabledPaths: new Set(),
     annotationsById: {},
@@ -43,20 +45,40 @@ const annotation = {
   },
 };
 
+const none = new Set<string>();
+
 describe("collapseItemVersion", () => {
   test("collapses viewed paths unless expanded", () => {
     const viewed = new Set(["a.ts"]);
     const expanded = new Set<string>();
-    expect(collapseItemVersion("a.ts", viewed, expanded)).toBe(1);
-    expect(collapseItemVersion("b.ts", viewed, expanded)).toBe(0);
-    expect(collapseItemVersion("a.ts", viewed, new Set(["a.ts"]))).toBe(2);
+    expect(collapseItemVersion("a.ts", viewed, expanded, none)).toBe(1);
+    expect(collapseItemVersion("b.ts", viewed, expanded, none)).toBe(0);
+    expect(collapseItemVersion("a.ts", viewed, new Set(["a.ts"]), none)).toBe(2);
   });
 
   test("collapses unviewed paths that were manually collapsed", () => {
     const viewed = new Set<string>();
     const flipped = new Set(["a.ts"]);
-    expect(collapseItemVersion("a.ts", viewed, flipped)).toBe(1);
-    expect(collapseItemVersion("b.ts", viewed, flipped)).toBe(0);
+    expect(collapseItemVersion("a.ts", viewed, flipped, none)).toBe(1);
+    expect(collapseItemVersion("b.ts", viewed, flipped, none)).toBe(0);
+  });
+
+  test("collapses attribute-folded paths until expanded", () => {
+    const folded = new Set(["gen/api.ts"]);
+    expect(collapseItemVersion("gen/api.ts", none, none, folded)).toBe(1);
+    expect(collapseItemVersion("gen/api.ts", none, new Set(["gen/api.ts"]), folded)).toBe(2);
+    expect(collapseItemVersion("gen/api.ts", new Set(["gen/api.ts"]), none, folded)).toBe(1);
+    expect(collapseItemVersion("src/a.ts", none, none, folded)).toBe(0);
+  });
+});
+
+describe("attributeCollapsedIds", () => {
+  test("keeps collapsed files under their item id", () => {
+    const ids = attributeCollapsedIds([
+      { path: "./Cargo.lock", collapsed: true },
+      { path: "src/main.rs", collapsed: false },
+    ]);
+    expect([...ids]).toEqual(["Cargo.lock"]);
   });
 });
 
@@ -88,6 +110,29 @@ describe("applyDisplayItems", () => {
     expect(result[0]?.version).toBe(itemViewVersion(1, false));
     expect(result[1]?.collapsed).toBe(false);
     expect(result[1]?.version).toBe(itemViewVersion(0, false));
+  });
+
+  test("collapses attribute-folded paths and unfolds them on expand", () => {
+    const folded = new Set(["Cargo.lock"]);
+    const items = [diffItem("Cargo.lock"), diffItem("src/main.rs")];
+    const initial = applyDisplayItems(
+      items,
+      view({ attributeCollapsedPaths: folded }),
+    );
+    expect(initial[0]?.collapsed).toBe(true);
+    expect(initial[0]?.version).toBe(itemViewVersion(1, false));
+    expect(initial[1]?.collapsed).toBe(false);
+
+    const expanded = applyDisplayItems(
+      initial,
+      view({
+        attributeCollapsedPaths: folded,
+        expandedWhileViewed: new Set(["Cargo.lock"]),
+      }),
+    );
+    expect(expanded[0]?.collapsed).toBe(false);
+    expect(expanded[0]?.version).toBe(itemViewVersion(2, false));
+    expect(expanded[1]).toBe(initial[1]);
   });
 
   test("preserves identity when presentation already matches", () => {

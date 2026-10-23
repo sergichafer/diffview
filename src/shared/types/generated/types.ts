@@ -90,6 +90,8 @@ export interface ChangedFile {
 	path: string;
 	badges: FileBadge[];
 	isBinary: boolean;
+	/** `.gitattributes` marks it `linguist-generated`, `-diff`, or `binary`. */
+	collapsed: boolean;
 }
 
 export interface BranchOverview {

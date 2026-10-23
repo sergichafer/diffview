@@ -182,6 +182,7 @@ export function BranchWorkspace({
                   <BranchDiffPanel
                     codeViewRef={codeViewRef}
                     displayItems={workspace.displayItems}
+                    attributeCollapsedPaths={workspace.attributeCollapsedPaths}
                     itemCount={workspace.itemCount}
                     setPanelRef={workspace.setPanelRef}
                     onScroll={workspace.handleScroll}
