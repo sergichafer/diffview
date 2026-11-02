@@ -75,6 +75,10 @@ pub struct FileDiffResult {
     pub patch: String,
     pub is_binary: bool,
     pub old_path: Option<String>,
+    /// Added lines in `patch`, counted by libgit2. Zero for binary and placeholder patches.
+    pub additions: u32,
+    /// Removed lines in `patch`, counted by libgit2. Zero for binary and placeholder patches.
+    pub deletions: u32,
 }
 
 /// Full text for edit hydration / expand context.
@@ -86,6 +90,10 @@ pub struct ComparisonFileContents {
     pub old: Option<String>,
     /// Live: working-tree text; committed: head-tree blob (null if deleted).
     pub new: Option<String>,
+    /// Git blob id of `old`. Changes whenever the old text changes.
+    pub old_oid: Option<String>,
+    /// Git blob id of `new`, hashed from disk when live.
+    pub new_oid: Option<String>,
 }
 
 /// Compare-palette row vs the applied base. ahead/behind from `graph_ahead_behind`.

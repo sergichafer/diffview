@@ -4,6 +4,7 @@ import {
   buildCodeViewItems,
   clearItemCacheForTests,
   diffCacheKey,
+  pathRanks,
 } from "./buildItems";
 import type { ChangedFile, FileDiffResult } from "@/shared/types/app";
 
@@ -21,7 +22,7 @@ function file(path: string): ChangedFile {
 }
 
 function diff(path: string, patch = samplePatch): FileDiffResult {
-  return { path, patch, isBinary: false, oldPath: null };
+  return { path, patch, isBinary: false, oldPath: null, additions: 0, deletions: 0 };
 }
 
 describe("buildCodeViewItems", () => {
@@ -44,6 +45,8 @@ describe("buildCodeViewItems", () => {
           "diff --git a/logo.png b/logo.png\nBinary files a/logo.png and b/logo.png differ\n",
         isBinary: true,
         oldPath: null,
+        additions: 0,
+        deletions: 0,
       } satisfies FileDiffResult,
     ];
     const { items, editablePaths } = buildCodeViewItems(results, files);
@@ -100,7 +103,7 @@ describe("buildCodeViewItems", () => {
       firstBatch.items,
       firstBatch.editablePaths,
       [diff("baz.ts")],
-      files,
+      pathRanks(files),
     );
     expect(added).toHaveLength(1);
     expect(added[0]?.id).toBe("baz.ts");
@@ -116,6 +119,58 @@ describe("buildCodeViewItems", () => {
     expect(editablePaths.has("foo.ts")).toBe(true);
   });
 
+  test("appending batches in any order matches one full build", () => {
+    const paths = [
+      "src/b.ts",
+      "src/a/x.ts",
+      ".github/ci.yml",
+      "README.md",
+      "src/a10.ts",
+      "src/a2.ts",
+      "lib",
+      "lib/inner.ts",
+      "z.ts",
+    ];
+    const files = paths.map(file);
+    const results = paths.map((path) => diff(path));
+    clearItemCacheForTests();
+    const full = buildCodeViewItems(results, files);
+    const ranks = pathRanks(files);
+
+    for (const order of [
+      [0, 1, 2, 3, 4, 5, 6, 7, 8],
+      [8, 7, 6, 5, 4, 3, 2, 1, 0],
+      [4, 0, 8, 2, 6, 1, 7, 3, 5],
+    ]) {
+      clearItemCacheForTests();
+      let items = buildCodeViewItems([results[order[0]!]!], files).items;
+      let editable = new Set(items.map((item) => item.id));
+      for (let i = 1; i < order.length; i += 2) {
+        const batch = order.slice(i, i + 2).map((index) => results[index]!);
+        const next = appendCodeViewItems(items, editable, batch, ranks);
+        items = next.items;
+        editable = next.editablePaths;
+      }
+      expect(items.map((item) => item.id)).toEqual(full.items.map((item) => item.id));
+      expect([...editable].sort()).toEqual([...full.editablePaths].sort());
+    }
+  });
+
+  test("appendCodeViewItems skips paths already present or outside the file list", () => {
+    clearItemCacheForTests();
+    const files = [file("a.ts"), file("b.ts")];
+    const first = buildCodeViewItems([diff("a.ts")], files);
+    const { items, added } = appendCodeViewItems(
+      first.items,
+      first.editablePaths,
+      [diff("a.ts"), diff("b.ts"), diff("b.ts"), diff("stray.ts")],
+      pathRanks(files),
+    );
+    expect(items.map((item) => item.id)).toEqual(["a.ts", "b.ts"]);
+    expect(items[0]).toBe(first.items[0]);
+    expect(added.map((item) => item.id)).toEqual(["b.ts"]);
+  });
+
   test("binary files get a standard binary diff item", () => {
     clearItemCacheForTests();
     const files = [file("assets/logo.png")];
@@ -125,6 +180,8 @@ describe("buildCodeViewItems", () => {
         patch: "diff --git a/assets/logo.png b/assets/logo.png\nBinary files a/assets/logo.png and b/assets/logo.png differ\n",
         isBinary: true,
         oldPath: null,
+        additions: 0,
+        deletions: 0,
       } satisfies FileDiffResult,
     ];
     const { items, editablePaths } = buildCodeViewItems(results, files);

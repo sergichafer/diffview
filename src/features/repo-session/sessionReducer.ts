@@ -225,13 +225,15 @@ export function sessionReducer(
       const row = state.comparisons[action.key];
       if (!row) return state;
       const fileDiffs = mergeFileDiffs(row.fileDiffs, action.fileDiffs);
+      const files =
+        row.overview == null
+          ? null
+          : enrichInventory(row.overview.files, action.fileDiffs);
+      // Same overview object unless a binary flag moved, so memos on it hold.
       const overview =
-        row.overview == null || action.fileDiffs.length === 0
+        row.overview == null || files === row.overview.files
           ? row.overview
-          : {
-              ...row.overview,
-              files: enrichInventory(row.overview.files, action.fileDiffs),
-            };
+          : { ...row.overview, files: files! };
       return updateComparisonRow(state, action.key, {
         fileDiffs,
         overview,

@@ -21,3 +21,20 @@ describe("treePaths", () => {
     expect(treePaths(input)).toEqual(input);
   });
 });
+
+describe("treePaths directory detection", () => {
+  test("drops a file shadowed by a deeper descendant", () => {
+    expect(treePaths(["a1", "a1/x/y/z.ts", "a1x.ts"])).toEqual([
+      "a1/x/y/z.ts",
+      "a1x.ts",
+    ]);
+  });
+
+  test("a sibling sharing a name prefix is not a child", () => {
+    expect(treePaths(["lib", "library/a.ts"])).toEqual(["lib", "library/a.ts"]);
+  });
+
+  test("keeps duplicate entries of a leaf", () => {
+    expect(treePaths(["x.ts", "x.ts"])).toEqual(["x.ts", "x.ts"]);
+  });
+});

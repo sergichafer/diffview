@@ -9,7 +9,7 @@ export interface AppliedStat {
 /**
  * Diffstat for the *applied* comparison, from patches already loaded for the
  * overview. No hypothetical per-pair stats; only what the backend produced
- * for the current head/base.
+ * for the current head/base. Line counts come from libgit2 per file.
  */
 export function computeAppliedStat(
   fileCount: number,
@@ -19,11 +19,8 @@ export function computeAppliedStat(
   let deletions = 0;
 
   for (const diff of fileDiffs) {
-    if (diff.isBinary) continue;
-    for (const line of diff.patch.split("\n")) {
-      if (line.startsWith("+") && !line.startsWith("+++")) additions += 1;
-      else if (line.startsWith("-") && !line.startsWith("---")) deletions += 1;
-    }
+    additions += diff.additions;
+    deletions += diff.deletions;
   }
 
   return { files: fileCount, additions, deletions };

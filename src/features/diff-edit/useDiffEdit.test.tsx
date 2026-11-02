@@ -501,7 +501,7 @@ describe("useDiffEdit", () => {
     h.unmount();
   });
 
-  test("loadDiffFiles cache hit skips IPC and returns fresh identities", async () => {
+  test("remount re-reads sides without a hydrating flash", async () => {
     const h = mountHook({});
     const item = changeItem("a.ts");
     let first: Awaited<ReturnType<HookApi["loadDiffFiles"]>>;
@@ -511,17 +511,60 @@ describe("useDiffEdit", () => {
     expect(readComparisonFile).toHaveBeenCalledTimes(1);
     expect(statusOf(h.get(), "a.ts")?.status).toBeUndefined();
 
-    readComparisonFile.mockClear();
+    let second!: Promise<Awaited<ReturnType<HookApi["loadDiffFiles"]>>>;
+    act(() => {
+      second = h.get().loadDiffFiles(item.fileDiff);
+    });
+    // Already save-ready: the re-read must not flip the header to hydrating.
+    expect(statusOf(h.get(), "a.ts")?.status).toBeUndefined();
+    let sides: Awaited<ReturnType<HookApi["loadDiffFiles"]>>;
+    await act(async () => {
+      sides = await second;
+    });
+    expect(readComparisonFile).toHaveBeenCalledTimes(2);
+    expect(statusOf(h.get(), "a.ts")?.status).toBeUndefined();
+    expect(sides!.newFile.contents).toBe(first!.newFile.contents);
+    expect(sides!.newFile).not.toBe(first!.newFile);
+    h.unmount();
+  });
+
+  test("side cache keys follow blob ids so changed text is never served stale", async () => {
+    readComparisonFile.mockImplementation(() =>
+      Promise.resolve({ old: "old\n", new: "one\n", oldOid: "o1", newOid: "n1" }),
+    );
+    const h = mountHook({});
+    const item = changeItem("a.ts");
+    let first: Awaited<ReturnType<HookApi["loadDiffFiles"]>>;
+    await act(async () => {
+      first = await h.get().loadDiffFiles(item.fileDiff);
+    });
+
+    readComparisonFile.mockImplementation(() =>
+      Promise.resolve({ old: "old\n", new: "two\n", oldOid: "o1", newOid: "n2" }),
+    );
     let second: Awaited<ReturnType<HookApi["loadDiffFiles"]>>;
     await act(async () => {
       second = await h.get().loadDiffFiles(item.fileDiff);
     });
-    expect(readComparisonFile).not.toHaveBeenCalled();
-    // No hydrating flash on remount; markSaveReady leaves status clean/absent.
-    expect(statusOf(h.get(), "a.ts")?.status).toBeUndefined();
-    expect(second!.newFile.contents).toBe(first!.newFile.contents);
-    expect(second!.newFile).not.toBe(first!.newFile);
-    expect(second!.oldFile).not.toBe(first!.oldFile);
+
+    expect(second!.newFile.contents).toBe("two\n");
+    expect(second!.newFile.cacheKey).not.toBe(first!.newFile.cacheKey);
+    expect(second!.oldFile?.cacheKey).toBe(first!.oldFile?.cacheKey);
+    h.unmount();
+  });
+
+  test("side cache keys differ for the same blob at two paths", async () => {
+    readComparisonFile.mockImplementation(() =>
+      Promise.resolve({ old: "x\n", new: "x\n", oldOid: "same", newOid: "same" }),
+    );
+    const h = mountHook({});
+    let a: Awaited<ReturnType<HookApi["loadDiffFiles"]>>;
+    let b: Awaited<ReturnType<HookApi["loadDiffFiles"]>>;
+    await act(async () => {
+      a = await h.get().loadDiffFiles(changeItem("a.ts").fileDiff);
+      b = await h.get().loadDiffFiles(changeItem("b.py").fileDiff);
+    });
+    expect(a!.newFile.cacheKey).not.toBe(b!.newFile.cacheKey);
     h.unmount();
   });
 
@@ -538,8 +581,8 @@ describe("useDiffEdit", () => {
     expect(statusOf(h.get(), "a.ts")?.status).toBe("dirty");
     expect(writeWorkingFile).not.toHaveBeenCalled();
 
-    // Pierre re-attaches the editor on scroll-back and re-calls loadDiffFiles
-    // (cache hit). Must not clear pending or re-baseline.
+    // Pierre re-attaches the editor on scroll-back and re-calls loadDiffFiles.
+    // Must not clear pending or re-baseline.
     await act(async () => {
       await h.get().loadDiffFiles(item.fileDiff);
     });
@@ -558,7 +601,136 @@ describe("useDiffEdit", () => {
     h.unmount();
   });
 
-  test("flushSave updates hydration cache for later loadDiffFiles", async () => {
+  test("re-read after an external edit re-baselines so the save is not skipped", async () => {
+    let onDisk = "X\n";
+    readComparisonFile.mockImplementation(() =>
+      Promise.resolve({ old: "old\n", new: onDisk, newOid: onDisk }),
+    );
+    const h = mountHook({});
+    const item = changeItem("a.ts");
+    await act(async () => {
+      await h.get().loadDiffFiles(item.fileDiff);
+    });
+
+    onDisk = "X2\n";
+    await act(async () => {
+      await h.get().loadDiffFiles(item.fileDiff);
+    });
+
+    // The editor shows X2; typing the old text back is a real change on disk.
+    act(() => {
+      h.get().onItemEditChange(item, file("a.ts", "X\n"));
+    });
+    expect(statusOf(h.get(), "a.ts")?.status).toBe("dirty");
+    await act(async () => {
+      await h.get().saveEdit("a.ts");
+    });
+    expect(writeWorkingFile).toHaveBeenCalledTimes(1);
+    expect(writeWorkingFile.mock.calls[0]?.[3]).toBe("X2\n");
+    h.unmount();
+  });
+
+  test("re-read with a pending buffer keeps the old baseline for conflict detection", async () => {
+    let onDisk = "X\n";
+    readComparisonFile.mockImplementation(() =>
+      Promise.resolve({ old: "old\n", new: onDisk, newOid: onDisk }),
+    );
+    const h = mountHook({});
+    const item = changeItem("a.ts");
+    await act(async () => {
+      await h.get().loadDiffFiles(item.fileDiff);
+    });
+    act(() => {
+      h.get().onItemEditChange(item, file("a.ts", "mine\n"));
+    });
+
+    onDisk = "theirs\n";
+    await act(async () => {
+      await h.get().loadDiffFiles(item.fileDiff);
+    });
+    await act(async () => {
+      await h.get().saveEdit("a.ts");
+    });
+    expect(writeWorkingFile.mock.calls[0]?.[2]).toBe("mine\n");
+    expect(writeWorkingFile.mock.calls[0]?.[3]).toBe("X\n");
+    h.unmount();
+  });
+
+  test("a read that resolves after a comparison switch does not baseline the new one", async () => {
+    let resolveRead: ((v: { old: string; new: string }) => void) | undefined;
+    readComparisonFile.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRead = resolve;
+        }),
+    );
+    const h = mountHook({ baseBranch: "main", headBranch: "feature" });
+    const item = changeItem("a.ts");
+    let inFlight!: Promise<unknown>;
+    act(() => {
+      inFlight = h.get().loadDiffFiles(item.fileDiff);
+    });
+
+    h.setArgs({ headBranch: "other" });
+    await act(async () => {
+      resolveRead?.({ old: "old\n", new: "from feature\n" });
+      await inFlight;
+    });
+
+    // Not save-ready in the new comparison: edits wait for a fresh hydration.
+    act(() => {
+      h.get().onItemEditChange(item, file("a.ts", "edit\n"));
+    });
+    expect(statusOf(h.get(), "a.ts")?.status).toBe("hydrating");
+    await act(async () => {
+      await h.get().saveEdit("a.ts");
+    });
+    expect(writeWorkingFile).not.toHaveBeenCalled();
+    h.unmount();
+  });
+
+  test("a new-file seed that resolves after a comparison switch is dropped", async () => {
+    let resolveRead: ((v: { old: null; new: string }) => void) | undefined;
+    readComparisonFile.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRead = resolve;
+        }),
+    );
+    const h = mountHook({ baseBranch: "main", headBranch: "feature" });
+    const item = newItem("fresh.ts");
+    act(() => {
+      h.get().onItemEditChange(item, file("fresh.ts", "typed\n"));
+    });
+    const staleResolve = resolveRead;
+
+    h.setArgs({ headBranch: "other" });
+    await act(async () => {
+      staleResolve?.({ old: null, new: "from feature\n" });
+      await Bun.sleep(0);
+    });
+
+    // The new comparison seeds again on the next edit instead of trusting the stale read.
+    act(() => {
+      h.get().onItemEditChange(item, file("fresh.ts", "typed again\n"));
+    });
+    expect(readComparisonFile).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await h.get().saveEdit("fresh.ts");
+    });
+    expect(writeWorkingFile).not.toHaveBeenCalled();
+    h.unmount();
+  });
+
+  test("remount after a save shows the written text", async () => {
+    let onDisk = "baseline\n";
+    writeWorkingFile.mockImplementation((_r, _p, contents) => {
+      onDisk = contents;
+      return Promise.resolve();
+    });
+    readComparisonFile.mockImplementation(() =>
+      Promise.resolve({ old: "old\n", new: onDisk, newOid: onDisk }),
+    );
     const h = mountHook({});
     const item = changeItem("a.ts");
     await act(async () => {
@@ -570,57 +742,12 @@ describe("useDiffEdit", () => {
     });
     expect(writeWorkingFile).toHaveBeenCalledTimes(1);
 
-    readComparisonFile.mockClear();
     let remount: Awaited<ReturnType<HookApi["loadDiffFiles"]>>;
     await act(async () => {
       remount = await h.get().loadDiffFiles(item.fileDiff);
     });
-    expect(readComparisonFile).not.toHaveBeenCalled();
     expect(remount!.newFile.contents).toBe("saved\n");
-    h.unmount();
-  });
-
-  test("comparison change clears hydration cache", async () => {
-    const h = mountHook({ baseBranch: "main", headBranch: "feature" });
-    const item = changeItem("a.ts");
-    await act(async () => {
-      await h.get().loadDiffFiles(item.fileDiff);
-    });
-    expect(readComparisonFile).toHaveBeenCalledTimes(1);
-
-    h.setArgs({ headBranch: "other" });
-    readComparisonFile.mockClear();
-    await act(async () => {
-      await h.get().loadDiffFiles(item.fileDiff);
-    });
-    expect(readComparisonFile).toHaveBeenCalledTimes(1);
-    h.unmount();
-  });
-
-  test("seedNewFileBaseline populates cache for subsequent loadDiffFiles", async () => {
-    readComparisonFile.mockImplementation(() =>
-      Promise.resolve({ old: null, new: "seeded\n" }),
-    );
-    const h = mountHook({});
-    const item = newItem("fresh.ts");
-
-    await act(async () => {
-      h.get().onItemEditChange(item, file("fresh.ts", "seeded\n"));
-      await Bun.sleep(0);
-      await Promise.resolve();
-      await Bun.sleep(0);
-    });
-    expect(readComparisonFile).toHaveBeenCalledTimes(1);
-
-    // Same comparison key as seed (oldPath null). Cache should satisfy loadDiffFiles.
-    const change = changeItem("fresh.ts");
-    readComparisonFile.mockClear();
-    let sides: Awaited<ReturnType<HookApi["loadDiffFiles"]>>;
-    await act(async () => {
-      sides = await h.get().loadDiffFiles(change.fileDiff);
-    });
-    expect(readComparisonFile).not.toHaveBeenCalled();
-    expect(sides!.newFile.contents).toBe("seeded\n");
+    expect(statusOf(h.get(), "a.ts")?.status).toBeUndefined();
     h.unmount();
   });
 

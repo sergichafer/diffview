@@ -9,7 +9,7 @@
 use git2::{Oid, Repository, Tree};
 use std::collections::HashMap;
 
-use super::diff::{comparison_file_contents, file_diff_for_path};
+use super::diff::{comparison_file_contents, file_diffs_for_paths};
 use super::overview::build_branch_overview;
 use super::repo::{current_branch_name, normalize_base_branch, resolve_commit};
 use super::types::{BranchOverview, ComparisonFileContents, ComparisonStamp, FileDiffResult};
@@ -48,10 +48,7 @@ impl ComparisonSpec {
         cache: &mut ResolutionCache,
     ) -> Result<Vec<FileDiffResult>, String> {
         let resolved = resolve_cached(repo, cache, &spec.base, &spec.head)?;
-        paths
-            .iter()
-            .map(|path| file_diff_for_path(repo, &resolved, path))
-            .collect()
+        file_diffs_for_paths(repo, &resolved, paths)
     }
 
     /// Full text for edit hydration / expand context.

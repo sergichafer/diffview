@@ -59,6 +59,8 @@ const diff = (path: string): FileDiffResult => ({
   patch: patchFor(path),
   isBinary: false,
   oldPath: null,
+  additions: 0,
+  deletions: 0,
 });
 
 interface HarnessProps {

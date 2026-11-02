@@ -1,54 +1,120 @@
-use git2::{Diff, DiffFlags, DiffOptions, ObjectType, Patch, Repository, Tree};
+use git2::{Diff, DiffFlags, DiffOptions, ObjectType, Oid, Patch, Repository, Tree};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use super::comparison::ResolvedComparison;
 use super::types::FileDiffResult;
 
-pub(crate) fn file_diff_for_path(
+/// One libgit2 diff for every path in the batch, then one result per path in
+/// request order. Paths with no delta still get a result through the fallbacks.
+pub(crate) fn file_diffs_for_paths(
     repo: &Repository,
     comparison: &ResolvedComparison<'_>,
-    path: &str,
-) -> Result<FileDiffResult, String> {
-    if comparison.is_live() {
-        file_diff_workdir(repo, comparison.old_tree.as_ref(), path)
-    } else {
-        file_diff_tree_to_tree(
-            repo,
-            comparison.old_tree.as_ref(),
-            comparison.head_tree.as_ref(),
-            path,
-        )
+    paths: &[String],
+) -> Result<Vec<FileDiffResult>, String> {
+    if paths.is_empty() {
+        return Ok(Vec::new());
     }
+    let merge_base_tree = comparison.old_tree.as_ref();
+    let live = comparison.is_live();
+
+    let mut opts = DiffOptions::new();
+    for path in paths {
+        opts.pathspec(path);
+    }
+    opts.disable_pathspec_match(true);
+    if live {
+        opts.include_untracked(true);
+        opts.recurse_untracked_dirs(true);
+        opts.show_untracked_content(true);
+    }
+
+    // Live: merge-base tree → workdir (untracked included). Index is not the
+    // new side; a staged blob restored to the merge-base is not a live change.
+    // No find_similar: pairing would depend on which paths share the batch.
+    // Live `old_path` comes from the merge-base to HEAD rename map below;
+    // committed mode reports none.
+    let diff = if live {
+        repo.diff_tree_to_workdir(merge_base_tree, Some(&mut opts))
+    } else {
+        repo.diff_tree_to_tree(merge_base_tree, comparison.head_tree.as_ref(), Some(&mut opts))
+    }
+    .map_err(|e| e.to_string())?;
+
+    let deltas = deltas_by_path(&diff);
+    // Live mode reports a rename committed between the merge base and HEAD.
+    // The HEAD tree is read once per batch; the rename map only when needed.
+    let head_tree = if live { head_commit_tree(repo) } else { None };
+    let mut committed_renames: Option<HashMap<String, String>> = None;
+
+    paths
+        .iter()
+        .map(|path| {
+            let entry = deltas.get(path.as_str());
+            let indices = entry.map(|e| e.indices.as_slice()).unwrap_or(&[]);
+            let is_binary = entry.is_some_and(|e| e.is_binary);
+            if live {
+                let old_path = match head_tree.as_ref() {
+                    Some(head) if may_be_rename_target(merge_base_tree, head, path) => {
+                        committed_renames
+                            .get_or_insert_with(|| renames_to_head(repo, merge_base_tree, head))
+                            .get(path.as_str())
+                            .cloned()
+                    }
+                    _ => None,
+                };
+                file_diff_workdir(repo, merge_base_tree, &diff, indices, is_binary, old_path, path)
+            } else {
+                file_diff_tree_to_tree(
+                    repo,
+                    merge_base_tree,
+                    comparison.head_tree.as_ref(),
+                    &diff,
+                    indices,
+                    is_binary,
+                    path,
+                )
+            }
+        })
+        .collect()
 }
 
-/// Live: merge-base tree → workdir (untracked included). Index is not the
-/// new side; a staged blob restored to the merge-base is not a live change.
+#[derive(Default)]
+struct PathDeltas {
+    indices: Vec<usize>,
+    is_binary: bool,
+}
+
+/// Delta indices and binary flag per path, in one pass over the diff.
+fn deltas_by_path(diff: &Diff) -> HashMap<String, PathDeltas> {
+    let mut by_path: HashMap<String, PathDeltas> = HashMap::new();
+    let mut index = 0;
+    let _ = diff.foreach(
+        &mut |delta, _| {
+            if let Some(path) = delta_path(&delta) {
+                let entry = by_path.entry(path).or_default();
+                entry.indices.push(index);
+                entry.is_binary |= delta.flags().contains(DiffFlags::BINARY);
+            }
+            index += 1;
+            true
+        },
+        None,
+        None,
+        None,
+    );
+    by_path
+}
+
 fn file_diff_workdir(
     repo: &Repository,
     merge_base_tree: Option<&Tree<'_>>,
+    diff: &Diff,
+    indices: &[usize],
+    mut is_binary: bool,
+    old_path: Option<String>,
     path: &str,
 ) -> Result<FileDiffResult, String> {
-    let mut opts = DiffOptions::new();
-    opts.pathspec(path);
-    opts.disable_pathspec_match(true);
-    opts.include_untracked(true);
-    opts.recurse_untracked_dirs(true);
-    opts.show_untracked_content(true);
-
-    let mut diff = repo
-        .diff_tree_to_workdir(merge_base_tree, Some(&mut opts))
-        .map_err(|e| e.to_string())?;
-
-    let mut find_opts = git2::DiffFindOptions::new();
-    diff.find_similar(Some(&mut find_opts))
-        .map_err(|e| e.to_string())?;
-
-    let mut is_binary = diff_is_binary(&diff);
-    let mut old_path = diff_old_path(&diff, path);
-    if old_path.is_none() {
-        old_path = diff_old_path_from_head(repo, merge_base_tree, path);
-    }
-
     // libgit2 emits `new file mode` / `--- /dev/null` for staged additions and a
     // change-from-empty form for untracked. The renderer collapses the "new" form
     // to one column, so split/unified toggling no-ops on staged new files.
@@ -56,70 +122,86 @@ fn file_diff_workdir(
     let is_new_file = old_path.is_none() && !file_exists_in_tree(merge_base_tree, path);
 
     let mut patch = if is_binary {
-        String::new()
+        RenderedPatch::default()
     } else if is_new_file {
         patch_between_trees(repo, merge_base_tree, None, path)?
     } else {
-        diff_to_patch(&diff)?
+        deltas_to_patch(diff, indices)?
     };
 
-    if patch.trim().is_empty() {
+    if patch.text.trim().is_empty() {
         if is_binary || workdir_file_is_non_text(repo, path) {
             is_binary = true;
-            patch = display_patch_for_binary(path, old_path.as_deref());
+            patch = RenderedPatch::uncounted(display_patch_for_binary(path, old_path.as_deref()));
         } else {
             patch = patch_between_trees(repo, merge_base_tree, None, path)?;
         }
     }
 
-    Ok(FileDiffResult {
-        path: path.to_string(),
-        patch,
-        is_binary,
-        old_path,
-    })
+    Ok(patch.into_result(path, is_binary, old_path))
 }
 
 fn file_diff_tree_to_tree(
     repo: &Repository,
     merge_base_tree: Option<&Tree<'_>>,
     head_tree: Option<&Tree<'_>>,
+    diff: &Diff,
+    indices: &[usize],
+    is_binary: bool,
     path: &str,
 ) -> Result<FileDiffResult, String> {
-    let mut opts = DiffOptions::new();
-    opts.pathspec(path);
-    opts.disable_pathspec_match(true);
-
-    let mut diff = repo
-        .diff_tree_to_tree(merge_base_tree, head_tree, Some(&mut opts))
-        .map_err(|e| e.to_string())?;
-
-    let mut find_opts = git2::DiffFindOptions::new();
-    diff.find_similar(Some(&mut find_opts))
-        .map_err(|e| e.to_string())?;
-
-    let is_binary = diff_is_binary(&diff);
-    let old_path = diff_old_path(&diff, path);
     let mut patch = if is_binary {
-        String::new()
+        RenderedPatch::default()
     } else {
-        diff_to_patch(&diff)?
+        deltas_to_patch(diff, indices)?
     };
 
-    if patch.trim().is_empty() {
+    if patch.text.trim().is_empty() {
         if is_binary {
-            patch = display_patch_for_binary(path, old_path.as_deref());
+            patch = RenderedPatch::uncounted(display_patch_for_binary(path, None));
         } else {
             patch = patch_between_trees(repo, merge_base_tree, head_tree, path)?;
         }
     }
 
-    Ok(FileDiffResult {
-        path: path.to_string(),
-        patch,
-        is_binary,
-        old_path,
-    })
+    Ok(patch.into_result(path, is_binary, None))
+}
+
+/// Patch text plus the line counts libgit2 computed while rendering it.
+#[derive(Default)]
+struct RenderedPatch {
+    text: String,
+    additions: u32,
+    deletions: u32,
+}
+
+impl RenderedPatch {
+    /// Placeholder text with no diff lines (binary or empty-file headers).
+    fn uncounted(text: String) -> Self {
+        Self {
+            text,
+            additions: 0,
+            deletions: 0,
+        }
+    }
+
+    fn add_stats(&mut self, patch: &Patch) -> Result<(), String> {
+        let (_, additions, deletions) = patch.line_stats().map_err(|e| e.to_string())?;
+        self.additions += u32::try_from(additions).unwrap_or(u32::MAX);
+        self.deletions += u32::try_from(deletions).unwrap_or(u32::MAX);
+        Ok(())
+    }
+
+    fn into_result(self, path: &str, is_binary: bool, old_path: Option<String>) -> FileDiffResult {
+        FileDiffResult {
+            path: path.to_string(),
+            patch: self.text,
+            is_binary,
+            old_path,
+            additions: self.additions,
+            deletions: self.deletions,
+        }
+    }
 }
 
 fn display_patch_for_binary(path: &str, old_path: Option<&str>) -> String {
@@ -278,9 +360,12 @@ pub(crate) fn comparison_file_contents(
                 if full.is_file() {
                     let bytes = std::fs::read(&full)
                         .map_err(|e| format!("Failed to read {}: {e}", full.display()))?;
-                    Some(String::from_utf8(bytes).map_err(|_| {
+                    let oid = Oid::hash_object(ObjectType::Blob, &bytes)
+                        .map_err(|e| e.to_string())?;
+                    let text = String::from_utf8(bytes).map_err(|_| {
                         format!("Failed to read {}: file is not valid UTF-8", full.display())
-                    })?)
+                    })?;
+                    Some((text, oid))
                 } else {
                     None
                 }
@@ -294,21 +379,79 @@ pub(crate) fn comparison_file_contents(
         }
     };
 
-    Ok(super::types::ComparisonFileContents { old, new })
+    let (old, old_oid) = split_blob(old);
+    let (new, new_oid) = split_blob(new);
+    Ok(super::types::ComparisonFileContents {
+        old,
+        new,
+        old_oid,
+        new_oid,
+    })
 }
 
-fn diff_old_path(diff: &Diff, path: &str) -> Option<String> {
-    let mut old_path = None;
+fn split_blob(blob: Option<(String, Oid)>) -> (Option<String>, Option<String>) {
+    match blob {
+        Some((text, oid)) => (Some(text), Some(oid.to_string())),
+        None => (None, None),
+    }
+}
+
+fn head_commit_tree(repo: &Repository) -> Option<Tree<'_>> {
+    repo.head().ok()?.peel_to_commit().ok()?.tree().ok()
+}
+
+/// Entry type as libgit2 compares it: a change between these splits into a
+/// delete plus an add. The exec bit stays within `File`.
+#[derive(PartialEq, Eq)]
+enum EntryType {
+    File,
+    Link,
+    Submodule,
+    Directory,
+}
+
+fn entry_type(tree: Option<&Tree<'_>>, path: &str) -> Option<EntryType> {
+    let entry = tree?.get_path(Path::new(path)).ok()?;
+    Some(match entry.filemode() {
+        0o120000 => EntryType::Link,
+        0o160000 => EntryType::Submodule,
+        0o040000 => EntryType::Directory,
+        _ => EntryType::File,
+    })
+}
+
+/// Rename detection between the merge base and HEAD pairs only added
+/// entries. A path is added there when HEAD holds a non-directory entry at it
+/// and the merge base holds nothing or an entry of another type (a typechange,
+/// or a directory replaced by a file). Any other path keeps `old_path` None.
+fn may_be_rename_target(merge_base_tree: Option<&Tree<'_>>, head_tree: &Tree<'_>, path: &str) -> bool {
+    match entry_type(Some(head_tree), path) {
+        None | Some(EntryType::Directory) => false,
+        Some(head) => entry_type(merge_base_tree, path) != Some(head),
+    }
+}
+
+/// New path → old path for every rename between the merge base and HEAD.
+/// Built at most once per batch, and only when a batch path may be a target.
+fn renames_to_head(
+    repo: &Repository,
+    merge_base_tree: Option<&Tree<'_>>,
+    head_tree: &Tree<'_>,
+) -> HashMap<String, String> {
+    let mut renames = HashMap::new();
+    let Ok(mut diff) = repo.diff_tree_to_tree(merge_base_tree, Some(head_tree), None) else {
+        return renames;
+    };
+    let mut find_opts = git2::DiffFindOptions::new();
+    if diff.find_similar(Some(&mut find_opts)).is_err() {
+        return renames;
+    }
     let _ = diff.foreach(
         &mut |delta, _| {
-            let new_matches = delta_path(&delta).as_deref() == Some(path);
-            if !new_matches {
-                return true;
-            }
-            if let Some(old) = delta.old_file().path() {
-                let old_str = old.to_string_lossy().replace('\\', "/");
-                if old_str != path {
-                    old_path = Some(old_str);
+            if let (Some(new), Some(old)) = (delta_path(&delta), delta.old_file().path()) {
+                let old = old.to_string_lossy().replace('\\', "/");
+                if old != new {
+                    renames.insert(new, old);
                 }
             }
             true
@@ -317,22 +460,7 @@ fn diff_old_path(diff: &Diff, path: &str) -> Option<String> {
         None,
         None,
     );
-    old_path
-}
-
-fn diff_old_path_from_head(
-    repo: &Repository,
-    merge_base_tree: Option<&Tree<'_>>,
-    path: &str,
-) -> Option<String> {
-    let head = repo.head().ok()?.peel_to_commit().ok()?;
-    let head_tree = head.tree().ok()?;
-    let mut diff = repo
-        .diff_tree_to_tree(merge_base_tree, Some(&head_tree), None)
-        .ok()?;
-    let mut find_opts = git2::DiffFindOptions::new();
-    diff.find_similar(Some(&mut find_opts)).ok()?;
-    diff_old_path(&diff, path)
+    renames
 }
 
 fn delta_path(delta: &git2::DiffDelta) -> Option<String> {
@@ -344,32 +472,19 @@ fn delta_path(delta: &git2::DiffDelta) -> Option<String> {
     Some(path.to_string_lossy().replace('\\', "/"))
 }
 
-fn diff_is_binary(diff: &Diff) -> bool {
-    let mut binary = false;
-    let _ = diff.foreach(
-        &mut |delta, _| {
-            if delta.flags().contains(DiffFlags::BINARY) {
-                binary = true;
-            }
-            true
-        },
-        None,
-        None,
-        None,
-    );
-    binary
-}
-
-fn diff_to_patch(diff: &Diff) -> Result<String, String> {
+fn deltas_to_patch(diff: &Diff, indices: &[usize]) -> Result<RenderedPatch, String> {
     let mut output = Vec::new();
-    for i in 0..diff.deltas().len() {
+    let mut rendered = RenderedPatch::default();
+    for &i in indices {
         let Some(mut patch) = Patch::from_diff(diff, i).map_err(|e| e.to_string())? else {
             continue;
         };
+        rendered.add_stats(&patch)?;
         let buf = patch.to_buf().map_err(|e| e.to_string())?;
         output.extend_from_slice(&buf);
     }
-    Ok(String::from_utf8_lossy(&output).into_owned())
+    rendered.text = String::from_utf8_lossy(&output).into_owned();
+    Ok(rendered)
 }
 
 /// Missing base tree (empty repo) means every path is new.
@@ -390,12 +505,13 @@ fn tree_file_content(repo: &Repository, tree: &Tree, path: &str) -> Option<Strin
     Some(String::from_utf8_lossy(blob.content()).into_owned())
 }
 
-/// Strict UTF-8 for edit hydration. Missing path → `Ok(None)`; invalid UTF-8 → `Err`.
+/// Strict UTF-8 for edit hydration, with the blob id. Missing path → `Ok(None)`;
+/// invalid UTF-8 → `Err`.
 fn tree_file_content_strict(
     repo: &Repository,
     tree: &Tree,
     path: &str,
-) -> Result<Option<String>, String> {
+) -> Result<Option<(String, Oid)>, String> {
     let entry = match tree.get_path(Path::new(path)) {
         Ok(entry) => entry,
         Err(_) => return Ok(None),
@@ -407,7 +523,7 @@ fn tree_file_content_strict(
         .find_blob(entry.id())
         .map_err(|e| format!("Failed to read blob for {path}: {e}"))?;
     match String::from_utf8(blob.content().to_vec()) {
-        Ok(s) => Ok(Some(s)),
+        Ok(s) => Ok(Some((s, entry.id()))),
         Err(_) => Err(format!("File {path} is not valid UTF-8")),
     }
 }
@@ -445,7 +561,7 @@ fn patch_between_trees(
     old_tree: Option<&Tree<'_>>,
     new_tree: Option<&Tree<'_>>,
     path: &str,
-) -> Result<String, String> {
+) -> Result<RenderedPatch, String> {
     let old = old_tree.and_then(|t| tree_file_content(repo, t, path));
     let new = match new_tree {
         Some(tree) => tree_file_content(repo, tree, path),
@@ -456,10 +572,10 @@ fn patch_between_trees(
     };
 
     match (&old, &new) {
-        (None, None) => return Ok(String::new()),
-        (Some(left), Some(right)) if left == right => return Ok(String::new()),
+        (None, None) => return Ok(RenderedPatch::default()),
+        (Some(left), Some(right)) if left == right => return Ok(RenderedPatch::default()),
         (None, Some(text)) | (Some(text), None) if text.is_empty() => {
-            return Ok(display_patch_for_empty_file(path));
+            return Ok(RenderedPatch::uncounted(display_patch_for_empty_file(path)));
         }
         _ => {}
     }
@@ -481,10 +597,12 @@ fn patch_between_trees(
     .map_err(|e| e.to_string())?;
 
     let buf = patch.to_buf().map_err(|e| e.to_string())?;
-    let rendered = String::from_utf8_lossy(&buf).into_owned();
-    if rendered.trim().is_empty() {
-        return Ok(display_patch_for_empty_file(path));
+    let text = String::from_utf8_lossy(&buf).into_owned();
+    if text.trim().is_empty() {
+        return Ok(RenderedPatch::uncounted(display_patch_for_empty_file(path)));
     }
+    let mut rendered = RenderedPatch::uncounted(text);
+    rendered.add_stats(&patch)?;
     Ok(rendered)
 }
 

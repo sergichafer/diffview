@@ -19,7 +19,7 @@ import {
 } from "@/features/line-comments/commentMeta";
 import type { ChangedFile, FileDiffResult } from "@/shared/types/app";
 import { resolveActiveDiffPathFromScroll } from "./activePath";
-import { appendCodeViewItems, buildCodeViewItems } from "./buildItems";
+import { appendCodeViewItems, buildCodeViewItems, pathRanks } from "./buildItems";
 import { applyDisplayItems, attributeCollapsedIds } from "./displayItems";
 import {
   armRestore,
@@ -229,13 +229,20 @@ function useCodeViewItems(
   headOid: string,
 ): { items: CodeViewDiffItem<CommentMeta>[]; editablePaths: Set<string> } {
   const cacheRef = useRef<{
+    files: ChangedFile[] | null;
     filesKey: string;
+    /** Tree-order ranks and the file list key they were built for. */
+    ranks: Map<string, number>;
+    ranksKey: string | null;
     stampKey: string;
     items: CodeViewDiffItem<CommentMeta>[];
     editablePaths: Set<string>;
     diffCount: number;
   }>({
+    files: null,
     filesKey: "",
+    ranks: new Map(),
+    ranksKey: null,
     stampKey: "",
     items: [],
     editablePaths: new Set(),
@@ -243,11 +250,14 @@ function useCodeViewItems(
   });
 
   return useMemo(() => {
-    const key = fileListKey(files);
-    const stampKey = `${mergeBaseOid}:${headOid}`;
     const cache = cacheRef.current;
+    // The overview keeps `files` by identity across streamed batches; only a
+    // new list pays for the key join and the tree-order ranks.
+    const key = files === cache.files ? cache.filesKey : fileListKey(files);
+    const stampKey = `${mergeBaseOid}:${headOid}`;
 
     if (fileDiffs.length === 0 || files.length === 0) {
+      cache.files = files;
       cache.filesKey = key;
       cache.stampKey = stampKey;
       cache.items = [];
@@ -267,6 +277,7 @@ function useCodeViewItems(
         mergeBaseOid,
         headOid,
       );
+      cache.files = files;
       cache.filesKey = key;
       cache.stampKey = stampKey;
       cache.items = built.items;
@@ -275,13 +286,23 @@ function useCodeViewItems(
       return { items: built.items, editablePaths: built.editablePaths };
     }
 
+    if (files !== cache.files) {
+      // Same paths in a new array (a binary flag moved): ranks still hold.
+      cache.files = files;
+    }
+
     if (fileDiffs.length > cache.diffCount) {
+      // A cold load lands here from the empty branch, so ranks may not exist yet.
+      if (cache.ranksKey !== key) {
+        cache.ranks = pathRanks(files);
+        cache.ranksKey = key;
+      }
       const batch = fileDiffs.slice(cache.diffCount);
       const { items, editablePaths } = appendCodeViewItems(
         cache.items,
         cache.editablePaths,
         batch,
-        files,
+        cache.ranks,
         mergeBaseOid,
         headOid,
       );

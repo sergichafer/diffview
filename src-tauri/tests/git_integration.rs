@@ -227,6 +227,126 @@ fn rename_shows_new_path_and_old_path() {
 }
 
 #[test]
+fn file_diff_counts_lines_that_look_like_patch_headers() {
+    // Removed `-- note` renders as `--- note` and added `++ x` as `+++ x`.
+    // A prefix scan of the patch text skips both; libgit2's counts must not.
+    let fixture = TestRepo::init();
+    fixture.write("query.sql", "-- note\nselect 1;\n");
+    fixture.add_all();
+    fixture.commit("base on main");
+    fixture.checkout_new("feature");
+    fixture.write("query.sql", "++ x\nselect 1;\nselect 2;\n");
+    fixture.write("fresh.txt", "a\nb\nc\n");
+
+    let repo = fixture.open();
+    let paths = ["query.sql".to_string(), "fresh.txt".to_string()];
+
+    let live = diffs(&repo, "main", "", &paths);
+    assert_eq!((live[0].additions, live[0].deletions), (2, 1));
+    assert_eq!((live[1].additions, live[1].deletions), (3, 0));
+
+    fixture.add_all();
+    fixture.commit("edit on feature");
+    fixture.checkout_new("other");
+    let repo = fixture.open();
+    let committed = diffs(&repo, "main", "feature", &paths);
+    assert_eq!((committed[0].additions, committed[0].deletions), (2, 1));
+    assert_eq!((committed[1].additions, committed[1].deletions), (3, 0));
+}
+
+/// A batch must return exactly what one-path requests return, in request order,
+/// whatever else shares the batch. A rename's old path in the same batch must
+/// not change either result.
+#[test]
+fn batched_file_diffs_match_single_path_requests() {
+    let fixture = TestRepo::init();
+    fixture.write("keep.txt", "one\ntwo\n");
+    fixture.write("gone.txt", "bye\n");
+    fixture.write("old-name.txt", "moved content\nline two\nline three\n");
+    fixture.write("dir/nested.rs", "fn a() {}\n");
+    fixture.add_all();
+    fixture.commit("base on main");
+    fixture.checkout_new("feature");
+
+    fixture.git_mv("old-name.txt", "new-name.txt");
+    fixture.write("dir/nested.rs", "fn a() {}\nfn b() {}\n");
+    fixture.commit("rename and edit");
+    fixture.write("keep.txt", "one\nTWO\n");
+    std::fs::remove_file(fixture.path.join("gone.txt")).expect("delete");
+    fixture.write("untracked/new.md", "# new\n");
+    fixture.write("staged.txt", "staged\n");
+    fixture.add("staged.txt");
+    std::fs::write(fixture.path.join("blob.bin"), [0u8, 159, 146, 150, 0, 1]).expect("bin");
+
+    let paths: Vec<String> = [
+        "untracked/new.md",
+        "keep.txt",
+        "new-name.txt",
+        "old-name.txt",
+        "gone.txt",
+        "dir/nested.rs",
+        "staged.txt",
+        "blob.bin",
+        "not-changed-at-all.txt",
+    ]
+    .iter()
+    .map(|p| p.to_string())
+    .collect();
+
+    let check = |head: &str| {
+        let repo = fixture.open();
+        let batch = diffs(&repo, "main", head, &paths);
+        assert_eq!(batch.len(), paths.len());
+        for (path, batched) in paths.iter().zip(&batch) {
+            let single = &diffs(&repo, "main", head, std::slice::from_ref(path))[0];
+            assert_eq!(&batched.path, path);
+            assert_eq!(batched.patch, single.patch, "patch for {path} (head {head:?})");
+            assert_eq!(batched.is_binary, single.is_binary, "binary for {path}");
+            assert_eq!(batched.old_path, single.old_path, "old path for {path}");
+            assert_eq!(
+                (batched.additions, batched.deletions),
+                (single.additions, single.deletions),
+                "stats for {path}"
+            );
+        }
+        batch
+    };
+
+    let live = check("");
+    assert_eq!(live[2].old_path.as_deref(), Some("old-name.txt"));
+    assert!(live[7].is_binary, "untracked blob.bin must be binary");
+
+    // Off `feature`, a `feature` head is ref-to-ref: committed mode.
+    fixture.checkout_new("other");
+    let committed = check("feature");
+    assert!(
+        !committed[2].patch.contains("rename from"),
+        "committed batch must not pair renames across paths: {}",
+        committed[2].patch
+    );
+    assert_eq!(committed[2].old_path, None);
+}
+
+/// A directory replaced by a file and a typechange are both rename targets in
+/// merge-base to HEAD rename detection, though the path exists in the merge base.
+#[test]
+fn live_old_path_covers_paths_whose_entry_type_changed() {
+    let fixture = TestRepo::init();
+    fixture.write("adir/inner.txt", "shared body\nsecond line\nthird line\n");
+    fixture.add_all();
+    fixture.commit("base on main");
+    fixture.checkout_new("feature");
+    std::fs::remove_dir_all(fixture.path.join("adir")).expect("remove dir");
+    fixture.write("adir", "shared body\nsecond line\nthird line\n");
+    fixture.add_all();
+    fixture.commit("dir becomes file");
+
+    let repo = fixture.open();
+    let diff = &diffs(&repo, "main", "", &["adir".to_string()])[0];
+    assert_eq!(diff.old_path.as_deref(), Some("adir/inner.txt"));
+}
+
+#[test]
 fn binary_file_diff_is_marked_binary() {
     let fixture = TestRepo::init();
     fixture.write("README.md", "# hello\n");
@@ -639,6 +759,27 @@ fn comparison_file_contents_live_and_committed() {
     .expect("committed contents");
     assert_eq!(committed.old.as_deref(), Some("base\n"));
     assert_eq!(committed.new.as_deref(), Some("feature tip\n"));
+
+    // Blob ids identify content, so highlight keys change exactly when text does.
+    let blob_id = |text: &str| {
+        git2::Oid::hash_object(git2::ObjectType::Blob, text.as_bytes())
+            .unwrap()
+            .to_string()
+    };
+    assert_eq!(live.old_oid, Some(blob_id("base\n")));
+    assert_eq!(live.new_oid, Some(blob_id("working tree dirty\n")));
+    assert_eq!(committed.old_oid, live.old_oid);
+    assert_eq!(committed.new_oid, Some(blob_id("feature tip\n")));
+
+    let added = ComparisonSpec::file_contents(
+        &repo,
+        &ComparisonSpec::new("main", "feature"),
+        "missing.txt",
+        None,
+        &mut cache,
+    )
+    .expect("absent contents");
+    assert_eq!((added.old_oid, added.new_oid), (None, None));
 }
 
 #[test]

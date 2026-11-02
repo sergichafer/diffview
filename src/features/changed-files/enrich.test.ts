@@ -7,7 +7,7 @@ function file(path: string, isBinary = false): ChangedFile {
 }
 
 function diff(path: string, isBinary: boolean): FileDiffResult {
-  return { path, patch: "", isBinary, oldPath: null };
+  return { path, patch: "", isBinary, oldPath: null, additions: 0, deletions: 0 };
 }
 
 describe("enrichInventory", () => {
@@ -40,10 +40,16 @@ describe("enrichInventory", () => {
     expect(enrichInventory(files, diffs)[0]?.isBinary).toBe(true);
   });
 
-  test("empty diffs returns a copy", () => {
-    const files = [file("x.ts")];
-    const result = enrichInventory(files, []);
-    expect(result).toEqual(files);
+  test("returns the same array when no flag changes", () => {
+    const files = [file("x.ts"), file("y.bin", true)];
+    expect(enrichInventory(files, [])).toBe(files);
+    expect(enrichInventory(files, [diff("x.ts", false), diff("y.bin", true)])).toBe(files);
+  });
+
+  test("keeps unchanged entries by identity when one flag moves", () => {
+    const files = [file("x.ts"), file("y.bin")];
+    const result = enrichInventory(files, [diff("y.bin", true)]);
     expect(result).not.toBe(files);
+    expect(result[0]).toBe(files[0]);
   });
 });

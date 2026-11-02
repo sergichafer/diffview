@@ -119,13 +119,29 @@ function pruneItemCache(items: readonly CodeViewDiffItem<CommentMeta>[]): void {
   }
 }
 
-function orderedItemsFromMap(
-  files: ChangedFile[],
-  itemsById: Map<string, CodeViewDiffItem<CommentMeta>>,
-): CodeViewDiffItem<CommentMeta>[] {
-  return orderedPaths(files.map((f) => f.path))
-    .map((path) => itemsById.get(normalizeChangedFilePath(path)))
-    .filter((item): item is CodeViewDiffItem<CommentMeta> => item != null);
+/** Position of each path in tree order; paths the tree drops are absent. */
+export function pathRanks(files: readonly ChangedFile[]): Map<string, number> {
+  const ranks = new Map<string, number>();
+  for (const path of orderedPaths(files.map((f) => f.path))) {
+    if (!ranks.has(path)) ranks.set(path, ranks.size);
+  }
+  return ranks;
+}
+
+/** First index in `items` (sorted by rank) whose rank is at least `rank`. */
+function lowerBound(
+  items: readonly CodeViewDiffItem<CommentMeta>[],
+  ranks: ReadonlyMap<string, number>,
+  rank: number,
+): number {
+  let lo = 0;
+  let hi = items.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (ranks.get(items[mid]!.id)! < rank) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 export interface BuildCodeViewItemsResult {
@@ -162,11 +178,16 @@ export function buildCodeViewItems(
   return { items, editablePaths };
 }
 
+/**
+ * Inserts a streamed batch into items already in tree order. Cost is one
+ * linear merge plus a binary search per new result; the file list is not
+ * re-sorted. `ranks` must come from `pathRanks` for the same file list.
+ */
 export function appendCodeViewItems(
   existingItems: readonly CodeViewDiffItem<CommentMeta>[],
   existingEditablePaths: ReadonlySet<string>,
   newResults: readonly FileDiffResult[],
-  files: ChangedFile[],
+  ranks: ReadonlyMap<string, number>,
   mergeBase = "",
   headOid = "",
 ): {
@@ -175,22 +196,22 @@ export function appendCodeViewItems(
   editablePaths: Set<string>;
 } {
   const editablePaths = new Set(existingEditablePaths);
-
-  if (newResults.length === 0) {
-    return { items: [...existingItems], added: [], editablePaths };
-  }
-
-  const itemsById = new Map(existingItems.map((item) => [item.id, item]));
   const added: CodeViewDiffItem<CommentMeta>[] = [];
+  const fresh: { rank: number; item: CodeViewDiffItem<CommentMeta> }[] = [];
+  const freshRanks = new Set<number>();
 
   for (const result of newResults) {
     const path = normalizeChangedFilePath(result.path);
-    if (itemsById.has(path)) continue;
+    const rank = ranks.get(path);
+    if (rank == null || freshRanks.has(rank)) continue;
+    const at = lowerBound(existingItems, ranks, rank);
+    if (at < existingItems.length && existingItems[at]!.id === path) continue;
 
     const built = buildItemFromResult(result, mergeBase, headOid);
     if (built == null) continue;
 
-    itemsById.set(path, built.item);
+    freshRanks.add(rank);
+    fresh.push({ rank, item: built.item });
     added.push(built.item);
     if (built.editable) editablePaths.add(built.item.id);
   }
@@ -199,7 +220,17 @@ export function appendCodeViewItems(
     return { items: [...existingItems], added: [], editablePaths };
   }
 
-  const items = orderedItemsFromMap(files, itemsById);
-  pruneItemCache(items);
+  fresh.sort((a, b) => a.rank - b.rank);
+  const items: CodeViewDiffItem<CommentMeta>[] = [];
+  let next = 0;
+  for (const item of existingItems) {
+    const rank = ranks.get(item.id)!;
+    while (next < fresh.length && fresh[next]!.rank < rank) {
+      items.push(fresh[next]!.item);
+      next += 1;
+    }
+    items.push(item);
+  }
+  for (; next < fresh.length; next += 1) items.push(fresh[next]!.item);
   return { items, added, editablePaths };
 }
