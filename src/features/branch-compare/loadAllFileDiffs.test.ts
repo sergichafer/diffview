@@ -3,7 +3,7 @@ import { loadAllFileDiffs } from "./loadAllFileDiffs";
 import type { FileDiffResult } from "@/shared/types/app";
 
 function diff(path: string): FileDiffResult {
-  return { path, patch: "", isBinary: false, oldPath: null };
+  return { path, patch: "", isBinary: false, oldPath: null, additions: 0, deletions: 0 };
 }
 
 describe("loadAllFileDiffs", () => {

@@ -112,6 +112,10 @@ export interface ComparisonFileContents {
 	old?: string;
 	/** Live: working-tree text; committed: head-tree blob (null if deleted). */
 	new?: string;
+	/** Git blob id of `old`. Changes whenever the old text changes. */
+	oldOid?: string;
+	/** Git blob id of `new`, hashed from disk when live. */
+	newOid?: string;
 }
 
 /** Cheap OID stamp for cache validation; no tree walks. */
@@ -126,6 +130,10 @@ export interface FileDiffResult {
 	patch: string;
 	isBinary: boolean;
 	oldPath?: string;
+	/** Added lines in `patch`, counted by libgit2. Zero for binary and placeholder patches. */
+	additions: number;
+	/** Removed lines in `patch`, counted by libgit2. Zero for binary and placeholder patches. */
+	deletions: number;
 }
 
 /** One commit on the head side of the merge-base. Newest commits come first. */

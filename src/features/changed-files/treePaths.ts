@@ -7,10 +7,15 @@ import { normalizeChangedFilePath } from "./identity";
  */
 export function treePaths(paths: readonly string[]): string[] {
   const list = paths.map(normalizeChangedFilePath);
-  return list.filter((p) => {
-    const hasChild = list.some(
-      (other) => other !== p && other.startsWith(`${p}/`),
-    );
-    return !hasChild;
-  });
+  const directories = new Set<string>();
+  for (const path of list) {
+    let slash = path.lastIndexOf("/");
+    while (slash >= 0) {
+      const directory = path.slice(0, slash);
+      if (directories.has(directory)) break;
+      directories.add(directory);
+      slash = path.lastIndexOf("/", slash - 1);
+    }
+  }
+  return list.filter((path) => !directories.has(path));
 }

@@ -46,7 +46,7 @@ function overview(mergeBase = "abc"): BranchOverview {
 }
 
 function diff(path: string, isBinary = false): FileDiffResult {
-  return { path, patch: "", isBinary, oldPath: null };
+  return { path, patch: "", isBinary, oldPath: null, additions: 0, deletions: 0 };
 }
 
 function openedState(): MultiSessionState {

@@ -106,20 +106,36 @@ function compareSegmentSortKeys(leftKey: SegmentSortKey, rightKey: SegmentSortKe
   return 0;
 }
 
+type KeyedSegment<T> = {
+  name: string;
+  key: SegmentSortKey;
+  value: T;
+};
+
 /** Matches @pierre/trees path-store segment ordering within a sibling group. */
-function compareSegmentNames(a: string, b: string): number {
+function compareKeyedSegments<T>(left: KeyedSegment<T>, right: KeyedSegment<T>): number {
+  const a = left.name;
+  const b = right.name;
   const aDot = a.charCodeAt(0) === 46;
   const bDot = b.charCodeAt(0) === 46;
   if (aDot !== bDot) return aDot ? -1 : 1;
 
-  const comparison = compareSegmentSortKeys(
-    createSegmentSortKey(a),
-    createSegmentSortKey(b),
-  );
+  const comparison = compareSegmentSortKeys(left.key, right.key);
   if (comparison !== 0) return comparison;
 
   if (a === b) return 0;
   return a < b ? -1 : 1;
+}
+
+/** Builds each sort key once per entry, outside the comparator. */
+function sortBySegment<T>(entries: readonly T[], nameOf: (entry: T) => string): T[] {
+  return entries
+    .map((value) => {
+      const name = nameOf(value);
+      return { name, key: createSegmentSortKey(name), value };
+    })
+    .sort(compareKeyedSegments)
+    .map((keyed) => keyed.value);
 }
 
 function getOrCreateDir(parent: DirNode, name: string): DirNode {
@@ -141,10 +157,8 @@ function addPath(root: DirNode, path: string): void {
 }
 
 function walkDir(node: DirNode, out: string[]): void {
-  const dirNames = [...node.dirs.keys()].toSorted(compareSegmentNames);
-  const files = node.files.toSorted((a, b) =>
-    compareSegmentNames(basename(a), basename(b)),
-  );
+  const dirNames = sortBySegment([...node.dirs.keys()], (name) => name);
+  const files = sortBySegment(node.files, basename);
 
   for (const name of dirNames) {
     const child = node.dirs.get(name);

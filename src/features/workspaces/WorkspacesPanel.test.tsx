@@ -48,7 +48,16 @@ function patchStat(additions: number, deletions: number): string {
 }
 
 function diffs(additions: number, deletions: number): FileDiffResult[] {
-  return [{ path: "f0.ts", patch: patchStat(additions, deletions), isBinary: false, oldPath: null }];
+  return [
+    {
+      path: "f0.ts",
+      patch: patchStat(additions, deletions),
+      isBinary: false,
+      oldPath: null,
+      additions,
+      deletions,
+    },
+  ];
 }
 
 function row(partial: Partial<ComparisonRow> & Pick<ComparisonRow, "key" | "headBranch">): ComparisonRow {

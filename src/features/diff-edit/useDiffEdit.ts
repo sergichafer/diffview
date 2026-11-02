@@ -1,4 +1,5 @@
 import type { FileContents, FileDiffMetadata, DiffsEditor } from "@pierre/diffs";
+import type { ComparisonFileContents } from "@/shared/types/app";
 import type { CodeViewItem } from "@pierre/diffs/react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { api } from "@/shared/tauri/api";
@@ -6,11 +7,6 @@ import { isReplaceableEditor, replaceEditorText } from "./replaceEditorText";
 import type { FileSaveState } from "./saveStatus";
 
 type SaveStateListener = () => void;
-
-type HydrationSides = {
-  oldFile: FileContents | null;
-  newFile: FileContents;
-};
 
 /**
  * Only change/rename partials go through `loadDiffFiles`. `new`/`deleted`
@@ -25,21 +21,12 @@ function needsHydration(fileDiff: Pick<FileDiffMetadata, "type" | "isPartial">):
   );
 }
 
-function hydrationCacheKey(
-  baseBranch: string,
-  headBranch: string,
-  path: string,
-  oldPath?: string | null,
-): string {
-  return `${baseBranch}\0${headBranch}\0${path}\0${oldPath ?? ""}`;
-}
-
-/** Shallow copies so Pierre remounts get fresh object identities. */
-function cloneHydrationSides(sides: HydrationSides): HydrationSides {
-  return {
-    oldFile: sides.oldFile ? { ...sides.oldFile } : null,
-    newFile: { ...sides.newFile },
-  };
+/**
+ * Pierre keys highlighted ASTs by `cacheKey`, which must change whenever the
+ * contents change. The blob id does; the path alone does not.
+ */
+function sideCacheKey(side: "old" | "new", name: string, oid?: string): string {
+  return `${side}:${name}:${oid ?? "absent"}`;
 }
 
 type UseDiffEditArgs = {
@@ -82,12 +69,8 @@ export function useDiffEdit<T = undefined>({
   const restoring = useRef(new Set<string>());
   /** Skip the next onItemEditComplete flush (Discard). */
   const skipFlushOnce = useRef(new Set<string>());
-  /**
-   * Full-file sides from readComparisonFile. External on-disk edits between
-   * hydrations can stale this; writeWorkingFile's compare-and-swap (`expected`)
-   * already guards correctness.
-   */
-  const hydrationCache = useRef(new Map<string, HydrationSides>());
+  /** Bumped on every comparison change; reads that started earlier are dropped. */
+  const generation = useRef(0);
   const onSavedLiveRef = useRef(onSavedLive);
   useLayoutEffect(() => {
     onSavedLiveRef.current = onSavedLive;
@@ -136,13 +119,13 @@ export function useDiffEdit<T = undefined>({
   );
 
   const clearEditState = useCallback(() => {
+    generation.current += 1;
     saveReady.current.clear();
     lastSaved.current.clear();
     pending.current.clear();
     seeding.current.clear();
     restoring.current.clear();
     skipFlushOnce.current.clear();
-    hydrationCache.current.clear();
     const paths = [...saveStatesRef.current.keys()];
     saveStatesRef.current.clear();
     for (const path of paths) notifySaveState(path);
@@ -170,15 +153,6 @@ export function useDiffEdit<T = undefined>({
         lastSaved.current.set(path, contents);
         if (pending.current.get(path) === contents) {
           pending.current.delete(path);
-        }
-        // Keep hydration cache aligned with our own writes.
-        for (const [key, entry] of hydrationCache.current) {
-          if (entry.newFile.name === path) {
-            hydrationCache.current.set(key, {
-              oldFile: entry.oldFile,
-              newFile: { ...entry.newFile, contents },
-            });
-          }
         }
         setStatus(path, { status: "clean" });
         if (isLive) onSavedLiveRef.current?.();
@@ -234,24 +208,12 @@ export function useDiffEdit<T = undefined>({
       // pending buffer or re-baseline. Only first-time hydration clears
       // pre-hydration (patch-truncated) buffers.
       const wasReady = saveReady.current.has(path);
+      const startedIn = generation.current;
       const oldPath = fileDiff.prevName;
-      const key = hydrationCacheKey(baseBranch, headBranch, path, oldPath);
-      const cached = hydrationCache.current.get(key);
-      if (cached) {
-        if (!wasReady) {
-          // Drop any pre-hydration buffer; it may be patch-truncated.
-          pending.current.delete(path);
-          markSaveReady(path, cached.newFile.contents);
-        }
-        const fresh = cloneHydrationSides(cached);
-        // Pierre requires oldFile: null for rename-pure hydration.
-        if (fileDiff.type === "rename-pure") {
-          return { oldFile: null, newFile: fresh.newFile };
-        }
-        return fresh;
-      }
-      setStatus(path, { status: "hydrating" });
-      let sides;
+      // Every attach reads fresh sides, so a reload or an external edit never
+      // shows text older than the patch beside it.
+      if (!wasReady) setStatus(path, { status: "hydrating" });
+      let sides: ComparisonFileContents;
       try {
         sides = await api.readComparisonFile(
           repoPath,
@@ -261,37 +223,40 @@ export function useDiffEdit<T = undefined>({
           oldPath,
         );
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        setStatus(path, { status: "error", error: message });
+        if (generation.current === startedIn) {
+          const message = e instanceof Error ? e.message : String(e);
+          setStatus(path, { status: "error", error: message });
+        }
         throw e;
       }
       const oldName = oldPath ?? path;
-      const oldContents = sides.old ?? "";
-      const newContents = sides.new ?? "";
-      if (!wasReady) {
+      // A comparison change mid-read leaves these sides to the old comparison.
+      const current = generation.current === startedIn;
+      if (current && !wasReady) {
         // Drop any pre-hydration buffer; it may be patch-truncated.
         pending.current.delete(path);
+        markSaveReady(path, sides.new ?? null);
+      } else if (current && !pending.current.has(path)) {
+        // The editor will show this text, so it becomes the write baseline.
+        // With a pending buffer the old baseline stays, and a save after an
+        // external edit fails the compare-and-swap as a conflict.
         markSaveReady(path, sides.new ?? null);
       }
       const newFile: FileContents = {
         name: path,
-        contents: newContents,
-        cacheKey: `new:${path}`,
+        contents: sides.new ?? "",
+        cacheKey: sideCacheKey("new", path, sides.newOid),
       };
       // Pierre requires oldFile: null for rename-pure hydration.
-      const result: HydrationSides =
-        fileDiff.type === "rename-pure"
-          ? { oldFile: null, newFile }
-          : {
-              oldFile: {
-                name: oldName,
-                contents: oldContents,
-                cacheKey: `old:${oldName}`,
-              },
-              newFile,
-            };
-      hydrationCache.current.set(key, result);
-      return cloneHydrationSides(result);
+      if (fileDiff.type === "rename-pure") {
+        return { oldFile: null, newFile };
+      }
+      const oldFile: FileContents = {
+        name: oldName,
+        contents: sides.old ?? "",
+        cacheKey: sideCacheKey("old", oldName, sides.oldOid),
+      };
+      return { oldFile, newFile };
     },
     [repoPath, baseBranch, headBranch, markSaveReady, setStatus],
   );
@@ -302,39 +267,18 @@ export function useDiffEdit<T = undefined>({
         return;
       }
       seeding.current.add(path);
-      const key = hydrationCacheKey(baseBranch, headBranch, path, null);
-      const cached = hydrationCache.current.get(key);
+      const startedIn = generation.current;
       try {
-        let baseline: string | null;
-        if (cached) {
-          baseline = cached.newFile.contents;
-        } else {
-          setStatus(path, { status: "hydrating" });
-          const sides = await api.readComparisonFile(
-            repoPath,
-            baseBranch,
-            headBranch,
-            path,
-            null,
-          );
-          baseline = sides.new ?? null;
-          const newContents = sides.new ?? "";
-          hydrationCache.current.set(key, {
-            oldFile:
-              sides.old == null
-                ? null
-                : {
-                    name: path,
-                    contents: sides.old,
-                    cacheKey: `old:${path}`,
-                  },
-            newFile: {
-              name: path,
-              contents: newContents,
-              cacheKey: `new:${path}`,
-            },
-          });
-        }
+        setStatus(path, { status: "hydrating" });
+        const sides = await api.readComparisonFile(
+          repoPath,
+          baseBranch,
+          headBranch,
+          path,
+          null,
+        );
+        if (generation.current !== startedIn) return;
+        const baseline = sides.new ?? null;
         const latest = pending.current.get(path);
         markSaveReady(path, baseline);
         if (latest != null && latest !== (baseline ?? undefined)) {
@@ -344,10 +288,13 @@ export function useDiffEdit<T = undefined>({
           setStatus(path, { status: "clean" });
         }
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        setStatus(path, { status: "error", error: message });
+        if (generation.current === startedIn) {
+          const message = e instanceof Error ? e.message : String(e);
+          setStatus(path, { status: "error", error: message });
+        }
       } finally {
-        seeding.current.delete(path);
+        // clearEditState already emptied `seeding`; a newer seed may own the path.
+        if (generation.current === startedIn) seeding.current.delete(path);
       }
     },
     [repoPath, baseBranch, headBranch, markSaveReady, setStatus],

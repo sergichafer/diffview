@@ -49,6 +49,8 @@ const diff = (path: string): FileDiffResult => ({
   patch: patchFor(path),
   isBinary: false,
   oldPath: null,
+  additions: 0,
+  deletions: 0,
 });
 
 const files = ["a.ts", "b.ts", "c.ts"].map(file);
