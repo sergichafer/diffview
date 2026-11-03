@@ -72,6 +72,7 @@ fn collapsed_by_attributes(repo: &Repository, path: &str, flags: AttrCheckFlags)
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::git::types::FileBadges;
     use crate::git::comparison::resolve_comparison;
     use git2::{Oid, Signature};
     use std::fs;
@@ -134,7 +135,7 @@ mod tests {
     fn file(path: &str) -> ChangedFile {
         ChangedFile {
             path: path.to_string(),
-            badges: Vec::new(),
+            badges: FileBadges::default(),
             is_binary: false,
             collapsed: false,
         }

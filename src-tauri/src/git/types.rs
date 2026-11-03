@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use typeshare::typeshare;
 
 #[typeshare]
@@ -31,12 +31,64 @@ pub enum FileBadge {
     Untracked,
 }
 
+impl FileBadge {
+    const ALL: [FileBadge; 4] = [
+        FileBadge::Committed,
+        FileBadge::Staged,
+        FileBadge::Unstaged,
+        FileBadge::Untracked,
+    ];
+
+    fn bit(self) -> u8 {
+        1 << self as u8
+    }
+}
+
+/// Set of badges, one bit each. Serializes as an array in `FileBadge` order.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FileBadges(u8);
+
+impl FileBadges {
+    pub fn insert(&mut self, badge: FileBadge) {
+        self.0 |= badge.bit();
+    }
+
+    pub fn contains(self, badge: FileBadge) -> bool {
+        self.0 & badge.bit() != 0
+    }
+
+    pub fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn iter(self) -> impl Iterator<Item = FileBadge> {
+        FileBadge::ALL.into_iter().filter(move |&badge| self.contains(badge))
+    }
+}
+
+impl FromIterator<FileBadge> for FileBadges {
+    fn from_iter<I: IntoIterator<Item = FileBadge>>(badges: I) -> Self {
+        let mut set = FileBadges::default();
+        for badge in badges {
+            set.insert(badge);
+        }
+        set
+    }
+}
+
+impl Serialize for FileBadges {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(self.iter())
+    }
+}
+
 #[typeshare]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangedFile {
     pub path: String,
-    pub badges: Vec<FileBadge>,
+    #[typeshare(serialized_as = "Vec<FileBadge>")]
+    pub badges: FileBadges,
     pub is_binary: bool,
     /// `.gitattributes` marks it `linguist-generated`, `-diff`, or `binary`.
     pub collapsed: bool,
@@ -112,4 +164,34 @@ pub struct BranchMetadata {
     pub last_commit_time: i64,
     pub is_default: bool,
     pub is_current: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_badges_follow_declaration_order() {
+        for (index, badge) in FileBadge::ALL.into_iter().enumerate() {
+            assert_eq!(badge as usize, index);
+        }
+        assert_eq!(FileBadge::ALL.len(), FileBadge::Untracked as usize + 1);
+    }
+
+    #[test]
+    fn file_badges_serialize_as_ordered_unique_array() {
+        let badges: FileBadges = [
+            FileBadge::Untracked,
+            FileBadge::Committed,
+            FileBadge::Untracked,
+            FileBadge::Staged,
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(
+            serde_json::to_string(&badges).unwrap(),
+            r#"["committed","staged","untracked"]"#
+        );
+        assert_eq!(serde_json::to_string(&FileBadges::default()).unwrap(), "[]");
+    }
 }

@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use super::attributes::mark_collapsed;
 use super::comparison::ResolvedComparison;
 use super::repo::current_branch_name;
-use super::types::{BranchOverview, ChangedFile, FileBadge};
+use super::types::{BranchOverview, ChangedFile, FileBadge, FileBadges};
 
 pub(crate) fn build_branch_overview(
     repo: &Repository,
@@ -41,20 +41,18 @@ pub(crate) fn build_branch_overview(
         collect_working_tree(repo, comparison, &mut file_map)?;
         for path in &committed_paths {
             if let Some(record) = file_map.get_mut(path) {
-                push_badge(&mut record.badges, FileBadge::Committed);
+                record.badges.insert(FileBadge::Committed);
             }
         }
     }
 
     let mut files: Vec<ChangedFile> = file_map.into_values().collect();
     for file in &mut files {
-        file.badges.sort();
-        file.badges.dedup();
         if file.badges.is_empty() {
             if committed_paths.contains(&file.path) || !comparison.is_live() {
-                push_badge(&mut file.badges, FileBadge::Committed);
+                file.badges.insert(FileBadge::Committed);
             } else {
-                push_badge(&mut file.badges, FileBadge::Unstaged);
+                file.badges.insert(FileBadge::Unstaged);
             }
         }
     }
@@ -122,7 +120,7 @@ fn collect_working_tree(
         };
 
         if status.is_wt_new() && !status.is_index_new() {
-            push_badge(&mut record.badges, FileBadge::Untracked);
+            record.badges.insert(FileBadge::Untracked);
         }
         if status.is_index_new()
             || status.is_index_modified()
@@ -130,14 +128,14 @@ fn collect_working_tree(
             || status.is_index_renamed()
             || status.is_index_typechange()
         {
-            push_badge(&mut record.badges, FileBadge::Staged);
+            record.badges.insert(FileBadge::Staged);
         }
         if status.is_wt_modified()
             || status.is_wt_deleted()
             || status.is_wt_renamed()
             || status.is_wt_typechange()
         {
-            push_badge(&mut record.badges, FileBadge::Unstaged);
+            record.badges.insert(FileBadge::Unstaged);
         }
     }
 
@@ -151,12 +149,12 @@ fn insert_file(
 ) {
     let record = file_map.entry(path.clone()).or_insert_with(|| ChangedFile {
         path,
-        badges: Vec::new(),
+        badges: FileBadges::default(),
         is_binary: false,
         collapsed: false,
     });
     if let Some(badge) = badge {
-        push_badge(&mut record.badges, badge);
+        record.badges.insert(badge);
     }
 }
 
@@ -181,23 +179,4 @@ fn delta_path(delta: &DiffDelta) -> Option<String> {
         delta.old_file().path()?
     };
     Some(path.to_string_lossy().replace('\\', "/"))
-}
-
-pub(crate) fn push_badge(badges: &mut Vec<FileBadge>, badge: FileBadge) {
-    if !badges.contains(&badge) {
-        badges.push(badge);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn push_badge_dedupes() {
-        let mut badges = vec![];
-        push_badge(&mut badges, FileBadge::Staged);
-        push_badge(&mut badges, FileBadge::Staged);
-        assert_eq!(badges, vec![FileBadge::Staged]);
-    }
 }

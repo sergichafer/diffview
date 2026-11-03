@@ -11,7 +11,7 @@ fn badges_for(overview: &BranchOverview, path: &str) -> Vec<FileBadge> {
         .files
         .iter()
         .find(|f| f.path == path)
-        .map(|f| f.badges.clone())
+        .map(|f| f.badges.iter().collect())
         .unwrap_or_default()
 }
 

@@ -16,5 +16,5 @@ pub use repo::{discover_repo, list_branch_names, normalize_base_branch, repo_inf
 pub use session::{close, open, with_repo, with_slot, RepoRegistry};
 pub use types::{
     BranchMetadata, BranchOverview, ChangedFile, ComparisonFileContents, ComparisonStamp,
-    FileBadge, FileDiffResult, OpenRepoResult, RepoInfo,
+    FileBadge, FileBadges, FileDiffResult, OpenRepoResult, RepoInfo,
 };
